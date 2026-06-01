@@ -14,8 +14,8 @@ def get_default_car_data():
         "odometer": {"value": 125000, "date": current_date},
         "daily_mileage": 45,
         "odometer_history": [
-            {"value": 123650, "date": past_date},  # Точка 30 дней назад
-            {"value": 125000, "date": current_date} # Текущая точка
+            {"value": 123650, "date": past_date},  
+            {"value": 125000, "date": current_date} 
         ], 
         "maintenance_data": {
             "Замена масла": {"last_service": 120000, "interval": 10000, "date": "15.01.2026"},
@@ -27,13 +27,10 @@ def get_default_car_data():
     }
 
 def recalculate_auto_daily_mileage(car_profile):
-    """
-    НОВАЯ ЛОГИКА: Автоматический расчет пробега в день на основе истории.
-    Ищет разницу между самой ранней и самой поздней точкой журнала пробегов.
-    """
+    """Автоматический расчет пробега в день на основе истории."""
     history = car_profile.get("odometer_history", [])
     if len(history) < 2:
-        return int(car_profile.get("daily_mileage", 45)) # Дефолт, если точек мало
+        return int(car_profile.get("daily_mileage", 45))
 
     def parse_date(item):
         try: return datetime.strptime(item["date"], "%d.%m.%Y")
@@ -47,7 +44,7 @@ def recalculate_auto_daily_mileage(car_profile):
     delta_days = (parse_date(last_point) - parse_date(first_point)).days
 
     if delta_days <= 0 or delta_km <= 0:
-        return int(car_profile.get("daily_mileage", 45)) # Защита от деления на ноль
+        return int(car_profile.get("daily_mileage", 45))
 
     auto_run = round(delta_km / delta_days)
     return auto_run if auto_run > 0 else 45
@@ -67,11 +64,8 @@ def load_data():
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
-        # Пересчитываем динамический пробег для каждого авто при чтении
         for car_name, car_profile in data.get("cars", {}).items():
             car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
-            
         return data
     except Exception:
         return default_structure
@@ -93,6 +87,8 @@ def calculate_forecast(target_km, current_km, daily_run):
 def main(page: ft.Page):
     page.title = "Журнал ТО автомобиля"
     page.theme_mode = ft.ThemeMode.LIGHT
+    # Включаем автоматический скролл для всей страницы, чтобы контент не резался на маленьких экранах
+    page.scroll = ft.ScrollMode.AUTO 
 
     def show_message(text):
         """Вывод всплывающего уведомления SnackBar."""
@@ -153,21 +149,21 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
     
     current_odo_data = car_profile.get("odometer", {"value": 125000, "date": "—"})
     
+    # ИСПРАВЛЕНО: Короткие labels и убран параметр expand=True для корректного отображения в Column
     current_odo_input = ft.TextField(
-        label=f"Ввод нового километража (текущий фиксирован {current_odo_data.get('date', '—')})", 
+        label=f"Новый пробег (км) [Текущий: {current_odo_data.get('value', 125000)} от {current_odo_data.get('date', '—')}]", 
         value=str(current_odo_data.get("value", 125000)), 
-        keyboard_type=ft.KeyboardType.NUMBER, expand=True
+        keyboard_type=ft.KeyboardType.NUMBER,
+        expand=True
     )
     
-    # ИСПРАВЛЕНО: Поле стало disabled=True, так как программа считает его сама из истории
     daily_input = ft.TextField(
-        label="Пробег в день (Авторасчет по истории, км)", 
+        label="Пробег в день (Авторасчет, км)", 
         value=str(car_profile.get("daily_mileage", 45)), 
-        disabled=True, expand=True
+        disabled=True
     )
 
     def update_forecast_click(e):
-        """Ввод нового пробега. Автоматически добавляет точку в историю и пересчитывает средний пробег."""
         try:
             val = int(current_odo_input.value)
             now_date_str = datetime.now().strftime("%d.%m.%Y")
@@ -177,17 +173,15 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             if not any(h["value"] == val for h in car_profile["odometer_history"]):
                 car_profile["odometer_history"].append({"value": val, "date": now_date_str})
             
-            # Принудительный пересчет суточного километража перед сохранением
             car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
             
             save_data(db_data)
             rebuild_callback()
-            show_message(f"Новый пробег учтен. Средний пробег пересчитан!")
+            show_message(f"Новый пробег учтен. Прогноз обновлен!")
         except ValueError:
             show_message("Ошибка: Введите числовое значение пробега!")
 
     def show_odometer_history_click(e):
-        """ЖУРНАЛ ИСТОРИИ ПРОБЕГОВ: Изменение любой точки влечет автопересчет статистики."""
         def get_sort_key(item):
             try: return datetime.strptime(item["date"], "%d.%m.%Y")
             except ValueError: return datetime.min
@@ -205,10 +199,10 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             dialog.open = False
             page.update()
             rebuild_callback()
-            show_message("Запись удалена, статистика обновлена!")
+            show_message("Запись удалена!")
 
         def edit_odo_entry_dialog(item_to_edit):
-            val_input = ft.TextField(label="Километраж (км)", value=str(item_to_edit["value"]), keyboard_type=ft.KeyboardType.NUMBER)
+            val_input = ft.TextField(label="Пробег (км)", value=str(item_to_edit["value"]), keyboard_type=ft.KeyboardType.NUMBER)
             date_input = ft.TextField(label="Дата (ДД.ММ.ГГГГ)", value=str(item_to_edit["date"]))
             
             def save_row_edit(_):
@@ -226,12 +220,12 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
                     dialog.open = False
                     page.update()
                     rebuild_callback()
-                    show_message("История изменена, графики ТО перестроены!")
+                    show_message("История изменена!")
                 except ValueError:
                     show_message("Ошибка ввода данных!")
 
             sub_dialog = ft.AlertDialog(
-                title=ft.Text("Редактировать запись пробега"),
+                title=ft.Text("Редактировать запись"),
                 content=ft.Column([val_input, date_input], tight=True, spacing=10),
                 actions=[ft.TextButton("Сохранить", on_click=save_row_edit)]
             )
@@ -257,7 +251,7 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             history_rows.append(ft.Text("История пробегов пуста."))
 
         dialog = ft.AlertDialog(
-            title=ft.Text("История изменений пробега"),
+            title=ft.Text("История пробега"),
             content=ft.Column(controls=history_rows, tight=True, scroll=ft.ScrollMode.AUTO, height=300),
             actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dialog, "open", False), page.update()])]
         )
@@ -298,10 +292,10 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             dialog.open = False
             page.update()
             rebuild_callback()
-            show_message(f"Профиль переименован в '{new_name}'!")
+            show_message(f"Профиль переименован!")
             
         dialog = ft.AlertDialog(
-            title=ft.Text("Редактировать имя профиля"),
+            title=ft.Text("Редактировать имя"),
             content=ft.Column([edit_name_input], tight=True),
             actions=[ft.TextButton("Сохранить", on_click=save_name_change)]
         )
@@ -322,7 +316,7 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             
         dialog = ft.AlertDialog(
             title=ft.Text("Удаление профиля"),
-            content=ft.Text(f"Удалить '{car_name}' и всю его историю ТО?"),
+            content=ft.Text(f"Удалить '{car_name}'?"),
             actions=[ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED_600))]
         )
         page.overlay.append(dialog)
@@ -338,17 +332,21 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
         ], spacing=5)
     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
+    # ИСПРАВЛЕНО: Элементы ввода перестроены вертикально (ft.Column вместо ft.Row), чтобы избежать наложения на мобильных экранах
     header_card = ft.Card(
         content=ft.Container(
             content=ft.Column([
                 action_panel,
                 ft.Divider(height=5, color=ft.Colors.BLACK_12),
                 ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
-                ft.Row([
-                    current_odo_input, 
-                    ft.IconButton(icon=ft.Icons.MENU_BOOK, tooltip="Открыть историю изменений пробега", on_click=show_odometer_history_click),
-                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                ft.Row([daily_input, ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=50)]),
+                ft.Column([
+                    ft.Row([
+                        current_odo_input, 
+                        ft.IconButton(icon=ft.Icons.MENU_BOOK, tooltip="История изменений пробега", on_click=show_odometer_history_click),
+                    ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    daily_input,
+                ], spacing=10),
+                ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=50, width=400),
             ], spacing=12), padding=15
         )
     )
