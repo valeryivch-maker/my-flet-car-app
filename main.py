@@ -7,11 +7,16 @@ from datetime import datetime, timedelta
 DB_FILE = "database.txt"
 
 def get_default_car_data():
-    """Шаблон структуры данных для каждого нового автомобиля в гараже."""
+    """Шаблон структуры данных. На старте даем базовую историю для возможности прогноза."""
+    current_date = datetime.now().strftime("%d.%m.%Y")
+    past_date = (datetime.now() - timedelta(days=30)).strftime("%d.%m.%Y")
     return {
-        "odometer": 125000,
-        "prev_odometer": 125000,
+        "odometer": {"value": 125000, "date": current_date},
         "daily_mileage": 45,
+        "odometer_history": [
+            {"value": 123650, "date": past_date},  # Точка 30 дней назад
+            {"value": 125000, "date": current_date} # Текущая точка
+        ], 
         "maintenance_data": {
             "Замена масла": {"last_service": 120000, "interval": 10000, "date": "15.01.2026"},
             "Замена ГРМ": {"last_service": 90000, "interval": 60000, "date": "10.05.2024"},
@@ -21,25 +26,53 @@ def get_default_car_data():
         "history": []
     }
 
+def recalculate_auto_daily_mileage(car_profile):
+    """
+    НОВАЯ ЛОГИКА: Автоматический расчет пробега в день на основе истории.
+    Ищет разницу между самой ранней и самой поздней точкой журнала пробегов.
+    """
+    history = car_profile.get("odometer_history", [])
+    if len(history) < 2:
+        return int(car_profile.get("daily_mileage", 45)) # Дефолт, если точек мало
+
+    def parse_date(item):
+        try: return datetime.strptime(item["date"], "%d.%m.%Y")
+        except ValueError: return datetime.min
+
+    sorted_hist = sorted(history, key=parse_date)
+    first_point = sorted_hist[0]
+    last_point = sorted_hist[-1]
+
+    delta_km = int(last_point["value"]) - int(first_point["value"])
+    delta_days = (parse_date(last_point) - parse_date(first_point)).days
+
+    if delta_days <= 0 or delta_km <= 0:
+        return int(car_profile.get("daily_mileage", 45)) # Защита от деления на ноль
+
+    auto_run = round(delta_km / delta_days)
+    return auto_run if auto_run > 0 else 45
+
 def load_data():
-    """Загрузка данных. Поддерживает структуру изолированных профилей машин."""
+    """Загрузка данных с автоматическим пересчетом суточного пробега."""
     default_structure = {
-        "current_car": "Мой Автомобиль 1",
         "cars": {
-            "Мой Автомобиль 1": get_default_car_data()
+            "Автомобиль 1": get_default_car_data(),
+            "Автомобиль 2": get_default_car_data()
         }
     }
-    
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(default_structure, f, ensure_ascii=False, indent=4)
         return default_structure
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
-            loaded = json.load(f)
-            if "cars" not in loaded:
-                return default_structure
-            return loaded
+            data = json.load(f)
+        
+        # Пересчитываем динамический пробег для каждого авто при чтении
+        for car_name, car_profile in data.get("cars", {}).items():
+            car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
+            
+        return data
     except Exception:
         return default_structure
 
@@ -57,333 +90,414 @@ def calculate_forecast(target_km, current_km, daily_run):
     days_left = (target_km - current_km) / daily_run
     future_date = datetime.now() + timedelta(days=int(days_left))
     return future_date.strftime("%d.%m.%Y")
-
-
-
 def main(page: ft.Page):
     page.title = "Журнал ТО автомобиля"
-    page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
-    
-    # Загружаем мульти-автомобильные данные
-    global_data = load_data()
-
-    # Ссылка на текущий активный профиль машины
-    def get_current_car_profile():
-        current_car_name = global_data["current_car"]
-        return global_data["cars"][current_car_name]
-
-    # Поля ввода верхнего блока
-    prev_odo_input = ft.TextField(label="Предыдущий километраж (км)", disabled=True, expand=True)
-    current_odo_input = ft.TextField(label="Текущий километраж (км)", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
-    daily_input = ft.TextField(label="Пробег в день (км)", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
-
-    # Компоненты выбора автомобиля
-    car_dropdown = ft.Dropdown(label="Выбранный автомобиль", expand=True)
-    maintenance_list = ft.Column(spacing=10)
 
     def show_message(text):
+        """Вывод всплывающего уведомления SnackBar."""
         snack = ft.SnackBar(ft.Text(text))
         page.overlay.append(snack)
         snack.open = True
         page.update()
 
-    def load_car_inputs():
-        """Заполнение полей ввода данными выбранной машины."""
-        car_profile = get_current_car_profile()
-        prev_odo_input.value = str(car_profile.get("prev_odometer", 125000))
-        current_odo_input.value = str(car_profile["odometer"])
-        daily_input.value = str(car_profile["daily_mileage"])
-        page.update()
-
-    def update_car_dropdown_options():
-        """Обновление списка автомобилей в Dropdown."""
-        car_dropdown.options = [ft.dropdown.Option(name) for name in global_data["cars"].keys()]
-        car_dropdown.value = global_data["current_car"]
-        page.update()
-
-    def on_car_changed(e):
-        """Переключение на другой автомобиль."""
-        global_data["current_car"] = car_dropdown.value
-        save_data(global_data)
-        load_car_inputs()
-        rebuild_maintenance_list()
-
-    car_dropdown.on_change = on_car_changed
-
-    def rebuild_maintenance_list():
-        """Пересборка списка ТО для выбранного автомобиля."""
-        maintenance_list.controls.clear()
-        car_profile = get_current_car_profile()
+    def build_tabs_ui():
+        """ФУНКЦИЯ ТАБ-ОРИЕНТИРОВАННОГО ИНТЕРФЕЙСА. Перестраивает экран на основе структуры БД."""
+        page.controls.clear()
         
-        current_km = int(current_odo_input.value or 0)
-        daily_run = int(daily_input.value or 0)
+        db_data = load_data()
+        cars_dict = db_data.get("cars", {})
+        
+        if not cars_dict:
+            db_data = load_data()
+            cars_dict = db_data["cars"]
 
-        for task, info in car_profile["maintenance_data"].items():
-            target_km = info["last_service"] + info["interval"]
-            remaining_km = target_km - current_km
-            
-            if remaining_km <= 0:
-                status_text = "Просрочено! Срочно на ТО!"
-                status_color = ft.Colors.RED_700
-                bg_color = ft.Colors.RED_50
-            else:
-                forecast_date = calculate_forecast(target_km, current_km, daily_run)
-                status_text = f"В норме. Осталось: {remaining_km} км (~{forecast_date})"
-                status_color = ft.Colors.GREEN_700
-                bg_color = ft.Colors.GREEN_50
+        tab_buttons = []
+        tab_contents = []
 
-            def make_reset_handler(t_name=task):
-                return lambda e: reset_task(t_name)
-
-            def make_show_history_handler(t_name=task):
-                return lambda e: show_history(t_name)
-
-            def make_add_history_handler(t_name=task):
-                return lambda e: show_add_history_dialog(t_name)
-
-            def make_change_interval_handler(t_name=task, current_val=info["interval"]):
-                return lambda e: show_change_interval_dialog(t_name, current_val)
-
-            # Проверка истории обслуживания для скрытия демо-данных
-            has_history = any(h["task"] == task for h in car_profile.get("history", []))
-            if has_history:
-                last_service_text = f"Последнее ТО: {info['last_service']} км ({info['date']})"
-            else:
-                last_service_text = "Последнее ТО: данных нет"
-
-            expansion_tile = ft.ExpansionTile(
-                title=ft.Text(task, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                subtitle=ft.Text(status_text, size=12, color=status_color, weight=ft.FontWeight.W_500),
-                bgcolor=bg_color,
-                collapsed_bgcolor=bg_color,
-                shape=ft.RoundedRectangleBorder(radius=10),
-                collapsed_shape=ft.RoundedRectangleBorder(radius=10),
-                controls=[
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Divider(height=1, color=ft.Colors.BLACK_12),
-                            
-                            # Адаптивная строка кнопок управления
-                            ft.Row([
-                                ft.IconButton(icon=ft.Icons.MENU_BOOK, tooltip="Просмотр журнала", on_click=make_show_history_handler()),
-                                ft.Button("Ввод истории", on_click=make_add_history_handler()),
-                                ft.Button("Регламент", on_click=make_change_interval_handler(), icon=ft.Icons.EDIT),
-                                ft.OutlinedButton("Сброс ТО", on_click=make_reset_handler(), style=ft.ButtonStyle(color=ft.Colors.RED_600)),
-                            ], wrap=True, alignment=ft.MainAxisAlignment.START, spacing=10),
-                            
-                            ft.Text(
-                                f"{last_service_text} | Регламент: {info['interval']} км", 
-                                size=12, color=ft.Colors.GREY_700
-                            ),
-                        ], spacing=10),
-                        padding=ft.Padding(left=15, right=15, top=0, bottom=15)
-                    )
-                ]
+        for car_name, car_profile in cars_dict.items():
+            car_view_content = generate_car_view(
+                page, db_data, car_name, car_profile, show_message, build_tabs_ui
             )
-            maintenance_list.controls.append(expansion_tile)
-        page.update()
+            
+            tab_buttons.append(
+                ft.Tab(
+                    label=car_name,
+                    icon=ft.Icons.DIRECTIONS_CAR
+                )
+            )
+            tab_contents.append(car_view_content)
 
-
-
-    def show_change_interval_dialog(task_name, current_interval):
-        """Всплывающее окно для ручного изменения регламентного интервала детали."""
-        interval_input = ft.TextField(
-            label="Новый интервал обслуживания (км)", 
-            value=str(current_interval),
-            keyboard_type=ft.KeyboardType.NUMBER
+        tabs_layout = ft.Column(
+            controls=[
+                ft.TabBar(tabs=tab_buttons),
+                ft.TabBarView(controls=tab_contents, expand=True)
+            ],
+            expand=True
         )
 
-        def close_dialog(e):
-            dialog.open = False
-            page.update()
-
-        def save_new_interval(e):
-            try:
-                new_val = int(interval_input.value)
-                if new_val <= 0:
-                    show_message("Интервал должен быть больше нуля!")
-                    return
-                
-                car_profile = get_current_car_profile()
-                car_profile["maintenance_data"][task_name]["interval"] = new_val
-                save_data(global_data)
-                
-                dialog.open = False
-                rebuild_maintenance_list()
-                show_message(f"Интервал для '{task_name}' успешно изменен на {new_val} км!")
-            except ValueError:
-                show_message("Введите корректное число!")
-
-        dialog = ft.AlertDialog(
-            title=ft.Text(f"Настройка регламента: {task_name}"),
-            content=ft.Column([interval_input], tight=True),
-            actions=[
-                ft.TextButton("Отмена", on_click=close_dialog),
-                ft.Button("Сохранить", on_click=save_new_interval)
-            ]
+        tabs_container = ft.Tabs(
+            length=len(tab_buttons),
+            selected_index=0,
+            animation_duration=300,
+            content=tabs_layout,
+            expand=True
         )
-        page.overlay.append(dialog)
-        dialog.open = True
+        
+        page.add(tabs_container)
         page.update()
+
+    build_tabs_ui()
+def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuild_callback):
+    """Создает независимое визуальное содержимое для конкретной вкладки автомобиля."""
+    
+    current_odo_data = car_profile.get("odometer", {"value": 125000, "date": "—"})
+    
+    current_odo_input = ft.TextField(
+        label=f"Ввод нового километража (текущий фиксирован {current_odo_data.get('date', '—')})", 
+        value=str(current_odo_data.get("value", 125000)), 
+        keyboard_type=ft.KeyboardType.NUMBER, expand=True
+    )
+    
+    # ИСПРАВЛЕНО: Поле стало disabled=True, так как программа считает его сама из истории
+    daily_input = ft.TextField(
+        label="Пробег в день (Авторасчет по истории, км)", 
+        value=str(car_profile.get("daily_mileage", 45)), 
+        disabled=True, expand=True
+    )
 
     def update_forecast_click(e):
+        """Ввод нового пробега. Автоматически добавляет точку в историю и пересчитывает средний пробег."""
         try:
-            car_profile = get_current_car_profile()
-            car_profile["prev_odometer"] = car_profile["odometer"]
-            car_profile["odometer"] = int(current_odo_input.value)
-            car_profile["daily_mileage"] = int(daily_input.value)
-            save_data(global_data)
-            prev_odo_input.value = str(car_profile["prev_odometer"])
-            rebuild_maintenance_list()
-            show_message("Данные успешно сохранены и пересчитаны!")
+            val = int(current_odo_input.value)
+            now_date_str = datetime.now().strftime("%d.%m.%Y")
+            
+            car_profile["odometer"] = {"value": val, "date": now_date_str}
+            
+            if not any(h["value"] == val for h in car_profile["odometer_history"]):
+                car_profile["odometer_history"].append({"value": val, "date": now_date_str})
+            
+            # Принудительный пересчет суточного километража перед сохранением
+            car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
+            
+            save_data(db_data)
+            rebuild_callback()
+            show_message(f"Новый пробег учтен. Средний пробег пересчитан!")
         except ValueError:
-            show_message("Ошибка: Введите корректные числовые значения!")
+            show_message("Ошибка: Введите числовое значение пробега!")
 
-    def reset_task(task_name):
-        car_profile = get_current_car_profile()
-        current_km = int(current_odo_input.value or 0)
-        today_str = datetime.now().strftime("%d.%m.%Y")
-        
-        car_profile["maintenance_data"][task_name]["last_service"] = current_km
-        car_profile["maintenance_data"][task_name]["date"] = today_str
-        car_profile["history"].append({"task": task_name, "odometer": current_km, "date": today_str})
-        
-        save_data(global_data)
-        rebuild_maintenance_list()
-        show_message(f"Сервис '{task_name}' сброшен!")
+    def show_odometer_history_click(e):
+        """ЖУРНАЛ ИСТОРИИ ПРОБЕГОВ: Изменение любой точки влечет автопересчет статистики."""
+        def get_sort_key(item):
+            try: return datetime.strptime(item["date"], "%d.%m.%Y")
+            except ValueError: return datetime.min
 
-    def show_add_history_dialog(task_name):
-        history_odo = ft.TextField(label="Пробег на момент ТО (км)", keyboard_type=ft.KeyboardType.NUMBER)
-        history_date = ft.TextField(label="Дата (ДД.ММ.ГГГГ)", value=datetime.now().strftime("%d.%m.%Y"))
+        def refresh_and_recalc():
+            if car_profile["odometer_history"]:
+                last_entry = sorted(car_profile["odometer_history"], key=get_sort_key)[-1]
+                car_profile["odometer"] = last_entry
+            car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
 
-        def close_dialog(e):
+        def delete_odo_entry(item_to_remove):
+            car_profile["odometer_history"].remove(item_to_remove)
+            refresh_and_recalc()
+            save_data(db_data)
             dialog.open = False
             page.update()
+            rebuild_callback()
+            show_message("Запись удалена, статистика обновлена!")
 
-        def save_history_entry(e):
-            try:
-                car_profile = get_current_car_profile()
-                km = int(history_odo.value)
-                date_str = history_date.value
-                
-                car_profile["history"].append({"task": task_name, "odometer": km, "date": date_str})
-                if km > car_profile["maintenance_data"][task_name]["last_service"]:
-                    car_profile["maintenance_data"][task_name]["last_service"] = km
-                    car_profile["maintenance_data"][task_name]["date"] = date_str
+        def edit_odo_entry_dialog(item_to_edit):
+            val_input = ft.TextField(label="Километраж (км)", value=str(item_to_edit["value"]), keyboard_type=ft.KeyboardType.NUMBER)
+            date_input = ft.TextField(label="Дата (ДД.ММ.ГГГГ)", value=str(item_to_edit["date"]))
+            
+            def save_row_edit(_):
+                try:
+                    new_val = int(val_input.value)
+                    new_date = date_input.value.strip()
+                    datetime.strptime(new_date, "%d.%m.%Y")
+                    
+                    item_to_edit["value"] = new_val
+                    item_to_edit["date"] = new_date
+                    
+                    refresh_and_recalc()
+                    save_data(db_data)
+                    sub_dialog.open = False
+                    dialog.open = False
+                    page.update()
+                    rebuild_callback()
+                    show_message("История изменена, графики ТО перестроены!")
+                except ValueError:
+                    show_message("Ошибка ввода данных!")
 
-                save_data(global_data)
-                dialog.open = False
-                rebuild_maintenance_list()
-                show_message("Историческая запись успешно добавлена!")
-            except ValueError:
-                show_message("Заполните пробег корректным числом!")
+            sub_dialog = ft.AlertDialog(
+                title=ft.Text("Редактировать запись пробега"),
+                content=ft.Column([val_input, date_input], tight=True, spacing=10),
+                actions=[ft.TextButton("Сохранить", on_click=save_row_edit)]
+            )
+            page.overlay.append(sub_dialog)
+            sub_dialog.open = True
+            page.update()
+
+        sorted_history = sorted(car_profile.get("odometer_history", []), key=get_sort_key, reverse=True)
+        
+        history_rows = []
+        for item in sorted_history:
+            history_rows.append(
+                ft.Row([
+                    ft.Text(f"• {item['date']} — {item['value']} км", expand=True),
+                    ft.Row([
+                        ft.IconButton(icon=ft.Icons.EDIT_OUTLINED, icon_color=ft.Colors.BLUE_400, on_click=lambda _, idx=item: edit_odo_entry_dialog(idx)),
+                        ft.IconButton(icon=ft.Icons.DELETE_OUTLINED, icon_color=ft.Colors.RED_400, on_click=lambda _, idx=item: delete_odo_entry(idx))
+                    ], spacing=0)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+            )
+
+        if not history_rows:
+            history_rows.append(ft.Text("История пробегов пуста."))
 
         dialog = ft.AlertDialog(
-            title=ft.Text(f"Добавить прошлые ТО: {task_name}"),
-            content=ft.Column([history_odo, history_date], tight=True, spacing=10),
-            actions=[ft.TextButton("Отмена", on_click=close_dialog), ft.Button("Сохранить", on_click=save_history_entry)]
+            title=ft.Text("История изменений пробега"),
+            content=ft.Column(controls=history_rows, tight=True, scroll=ft.ScrollMode.AUTO, height=300),
+            actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dialog, "open", False), page.update()])]
         )
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
 
-    def show_history(task_name):
-        car_profile = get_current_car_profile()
-        task_history = [h for h in car_profile.get("history", []) if h["task"] == task_name]
-        
-        history_lines = []
-        if not task_history:
-            history_lines.append(ft.Text("История обслуживания пуста."))
-        else:
-            sorted_history = sorted(task_history, key=lambda x: x["odometer"], reverse=True)
-            for item in sorted_history:
-                history_lines.append(ft.Text(f"• {item['date']} — Пробег: {item['odometer']} км"))
-
-        def close_dialog(e):
-            dialog.open = False
-            page.update()
-
-        dialog = ft.AlertDialog(
-            title=ft.Text(f"Журнал: {task_name}"),
-            content=ft.Column(controls=history_lines, tight=True, scroll=ft.ScrollMode.AUTO),
-            actions=[ft.TextButton("Закрыть", on_click=close_dialog)]
-        )
-        page.overlay.append(dialog)
-        dialog.open = True
-        page.update()
-
-    def show_add_car_dialog(e):
-        car_name_input = ft.TextField(label="Марка / Модель автомобиля / Госномер")
-
-        def close_dialog(e):
-            dialog.open = False
-            page.update()
-
-        def save_new_car(e):
+    def add_car_click(e):
+        car_name_input = ft.TextField(label="Марка / Модель / Госномер")
+        def save_new_car(_):
             name = car_name_input.value.strip()
-            if not name:
-                show_message("Имя автомобиля не может быть пустым!")
-                return
-            if name in global_data["cars"]:
-                show_message("Такой автомобиль уже добавлен!")
-                return
-            
-            global_data["cars"][name] = get_default_car_data()
-            global_data["current_car"] = name
-            save_data(global_data)
-            
+            if not name or name in db_data["cars"]: return
+            db_data["cars"][name] = get_default_car_data()
+            save_data(db_data)
             dialog.open = False
-            update_car_dropdown_options()
-            load_car_inputs()
-            rebuild_maintenance_list()
-            show_message(f"Автомобиль '{name}' успешно добавлен!")
-
+            page.update()
+            rebuild_callback()
+            
         dialog = ft.AlertDialog(
             title=ft.Text("Добавить автомобиль"),
             content=ft.Column([car_name_input], tight=True),
-            actions=[ft.TextButton("Отмена", on_click=close_dialog), ft.Button("Добавить", on_click=save_new_car)]
+            actions=[ft.TextButton("Добавить", on_click=save_new_car)]
         )
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
 
-    # Панель гаража (Dropdown + кнопка плюс)
-    garage_panel = ft.Row([
-        car_dropdown,
-        ft.IconButton(icon=ft.Icons.ADD_CIRCLE, tooltip="Добавить автомобиль", on_click=show_add_car_dialog, icon_size=36)
+    def edit_car_name_click(e):
+        edit_name_input = ft.TextField(label="Новое имя профиля", value=car_name)
+        def save_name_change(_):
+            new_name = edit_name_input.value.strip()
+            if not new_name or new_name == car_name: return
+            if new_name in db_data["cars"]:
+                show_message("Автомобиль с таким именем уже существует!")
+                return
+            db_data["cars"][new_name] = db_data["cars"].pop(car_name)
+            save_data(db_data)
+            dialog.open = False
+            page.update()
+            rebuild_callback()
+            show_message(f"Профиль переименован в '{new_name}'!")
+            
+        dialog = ft.AlertDialog(
+            title=ft.Text("Редактировать имя профиля"),
+            content=ft.Column([edit_name_input], tight=True),
+            actions=[ft.TextButton("Сохранить", on_click=save_name_change)]
+        )
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
+    def delete_car_click(e):
+        if len(db_data["cars"]) <= 1:
+            show_message("Нельзя удалить единственный автомобиль!")
+            return
+        def confirm_delete(_):
+            db_data["cars"].pop(car_name)
+            save_data(db_data)
+            dialog.open = False
+            page.update()
+            rebuild_callback()
+            
+        dialog = ft.AlertDialog(
+            title=ft.Text("Удаление профиля"),
+            content=ft.Text(f"Удалить '{car_name}' и всю его историю ТО?"),
+            actions=[ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED_600))]
+        )
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
+    action_panel = ft.Row([
+        ft.Text(f"Управление профилем:", size=14, weight=ft.FontWeight.W_500),
+        ft.Row([
+            ft.IconButton(icon=ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
+            ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать этот авто", on_click=edit_car_name_click),
+            ft.IconButton(icon=ft.Icons.DELETE_FOREVER, tooltip="Удалить это авто", on_click=delete_car_click, icon_color=ft.Colors.RED_500),
+        ], spacing=5)
     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
-    # Сборка интерфейса верхнего блока
     header_card = ft.Card(
         content=ft.Container(
             content=ft.Column([
-                ft.Text("Гараж", size=18, weight=ft.FontWeight.BOLD),
-                garage_panel,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+                action_panel,
+                ft.Divider(height=5, color=ft.Colors.BLACK_12),
                 ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
-                ft.Row([prev_odo_input, current_odo_input]),
                 ft.Row([
-                    daily_input,
-                    ft.Button("Рассчитать прогноз ТО", on_click=update_forecast_click, height=50)
-                ]),
-            ], spacing=12),
-            padding=15
+                    current_odo_input, 
+                    ft.IconButton(icon=ft.Icons.MENU_BOOK, tooltip="Открыть историю изменений пробега", on_click=show_odometer_history_click),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Row([daily_input, ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=50)]),
+            ], spacing=12), padding=15
         )
     )
 
-    # Добавление на экран
-    page.add(
-        header_card,
-        ft.Container(height=10),
-        ft.Text("Статус регламентных работ", size=20, weight=ft.FontWeight.BOLD),
-        maintenance_list
-    )
+    return build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message)
+def build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message):
+    """Генерирует список ExpansionTile для регламентных работ и возвращает полную колонку интерфейса."""
+    maintenance_list = ft.ListView(expand=True, spacing=10, height=400)
+    
+    odo_data = car_profile.get("odometer", {"value": 0, "date": ""})
+    current_km = int(odo_data.get("value", 0)) if isinstance(odo_data, dict) else int(odo_data)
+    daily_run = int(car_profile.get("daily_mileage", 45))
 
-    # Инициализация интерфейса
-    update_car_dropdown_options()
-    load_car_inputs()
-    rebuild_maintenance_list()
+    for task, info in car_profile["maintenance_data"].items():
+        target_km = info["last_service"] + info["interval"]
+        remaining_km = target_km - current_km
+        
+        if remaining_km <= 0:
+            status_text, status_color, bg_color = "Просрочено! Срочно на ТО!", ft.Colors.RED_700, ft.Colors.RED_50
+        else:
+            forecast_date = calculate_forecast(target_km, current_km, daily_run)
+            status_text, status_color, bg_color = f"В норме. Осталось: {remaining_km} км (~{forecast_date})", ft.Colors.GREEN_700, ft.Colors.GREEN_50
+            
+        has_history = any(h["task"] == task for h in car_profile.get("history", []))
+        last_service_text = f"Последнее ТО: {info['last_service']} км ({info['date']})" if has_history else "Последнее ТО: данных нет"
+
+        # Локальные замыкания (Handlers)
+        def make_reset_handler(t_name=task, p_profile=car_profile):
+            return lambda _: [
+                p_profile["maintenance_data"][t_name].update({"last_service": current_km, "date": datetime.now().strftime("%d.%m.%Y")}),
+                p_profile["history"].append({"task": t_name, "odometer": current_km, "date": datetime.now().strftime("%d.%m.%Y")}),
+                save_data(db_data), rebuild_callback(), show_message(f"Сервис '{t_name}' успешно сброшен!")
+            ]
+
+        def make_history_handler(t_name=task, p_profile=car_profile):
+            def show_history(_):
+                task_history = [h for h in p_profile.get("history", []) if h["task"] == t_name]
+                
+                def get_sort_key(item):
+                    try: return datetime.strptime(item["date"], "%d.%m.%Y")
+                    except ValueError: return datetime.min
+
+                sorted_history = sorted(task_history, key=get_sort_key, reverse=True)
+                lines = [ft.Text("История обслуживания пуста.")] if not task_history else [
+                    ft.Text(f"• {item['date']} — Пробег: {item['odometer']} км") for item in sorted_history
+                ]
+                
+                def close_dialog(_):
+                    dialog.open = False
+                    page.update()
+                    
+                dialog = ft.AlertDialog(
+                    title=ft.Text(f"Журнал: {t_name}"),
+                    content=ft.Column(controls=lines, tight=True, scroll=ft.ScrollMode.AUTO),
+                    actions=[ft.TextButton("Закрыть", on_click=close_dialog)]
+                )
+                page.overlay.append(dialog)
+                dialog.open = True
+                page.update()
+            return show_history
+
+        def make_add_history_handler(t_name=task, p_profile=car_profile):
+            def show_add_dialog(_):
+                h_odo = ft.TextField(label="Пробег на момент ТО (км)", keyboard_type=ft.KeyboardType.NUMBER)
+                h_date = ft.TextField(label="Дата (ДД.ММ.ГГГГ)", value=datetime.now().strftime("%d.%m.%Y"))
+                
+                def save_entry(_):
+                    try:
+                        km = int(h_odo.value)
+                        date_str = h_date.value.strip()
+                        datetime.strptime(date_str, "%d.%m.%Y")
+                        p_profile["history"].append({"task": t_name, "odometer": km, "date": date_str})
+                        
+                        if km > p_profile["maintenance_data"][t_name]["last_service"]:
+                            p_profile["maintenance_data"][t_name].update({"last_service": km, "date": date_str})
+                            
+                        save_data(db_data)
+                        dialog.open = False
+                        page.update()
+                        rebuild_callback()
+                        show_message("Запись добавлена!")
+                    except ValueError: 
+                        show_message("Ошибка: Проверьте пробег или формат даты (ДД.ММ.ГГГГ)!")
+                        
+                dialog = ft.AlertDialog(
+                    title=ft.Text("Ввод истории"), 
+                    content=ft.Column([h_odo, h_date], tight=True, spacing=10), 
+                    actions=[ft.TextButton("Сохранить", on_click=save_entry)]
+                )
+                page.overlay.append(dialog)
+                dialog.open = True
+                page.update()
+            return show_add_dialog
+
+        def make_change_interval_handler(t_name=task, p_profile=car_profile, current_val=info["interval"]):
+            def show_int_dialog(_):
+                int_input = ft.TextField(label="Новый интервал (км)", value=str(current_val), keyboard_type=ft.KeyboardType.NUMBER)
+                
+                def save_int(_):
+                    try:
+                        new_val = int(int_input.value)
+                        if new_val <= 0: return
+                        p_profile["maintenance_data"][t_name]["interval"] = new_val
+                        save_data(db_data)
+                        dialog.open = False
+                        page.update()
+                        rebuild_callback()
+                        show_message("Интервал изменен!")
+                    except ValueError: 
+                        show_message("Введите число!")
+                        
+                dialog = ft.AlertDialog(
+                    title=ft.Text("Регламент"), 
+                    content=ft.Column([int_input], tight=True), 
+                    actions=[ft.TextButton("Сохранить", on_click=save_int)]
+                )
+                page.overlay.append(dialog)
+                dialog.open = True
+                page.update()
+            return show_int_dialog
+
+        expansion_tile = ft.ExpansionTile(
+            title=ft.Text(task, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+            subtitle=ft.Text(status_text, size=12, color=status_color, weight=ft.FontWeight.W_500),
+            bgcolor=bg_color, collapsed_bgcolor=bg_color,
+            shape=ft.RoundedRectangleBorder(radius=10), collapsed_shape=ft.RoundedRectangleBorder(radius=10),
+            controls=[
+                ft.Container(
+                    content=ft.Column([
+                        ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                        ft.Row([
+                            ft.IconButton(icon=ft.Icons.MENU_BOOK, on_click=make_history_handler()),
+                            ft.Button("Ввод истории", on_click=make_add_history_handler()),
+                            ft.Button("Регламент", on_click=make_change_interval_handler(), icon=ft.Icons.EDIT),
+                            ft.OutlinedButton("Сброс ТО", on_click=make_reset_handler(), style=ft.ButtonStyle(color=ft.Colors.RED_600)),
+                        ], wrap=True, alignment=ft.MainAxisAlignment.START, spacing=10),
+                        ft.Text(f"{last_service_text} | Регламент: {info['interval']} км", size=12, color=ft.Colors.GREY_700),
+                    ], spacing=10), padding=ft.Padding(left=15, right=15, top=0, bottom=15)
+                )
+            ]
+        )
+        maintenance_list.controls.append(expansion_tile)
+
+    return ft.Column([
+        header_card,
+        ft.Container(height=5),
+        ft.Text("Статус регламентных работ", size=18, weight=ft.FontWeight.BOLD),
+        maintenance_list
+    ], scroll=ft.ScrollMode.AUTO, expand=True)
 
 if __name__ == "__main__":
     ft.run(main)
