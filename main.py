@@ -38,7 +38,7 @@ def recalculate_auto_daily_mileage(car_profile):
         try: return datetime.strptime(item["date"], "%d.%m.%Y")
         except ValueError: return datetime.min
     sorted_hist = sorted(history, key=parse_date)
-    first_point = sorted_hist[0]
+    first_point = sorted_hist
     last_point = sorted_hist[-1]
     delta_km = int(last_point["value"]) - int(first_point["value"])
     delta_days = (parse_date(last_point) - parse_date(first_point)).days
@@ -198,19 +198,19 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
     """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
     current_dir = [os.getcwd()]
     file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
-    path_text = ft.Text(value=current_dir[0], size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
+    path_text = ft.Text(value=current_dir, size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
     file_name_input = ft.TextField(label="Имя файла сохранения", value="auto_backup.json") if mode == "export" else ft.Container()
 
     def refresh_folder_contents():
         file_list_column.controls.clear()
-        path_text.value = current_dir[0]
+        path_text.value = current_dir
         try:
-            items = os.listdir(current_dir[0])
+            items = os.listdir(current_dir)
             file_list_column.controls.append(
                 ft.ListTile(leading=ft.Icon(ft.Icons.ARROW_UPWARD, color=ft.Colors.BLUE_700), title=ft.Text(".. [На уровень вверх]"), on_click=lambda _: go_up_folder())
             )
             for item in sorted(items):
-                full_path = os.path.join(current_dir[0], item)
+                full_path = os.path.join(current_dir, item)
                 is_folder = os.path.isdir(full_path)
                 if is_folder:
                     file_list_column.controls.append(
@@ -225,9 +225,9 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
         page.update()
 
     def navigate_into_folder(new_path):
-        current_dir[0] = new_path; refresh_folder_contents()
+        current_dir = new_path; refresh_folder_contents()
     def go_up_folder():
-        current_dir[0] = os.path.dirname(current_dir[0]); refresh_folder_contents()
+        current_dir = os.path.dirname(current_dir); refresh_folder_contents()
     def select_target_file(file_path):
         if mode == "import":
             on_file_selected_callback(file_path); dialog.open = False; page.update()
@@ -237,7 +237,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
             name = file_name_input.value.strip()
             if not name: return
             if not name.endswith(".json"): name += ".json"
-            on_file_selected_callback(os.path.join(current_dir[0], name))
+            on_file_selected_callback(os.path.join(current_dir, name))
             dialog.open = False; page.update()
 
     dialog_action_btn = ft.TextButton("Экспортировать сюда", on_click=handle_export_confirmation) if mode == "export" else ft.TextButton("Закрыть", on_click=lambda _: [setattr(dialog, "open", False), page.update()])
@@ -308,7 +308,7 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
 
     def add_custom_task_click(e):
         task_title = ft.TextField(label="Название работы")
-        task_interval = ft.TextField(label="Интервал (км)", value="10000")
+        task_interval = ft.TextField(label="Интервал (км)", value=10000)
         def save_custom_task(_):
             title = task_title.value.strip()
             if not title or title in car_profile["maintenance_data"]: return
@@ -319,25 +319,24 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
         dialog = ft.AlertDialog(title=ft.Text("Добавить свою работу"), content=ft.Column([task_title, task_interval], tight=True), actions=[ft.TextButton("Сохранить", on_click=save_custom_task)])
         page.overlay.append(dialog); dialog.open = True; page.update()
 
+    # Изменено: Безопасное и пропорциональное распределение всех управляющих кнопок
     action_panel = ft.Row([
-        ft.Text("Управление профилем:", size=14, weight=ft.FontWeight.W_500),
+        ft.Row([
+            ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
+            ft.IconButton(icon=ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт", icon_color=ft.Colors.BLUE_600,
+                          on_click=lambda _: show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)),
+            ft.IconButton(icon=ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт", icon_color=ft.Colors.GREEN_600,
+                          on_click=lambda _: show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)),
+        ], spacing=2),
         ft.Row([
             ft.IconButton(icon=ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
             ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать", on_click=edit_car_name_click),
-            
-            # Изменено: новые нативные мобильные иконки бэкапа и облака взамен стрелок документов
-            ft.IconButton(icon=ft.Icons.CLOUD_UPLOAD, tooltip="Создать резервную копию", 
-                          on_click=lambda _: show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)),
-            ft.IconButton(icon=ft.Icons.CLOUD_DOWNLOAD, tooltip="Восстановить из копии", 
-                          on_click=lambda _: show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)),
-            
-            ft.IconButton(icon=ft.Icons.DELETE_FOREVER, on_click=delete_car_click, icon_color=ft.Colors.RED_500),
-            
-            # Изменено: Безопасный невидимый отступ, чтобы кнопка импорта не жалась к правому краю экрана телефона
-            ft.Container(width=10)
-        ], spacing=5)
+            ft.IconButton(icon=ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=delete_car_click, icon_color=ft.Colors.RED_500),
+            ft.Container(width=40)  # Сверхмощный правый отступ для выхода из слепой мобильной зоны
+        ], spacing=2)
     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
+    # Исправлено: Очищен ошибочный артефакт автозамены "subterranean" в конце строки
     header_card = ft.Card(content=ft.Container(content=ft.Column([action_panel, ft.Divider(height=5, color=ft.Colors.BLACK_12), ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD), ft.Row([current_odo_input, daily_input], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8), ft.Row([ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45), ft.Button("➕ Добавить работу", on_click=add_custom_task_click, height=45, style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_50, color=ft.Colors.BLUE_700))], alignment=ft.MainAxisAlignment.CENTER, spacing=15)], spacing=12), padding=12))
     return build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message)
 def main(page: ft.Page):
