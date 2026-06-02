@@ -195,7 +195,7 @@ def build_maintenance_list(page, db_data, car_name, car_profile, header_card, re
         
     return ft.Column([header_card, ft.Container(height=5), ft.Text("Статус регламентных работ", size=18, weight=ft.FontWeight.BOLD), maintenance_list], scroll=ft.ScrollMode.AUTO, expand=True)
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
-    """Внутренний изолированный проводник папок на чистом Python Python (Вариант 6)."""
+    """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
     current_dir = [os.getcwd()]
     file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
     path_text = ft.Text(value=current_dir[0], size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
@@ -206,7 +206,6 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
         path_text.value = current_dir[0]
         try:
             items = os.listdir(current_dir[0])
-            # Кнопка возврата на один уровень вверх
             file_list_column.controls.append(
                 ft.ListTile(leading=ft.Icon(ft.Icons.ARROW_UPWARD, color=ft.Colors.BLUE_700), title=ft.Text(".. [На уровень вверх]"), on_click=lambda _: go_up_folder())
             )
@@ -257,7 +256,7 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
         try:
             with open(full_path, "w", encoding="utf-8") as f:
                 json.dump(db_data, f, ensure_ascii=False, indent=4)
-            show_message(f"Экспорт завершен в файл успешно!")
+            show_message("Экспорт завершен успешно!")
         except Exception as ex: show_message(f"Ошибка экспорта: {ex}")
 
     def execute_custom_import(full_path):
@@ -325,10 +324,17 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
         ft.Row([
             ft.IconButton(icon=ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
             ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать", on_click=edit_car_name_click),
-            # Вызов полностью изолированного встроенного файлового менеджера
-            ft.IconButton(icon=ft.Icons.DOWNLOAD, tooltip="Экспорт базы данных", on_click=lambda _: show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)),
-            ft.IconButton(icon=ft.Icons.UPLOAD, tooltip="Импорт базы данных", on_click=lambda _: show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)),
+            
+            # Изменено: новые нативные мобильные иконки бэкапа и облака взамен стрелок документов
+            ft.IconButton(icon=ft.Icons.CLOUD_UPLOAD, tooltip="Создать резервную копию", 
+                          on_click=lambda _: show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)),
+            ft.IconButton(icon=ft.Icons.CLOUD_DOWNLOAD, tooltip="Восстановить из копии", 
+                          on_click=lambda _: show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)),
+            
             ft.IconButton(icon=ft.Icons.DELETE_FOREVER, on_click=delete_car_click, icon_color=ft.Colors.RED_500),
+            
+            # Изменено: Безопасный невидимый отступ, чтобы кнопка импорта не жалась к правому краю экрана телефона
+            ft.Container(width=10)
         ], spacing=5)
     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
