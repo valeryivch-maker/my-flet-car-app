@@ -64,15 +64,7 @@ def recalculate_auto_daily_mileage(car_profile):
     if len(history) < 2:
         return int(car_profile.get("daily_mileage", 45))
 
-    def parse_date(item):
-        try:
-            return datetime.strptime(
-                item["date"], "%d.%m.%Y"
-            )
-        except ValueError:
-            return datetime.min
-
-    sorted_hist = sorted(history, key=parse_date)
+    sorted_hist = sorted(history, key=parse_h_date)
     first_point = sorted_hist[0]
     last_point = sorted_hist[-1]
 
@@ -80,7 +72,7 @@ def recalculate_auto_daily_mileage(car_profile):
         first_point["value"]
     )
     delta_days = (
-        parse_date(last_point) - parse_date(first_point)
+        parse_h_date(last_point) - parse_h_date(first_point)
     ).days
 
     if delta_days <= 0 or delta_km <= 0:
@@ -90,6 +82,17 @@ def recalculate_auto_daily_mileage(car_profile):
     if auto_run > 0:
         return auto_run
     return 45
+
+
+def parse_h_date(item):
+    """Глобальная функция парсинга дат для сортировки истории."""
+    try:
+        return datetime.strptime(
+            item["date"], "%d.%m.%Y"
+        )
+    except:
+        return datetime.min
+
 
 
 # Фрагмент №3: Функции работы с базой данных на диске
@@ -303,14 +306,6 @@ def show_car_odometer_history_dialog(
         scroll=ft.ScrollMode.AUTO,
     )
 
-    def parse_h_date(item):
-        try:
-            return datetime.strptime(
-                item["date"], "%d.%m.%Y"
-            )
-        except:
-            return datetime.min
-
     def render_history_list():
         history_container.controls.clear()
         hist_data = car_profile.get(
@@ -392,6 +387,7 @@ def show_car_odometer_history_dialog(
                 )
             )
         page.update()
+
 
 
 # Фрагмент №8: Окно истории общего пробега — Функции Добавления / Изменения / Удаления
@@ -822,8 +818,15 @@ def build_maintenance_list(
 def show_custom_file_manager_dialog(
     page, mode, on_file_selected, show_message
 ):
-    """Кастомный проводник для резервных копий."""
-    current_dir = [os.getcwd()]
+    """Безопасный проводник резервных копий для Android/ПК."""
+    base_dir = os.path.expanduser("~")
+    downloads_path = os.path.join(base_dir, "Downloads")
+    
+    if os.path.exists(downloads_path):
+        current_dir = [downloads_path]
+    else:
+        current_dir = [os.getcwd()]
+
     file_list = ft.Column(
         scroll=ft.ScrollMode.AUTO, height=280
     )
@@ -836,7 +839,7 @@ def show_custom_file_manager_dialog(
 
     if mode == "export":
         file_input = ft.TextField(
-            label="Имя файла", value="auto_backup.json"
+            label="Имя файла лога", value="auto_backup.json"
         )
     else:
         file_input = ft.Container()
@@ -868,9 +871,7 @@ def show_custom_file_manager_dialog(
                                 color=ft.Colors.AMBER_700,
                             ),
                             title=ft.Text(item),
-                            on_click=lambda _, p=full_path: go_in(
-                                p
-                            ),
+                            on_click=lambda _, p=full_path: go_in(p),
                         )
                     )
                 elif item.endswith(
@@ -883,15 +884,13 @@ def show_custom_file_manager_dialog(
                                 color=ft.Colors.BLUE_GREY_500,
                             ),
                             title=ft.Text(item),
-                            on_click=lambda _, p=full_path: select_file(
-                                p
-                            ),
+                            on_click=lambda _, p=full_path: select_file(p),
                         )
                     )
         except Exception:
             file_list.controls.append(
                 ft.Text(
-                    "Доступ ограничен",
+                    "Доступ в эту папку ограничен ОС",
                     color=ft.Colors.RED_500,
                 )
             )
@@ -929,7 +928,7 @@ def show_custom_file_manager_dialog(
 
     if mode == "export":
         act_btn = ft.TextButton(
-            "Экспорт сюда", on_click=confirm_export
+            "Экспортировать сюда", on_click=confirm_export
         )
     else:
         act_btn = ft.TextButton(
@@ -941,9 +940,9 @@ def show_custom_file_manager_dialog(
         )
 
     title_txt = (
-        "Экспорт данных"
+        "Экспорт бэкапа"
         if mode == "export"
-        else "Выберите файл импорта"
+        else "Выберите бэкап для импорта"
     )
     dlg = ft.AlertDialog(
         title=ft.Text(title_txt),
@@ -966,6 +965,7 @@ def show_custom_file_manager_dialog(
     page.overlay.append(dlg)
     dlg.open = True
     refresh_folder()
+
 
 
 
