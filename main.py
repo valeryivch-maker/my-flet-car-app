@@ -170,53 +170,178 @@ def calculate_forecast(
     return future_date.strftime("%d.%m.%Y")
 
 
-# Фрагмент №5: Окно просмотра логов регламентов ТО
+# Фрагмент №5.1: Логика действий внутри журнала ремонтов ТО
 
-def show_task_history_dialog(page, t_name, p_profile):
-    """Просмотр истории обслуживания регламента."""
-    task_history = [
-        h
-        for h in p_profile.get("history", [])
-        if h["task"] == t_name
-    ]
+def create_task_history_ops(
+    page, db_data, p, t, target_item, render_fn, rebuild, show_msg, get_sort_key
+):
+    """Генерирует замыкания для изменения и удаления строк в журнале ТО."""
+    
+    def delete_confirmed(_):
+        h_list = p["history"]
+        if target_item in h_list:
+            h_list.remove(target_item)
+            rem_h = [h for h in h_list if h["task"] == t]
+            m_data = p["maintenance_data"][t]
+            
+            if rem_h:
+                latest = max(rem_h, key=get_sort_key)
+                m_data.update({
+                    "last_service": latest["odometer"],
+                    "date": latest["date"]
+                })
+            else:
+                m_data.update({"last_service": 0, "date": "—"})
+            
+            save_data(db_data)
+            del_dlg.open = False
+            page.update()
+            render_fn()
+            rebuild()
+            show_msg("Запись из журнала удалена")
+
+    def open_delete_dialog(_):
+        nonlocal del_dlg
+        del_dlg = ft.AlertDialog(
+            title=ft.Text("Удалить запись?"),
+            content=ft.Text(
+                f"Удалить ТО на пробеге {target_item['odometer']} км "
+                f"от {target_item['date']}?"
+            ),
+            actions=[
+                ft.TextButton("Удалить", on_click=delete_confirmed, style=ft.ButtonStyle(color=ft.Colors.RED_600)),
+                ft.TextButton("Отмена", on_click=lambda _: [setattr(del_dlg, "open", False), page.update()])
+            ]
+        )
+        page.overlay.append(del_dlg)
+        del_dlg.open = True
+        page.update()
+
+    def save_changes(_):
+        try:
+            n_km = int(edit_km.value)
+            n_date = edit_date.value.strip()
+            datetime.strptime(n_date, "%d.%m.%Y")
+            
+            target_item["odometer"] = n_km
+            target_item["date"] = n_date
+            
+            h_list = p["history"]
+            rem_h = [h for h in h_list if h["task"] == t]
+            m_data = p["maintenance_data"][t]
+            
+            latest = max(rem_h, key=get_sort_key)
+            m_data.update({
+                "last_service": latest["odometer"],
+                "date": latest["date"]
+            })
+            
+            save_data(db_data)
+            edit_dlg.open = False
+            page.update()
+            render_fn()
+            rebuild()
+            show_msg("Запись изменена")
+        except ValueError:
+            show_msg("Ошибка: Неверный формат!")
+
+    def open_edit_dialog(_):
+        nonlocal edit_dlg, edit_km, edit_date
+        edit_km = ft.TextField(
+            label="Пробег (км)", value=str(target_item["odometer"]),
+            keyboard_type=ft.KeyboardType.NUMBER
+        )
+        edit_date = ft.TextField(label="Дата", value=target_item["date"])
+        
+        edit_dlg = ft.AlertDialog(
+            title=ft.Text("Редактировать запись"),
+            content=ft.Column([edit_km, edit_date], tight=True, spacing=10),
+            actions=[
+                ft.TextButton("Сохранить", on_click=save_changes),
+                ft.TextButton("Отмена", on_click=lambda _: [setattr(edit_dlg, "open", False), page.update()])
+            ]
+        )
+        page.overlay.append(edit_dlg)
+        edit_dlg.open = True
+        page.update()
+
+    del_dlg = None
+    edit_dlg = None
+    edit_km = None
+    edit_date = None
+    
+    return open_edit_dialog, open_delete_dialog
+
+
+# Фрагмент №5.2: Визуальный список истории ремонтов регламента ТО
+
+def show_task_history_dialog(
+    page, db_data, t_name, p_profile, rebuild_callback, show_message
+):
+    """Окно просмотра и отрисовки списка выполненных ТО."""
+    history_list_container = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
 
     def get_sort_key(item):
         try:
-            return datetime.strptime(
-                item["date"], "%d.%m.%Y"
-            )
+            return datetime.strptime(item["date"], "%d.%m.%Y")
         except ValueError:
             return datetime.min
 
-    if not task_history:
-        lines = [ft.Text("История обслуживания пуста.")]
-    else:
-        sorted_h = sorted(
-            task_history, key=get_sort_key, reverse=True
-        )
-        lines = [
-            ft.Text(f"• {i['date']} — {i['odometer']} км")
-            for i in sorted_h
+    def render_task_history():
+        history_list_container.controls.clear()
+        task_history = [
+            h for h in p_profile.get("history", []) if h["task"] == t_name
         ]
+        
+        if not task_history:
+            history_list_container.controls.append(
+                ft.Text("История обслуживания пуста.")
+            )
+            page.update()
+            return
 
-    def close_dlg(_):
-        dialog.open = False
+        sorted_h = sorted(task_history, key=get_sort_key, reverse=True)
+        
+        for item in sorted_h:
+            # Вызываем логику кнопок из Фрагмента 5.1
+            fn_edit, fn_delete = create_task_history_ops(
+                page, db_data, p_profile, t_name, item,
+                render_task_history, rebuild_callback, show_message, get_sort_key
+            )
+
+            val_txt = f"{item['odometer']} км"
+            date_txt = f"Дата: {item['date']}"
+            
+            history_list_container.controls.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Column([
+                            ft.Text(val_txt, weight=ft.FontWeight.BOLD, size=14),
+                            ft.Text(date_txt, size=12, color=ft.Colors.GREY_500)
+                        ], spacing=2),
+                        ft.Row([
+                            ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color=ft.Colors.BLUE_600, on_click=fn_edit),
+                            ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=ft.Colors.RED_500, on_click=fn_delete)
+                        ], spacing=0)
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    padding=5, border=ft.Border.all(1, ft.Colors.BLACK_12), border_radius=5
+                )
+            )
         page.update()
 
-    dialog = ft.AlertDialog(
-        title=ft.Text(f"Журнал: {t_name}"),
-        content=ft.Column(
-            controls=lines,
-            tight=True,
-            scroll=ft.ScrollMode.AUTO,
-        ),
+    main_dialog = ft.AlertDialog(
+        title=ft.Text(f"Журнал ремонта: {t_name}"),
+        content=ft.Container(content=history_list_container, width=400, height=300),
         actions=[
-            ft.TextButton("Закрыть", on_click=close_dlg)
-        ],
+            ft.TextButton("Закрыть", on_click=lambda _: [setattr(main_dialog, "open", False), page.update()])
+        ]
     )
-    page.overlay.append(dialog)
-    dialog.open = True
-    page.update()
+    page.overlay.append(main_dialog)
+    main_dialog.open = True
+    render_task_history()
+
+
+
 
 
 # Фрагмент №6: Окно добавления записи в журнал ТО
@@ -775,7 +900,10 @@ def build_maintenance_list(
                         ft.Row([
                             ft.IconButton(
                                 ft.Icons.MENU_BOOK,
-                                on_click=lambda _, t=task: show_task_history_dialog(page, t, car_profile),
+                                # СИНХРОНИЗИРОВАНО: передаем новые аргументы в Фрагмент №5
+                                on_click=lambda _, t=task: show_task_history_dialog(
+                                    page, db_data, t, car_profile, rebuild_callback, show_message
+                                ),
                                 tooltip="История"
                             ),
                             ft.Button(
@@ -811,6 +939,7 @@ def build_maintenance_list(
         [header_card, ft.Container(height=5), title_row, m_list],
         scroll=ft.ScrollMode.AUTO, expand=True
     )
+
 
 
 # Фрагмент №10: Кастомный файловый менеджер
@@ -1003,18 +1132,21 @@ def generate_car_view(
 
     def execute_custom_export(full_path):
         try:
+            # ИСПРАВЛЕНО: Перед экспортом принудительно перечитываем структуру с диска,
+            # чтобы подтянулись все новые и измененные имена машин
+            fresh_db_data = load_data()
             with open(
                 full_path, "w", encoding="utf-8"
             ) as f:
                 json.dump(
-                    db_data,
+                    fresh_db_data,
                     f,
                     ensure_ascii=False,
                     indent=4,
                 )
-            show_message("Export complete!")
+            show_message("Экспорт завершен!")
         except Exception as ex:
-            show_message(f"Export error: {ex}")
+            show_message(f"Ошибка экспорта: {ex}")
 
     def execute_custom_import(full_path):
         try:
@@ -1025,11 +1157,11 @@ def generate_car_view(
                 if "cars" in imported_json:
                     save_data(imported_json)
                     rebuild_callback()
-                    show_message("DB imported!")
+                    show_message("База импортирована!")
                 else:
-                    show_message("Invalid backup file format.")
+                    show_message("Неверный формат!")
         except Exception as ex:
-            show_message(f"Import error: {ex}")
+            show_message(f"Ошибка импорта: {ex}")
 
     def update_forecast_click(e):
         try:
@@ -1060,9 +1192,9 @@ def generate_car_view(
             )
             save_data(db_data)
             rebuild_callback()
-            show_message("Data updated!")
+            show_message("Данные обновлены!")
         except ValueError:
-            show_message("Error: Check mileage fields.")
+            show_message("Ошибка: Проверьте поля!")
 
     def add_custom_task_click(e):
         t_title = ft.TextField(label="Название")
@@ -1259,6 +1391,7 @@ def generate_car_view(
         show_message,
         add_custom_task_click,
     )
+
 
 
 # Фрагмент №13: Точка входа приложения (Main)
