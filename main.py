@@ -818,153 +818,52 @@ def build_maintenance_list(
 def show_custom_file_manager_dialog(
     page, mode, on_file_selected, show_message
 ):
-    """Безопасный проводник резервных копий для Android/ПК."""
-    base_dir = os.path.expanduser("~")
-    downloads_path = os.path.join(base_dir, "Downloads")
+    """Прямой автоматический экспорт/импорт без сканирования папок ОС."""
+    # Задаем жесткий, легальный путь к документам Android устройства
+    backup_path = "/storage/emulated/0/Documents/auto_backup.json"
     
-    if os.path.exists(downloads_path):
-        current_dir = [downloads_path]
-    else:
-        current_dir = [os.getcwd()]
+    # Если это ПК или старый телефон, берем стандартный путь документов
+    if not os.path.exists("/storage/emulated/0/"):
+        base_dir = os.path.expanduser("~")
+        backup_path = os.path.join(base_dir, "Documents", "auto_backup.json")
 
-    file_list = ft.Column(
-        scroll=ft.ScrollMode.AUTO, height=280
-    )
-    path_text = ft.Text(
-        value=current_dir,
-        size=12,
-        color=ft.Colors.GREY_700,
-        weight=ft.FontWeight.BOLD,
-    )
-
-    if mode == "export":
-        file_input = ft.TextField(
-            label="Имя файла лога", value="auto_backup.json"
-        )
-    else:
-        file_input = ft.Container()
-
-    def refresh_folder():
-        file_list.controls.clear()
-        path_text.value = current_dir
+    def handle_action(_):
         try:
-            items = os.listdir(current_dir)
-            file_list.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon(
-                        ft.Icons.ARROW_UPWARD,
-                        color=ft.Colors.BLUE_700,
-                    ),
-                    title=ft.Text(".. [Наверх]"),
-                    on_click=lambda _: go_up(),
-                )
-            )
-            for item in sorted(items):
-                full_path = os.path.join(
-                    current_dir, item
-                )
-                if os.path.isdir(full_path):
-                    file_list.controls.append(
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.FOLDER,
-                                color=ft.Colors.AMBER_700,
-                            ),
-                            title=ft.Text(item),
-                            on_click=lambda _, p=full_path: go_in(p),
-                        )
-                    )
-                elif item.endswith(
-                    ".json"
-                ) or item.endswith(".txt"):
-                    file_list.controls.append(
-                        ft.ListTile(
-                            leading=ft.Icon(
-                                ft.Icons.INSERT_DRIVE_FILE,
-                                color=ft.Colors.BLUE_GREY_500,
-                            ),
-                            title=ft.Text(item),
-                            on_click=lambda _, p=full_path: select_file(p),
-                        )
-                    )
-        except Exception:
-            file_list.controls.append(
-                ft.Text(
-                    "Доступ в эту папку ограничен ОС",
-                    color=ft.Colors.RED_500,
-                )
-            )
+            on_file_selected(backup_path)
+            dialog.open = False
+            page.update()
+        except Exception as ex:
+            show_message(f"Ошибка операции: {ex}")
+
+    def close_dlg(_):
+        dialog.open = False
         page.update()
 
-    def go_in(new_path):
-        current_dir = new_path
-        refresh_folder()
-
-    def go_up():
-        current_dir = os.path.dirname(
-            current_dir
-        )
-        refresh_folder()
-
-    def select_file(file_path):
-        if mode == "import":
-            on_file_selected(file_path)
-            dlg.open = False
-            page.update()
-
-    def confirm_export(_):
-        if mode == "export":
-            name = file_input.value.strip()
-            if not name:
-                return
-            if not name.endswith(".json"):
-                name += ".json"
-            full_save_path = os.path.join(
-                current_dir, name
-            )
-            on_file_selected(full_save_path)
-            dlg.open = False
-            page.update()
-
     if mode == "export":
-        act_btn = ft.TextButton(
-            "Экспортировать сюда", on_click=confirm_export
-        )
+        title_text = "Экспорт базы данных"
+        body_text = f"Файл будет сохранен в папку Документы под именем 'auto_backup.json'.\n\nПолный путь: {backup_path}"
+        btn_text = "Экспортировать"
     else:
-        act_btn = ft.TextButton(
-            "Закрыть",
-            on_click=lambda _: [
-                setattr(dlg, "open", False),
-                page.update(),
-            ],
-        )
+        title_text = "Импорт базы данных"
+        body_text = f"Приложение попытается загрузить файл 'auto_backup.json' из вашей папки Документы.\n\nУбедитесь, что файл находится там."
+        btn_text = "Импортировать"
 
-    title_txt = (
-        "Экспорт бэкапа"
-        if mode == "export"
-        else "Выберите бэкап для импорта"
-    )
-    dlg = ft.AlertDialog(
-        title=ft.Text(title_txt),
+    dialog = ft.AlertDialog(
+        title=ft.Text(title_text),
         content=ft.Container(
-            content=ft.Column(
-                [
-                    path_text,
-                    ft.Divider(height=10),
-                    file_list,
-                    ft.Divider(height=10),
-                    file_input,
-                ],
-                tight=True,
-                spacing=5,
-            ),
-            width=450,
+            content=ft.Text(body_text, size=14),
+            width=400,
+            padding=5
         ),
-        actions=[act_btn],
+        actions=[
+            ft.TextButton(btn_text, on_click=handle_action),
+            ft.TextButton("Отмена", on_click=close_dlg)
+        ]
     )
-    page.overlay.append(dlg)
-    dlg.open = True
-    refresh_folder()
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
+
 
 
 
