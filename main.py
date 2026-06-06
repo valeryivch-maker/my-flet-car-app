@@ -170,126 +170,208 @@ def calculate_forecast(
     return future_date.strftime("%d.%m.%Y")
 
 
-# Фрагмент №5.1: Логика действий внутри журнала ремонтов ТО
+# Фрагмент №5.1: Панель управления автомобилем (Безопасная мобильная верстка)
+def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuild_callback):
+    current_odo_data = car_profile.get("odometer", {"value": 125000, "date": "—"})
+    current_odo_input = ft.TextField(
+        label=f"Пробег (км) [от {current_odo_data.get('date', '—')}]", 
+        value=str(current_odo_data.get("value", 125000)), 
+        keyboard_type=ft.KeyboardType.NUMBER, 
+        expand=True
+    )
+    daily_input = ft.TextField(
+        label="Пробег в день (км)", 
+        value=str(car_profile.get("daily_mileage", 45)), 
+        keyboard_type=ft.KeyboardType.NUMBER, 
+        expand=True
+    )
 
-def create_task_history_ops(
-    page, db_data, p, t, target_item, render_fn, rebuild, show_msg, get_sort_key
-):
-    """Генерирует замыкания для изменения и удаления строк в журнале ТО."""
-    
-    def delete_confirmed(_):
-        h_list = p["history"]
-        if target_item in h_list:
-            h_list.remove(target_item)
-            rem_h = [h for h in h_list if h["task"] == t]
-            m_data = p["maintenance_data"][t]
-            
-            if rem_h:
-                latest = max(rem_h, key=get_sort_key)
-                m_data.update({
-                    "last_service": latest["odometer"],
-                    "date": latest["date"]
-                })
-            else:
-                m_data.update({"last_service": 0, "date": "—"})
-            
-            save_data(db_data)
-            del_dlg.open = False
-            page.update()
-            render_fn()
-            rebuild()
-            show_msg("Запись из журнала удалена")
-
-    def open_delete_dialog(_):
-        nonlocal del_dlg
-        del_dlg = ft.AlertDialog(
-            title=ft.Text("Удалить запись?"),
-            content=ft.Text(
-                f"Удалить ТО на пробеге {target_item['odometer']} км "
-                f"от {target_item['date']}?"
-            ),
-            actions=[
-                ft.TextButton("Удалить", on_click=delete_confirmed, style=ft.ButtonStyle(color=ft.Colors.RED_600)),
-                ft.TextButton("Отмена", on_click=lambda _: [setattr(del_dlg, "open", False), page.update()])
-            ]
-        )
-        page.overlay.append(del_dlg)
-        del_dlg.open = True
-        page.update()
-
-    def save_changes(_):
+    # Исправленный экспорт: пишет строго по переданному из проводника пути
+    def execute_custom_export(full_path):
         try:
-            n_km = int(edit_km.value)
-            n_date = edit_date.value.strip()
-            datetime.strptime(n_date, "%d.%m.%Y")
-            
-            target_item["odometer"] = n_km
-            target_item["date"] = n_date
-            
-            h_list = p["history"]
-            rem_h = [h for h in h_list if h["task"] == t]
-            m_data = p["maintenance_data"][t]
-            
-            latest = max(rem_h, key=get_sort_key)
-            m_data.update({
-                "last_service": latest["odometer"],
-                "date": latest["date"]
-            })
-            
-            save_data(db_data)
-            edit_dlg.open = False
-            page.update()
-            render_fn()
-            rebuild()
-            show_msg("Запись изменена")
-        except ValueError:
-            show_msg("Ошибка: Неверный формат!")
+            with open(full_path, "w", encoding="utf-8") as f:
+                json.dump(db_data, f, ensure_ascii=False, indent=4)
+            show_message("Экспорт завершен успешно!")
+        except Exception as ex: 
+            show_message(f"Ошибка экспорта: {ex}")
 
-    def open_edit_dialog(_):
-        nonlocal edit_dlg, edit_km, edit_date
-        edit_km = ft.TextField(
-            label="Пробег (км)", value=str(target_item["odometer"]),
-            keyboard_type=ft.KeyboardType.NUMBER
+    # Исправленный импорт: читает строго выбранный в проводнике файл full_path
+    def execute_custom_import(full_path):
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                imported_json = json.load(f)
+            if "cars" in imported_json:
+                save_data(imported_json)
+                rebuild_callback()
+                show_message("База успешно импортирована!")
+            else: 
+                show_message("Неверный формат резервного файла")
+        except Exception as ex: 
+            show_message(f"Ошибка импорта: {ex}")
+
+    def update_forecast_click(e):
+        try:
+            val = int(current_odo_input.value)
+            now_date_str = datetime.now().strftime("%d.%m.%Y")
+            car_profile["odometer"] = {"value": val, "date": now_date_str}
+            car_profile["daily_mileage"] = int(daily_input.value)
+            if not any(h["value"] == val for h in car_profile["odometer_history"]):
+                car_profile["odometer_history"].append({"value": val, "date": now_date_str})
+            save_data(db_data)
+            rebuild_callback()
+            show_message("Данные успешно обновлены!")
+        except ValueError: 
+            show_message("Ошибка: Проверьте числовые поля пробега")
+
+    def add_car_click(e):
+        car_name_input = ft.TextField(label="Марка / Модель")
+        def save_new_car(_):
+            name = car_name_input.value.strip()
+            if not name or name in db_data["cars"]: 
+                return
+            db_data["cars"][name] = get_default_car_data()
+            save_data(db_data)
+            page.close(dialog)
+            rebuild_callback()
+        dialog = ft.AlertDialog(
+            title=ft.Text("Добавить автомобиль"), 
+            content=ft.Column([car_name_input], tight=True), 
+            actions=[ft.TextButton("Добавить", on_click=save_new_car)]
         )
-        edit_date = ft.TextField(label="Дата", value=target_item["date"])
-        
-        edit_dlg = ft.AlertDialog(
-            title=ft.Text("Редактировать запись"),
-            content=ft.Column([edit_km, edit_date], tight=True, spacing=10),
+        page.open(dialog)
+
+    def edit_car_name_click(e):
+        edit_name_input = ft.TextField(label="Новое имя профиля", value=car_name)
+        def save_name_change(_):
+            new_name = edit_name_input.value.strip()
+            if not new_name or new_name == car_name or new_name in db_data["cars"]: 
+                return
+            db_data["cars"][new_name] = db_data["cars"].pop(car_name)
+            save_data(db_data)
+            page.close(dialog)
+            rebuild_callback()
+        dialog = ft.AlertDialog(
+            title=ft.Text("Редактировать имя"), 
+            content=ft.Column([edit_name_input], tight=True), 
+            actions=[ft.TextButton("Сохранить", on_click=save_name_change)]
+        )
+        page.open(dialog)
+
+    def delete_car_click(e):
+        if len(db_data["cars"]) <= 1: 
+            return
+        def confirm_delete(_):
+            db_data["cars"].pop(car_name)
+            save_data(db_data)
+            page.close(dialog)
+            rebuild_callback()
+        dialog = ft.AlertDialog(
+            title=ft.Text("Удаление профиля"), 
+            content=ft.Text(f"Удалить '{car_name}'?"), 
             actions=[
-                ft.TextButton("Сохранить", on_click=save_changes),
-                ft.TextButton("Отмена", on_click=lambda _: [setattr(edit_dlg, "open", False), page.update()])
+                ft.TextButton(
+                    "Удалить", 
+                    on_click=confirm_delete, 
+                    style=ft.ButtonStyle(color=ft.Colors.RED_600)
+                )
             ]
         )
-        page.overlay.append(edit_dlg)
-        edit_dlg.open = True
-        page.update()
+        page.open(dialog)
 
-    del_dlg = None
-    edit_dlg = None
-    edit_km = None
-    edit_date = None
-    
-    return open_edit_dialog, open_delete_dialog
+    def add_custom_task_click(e):
+        task_title = ft.TextField(label="Название работы")
+        task_interval = ft.TextField(label="Интервал (км)", value="10000")
+        def save_custom_task(_):
+            title = task_title.value.strip()
+            if not title or title in car_profile["maintenance_data"]: 
+                return
+            try:
+                car_profile["maintenance_data"][title] = {
+                    "last_service": int(current_odo_input.value), 
+                    "interval": int(task_interval.value), 
+                    "date": datetime.now().strftime("%d.%m.%Y")
+                }
+                save_data(db_data)
+                page.close(dialog)
+                rebuild_callback()
+            except ValueError: 
+                pass
+        dialog = ft.AlertDialog(
+            title=ft.Text("Добавить свою работу"), 
+            content=ft.Column([task_title, task_interval], tight=True), 
+            actions=[ft.TextButton("Сохранить", on_click=save_custom_task)]
+        )
+        page.open(dialog)
+
+    action_panel = ft.Row([
+        ft.Row([
+            ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
+            ft.IconButton(
+                ft.Icons.CLOUD_UPLOAD, 
+                tooltip="Экспорт", 
+                icon_color=ft.Colors.BLUE_600, 
+                on_click=lambda _: show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)
+            ),
+            ft.IconButton(
+                ft.Icons.CLOUD_DOWNLOAD, 
+                tooltip="Импорт", 
+                icon_color=ft.Colors.GREEN_600, 
+                on_click=lambda _: show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)
+            ),
+        ], spacing=2),
+        ft.Row([
+            ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
+            ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать", on_click=edit_car_name_click),
+            ft.IconButton(
+                ft.Icons.DELETE_FOREVER, 
+                tooltip="Удалить авто", 
+                on_click=delete_car_click, 
+                icon_color=ft.Colors.RED_500
+            ),
+            ft.Container(width=40)
+        ], spacing=2)
+    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+    header_card = ft.Card(
+        content=ft.Container(
+            content=ft.Column([
+                action_panel, 
+                ft.Divider(height=5, color=ft.Colors.BLACK_12), 
+                ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD), 
+                ft.Row([current_odo_input, daily_input], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8), 
+                ft.Row([
+                    ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45), 
+                    ft.Button(
+                        "➕ Добавить работу", 
+                        on_click=add_custom_task_click, 
+                        height=45, 
+                        style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_50, color=ft.Colors.BLUE_700)
+                    )
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+            ], spacing=12), 
+            padding=12
+        )
+    )
+
+    return build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message)
+
+
 
 
 # Фрагмент №5.2: Собственный безопасный UI-проводник и дисковый навигатор
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
     """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
     import platform
+    import sys
     
-    # Определение стартовой папки в зависимости от платформы
-    if platform.system() == "Java" or hasattr(sys, "getandroidapkname"):  # Проверка на Android среду
+    if platform.system() == "Java" or hasattr(sys, "getandroidapkname"):
         try:
-            # Стандартный путь к папке Загрузки на большинстве устройств Android
             current_path = "/storage/emulated/0/Download"
-            # Если папка по какой-то причине недоступна, откатываемся на корень внешнего хранилища
             if not os.path.exists(current_path):
                 current_path = "/storage/emulated/0"
         except Exception:
             current_path = os.getcwd()
     else:
-        # Для Windows/Linux/macOS оставляем текущую рабочую директорию
         current_path = os.getcwd()
     
     file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
@@ -339,7 +421,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                     )
         except Exception:
             file_list_column.controls.append(
-                ft.Text("Доступ ограничен. Проверьте разрешения приложения!", color=ft.Colors.RED_500)
+                ft.Text("Доступ ограничен. Проверьте разрешения!", color=ft.Colors.RED_500)
             )
         page.update()
 
@@ -353,6 +435,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
         current_path = os.path.dirname(current_path)
         refresh_folder_contents()
 
+    # При выборе файла в режиме импорта путь напрямую передается в callback
     def select_target_file(file_path):
         if mode == "import":
             on_file_selected_callback(file_path)
@@ -378,6 +461,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
  
     page.open(dialog)
     refresh_folder_contents()
+
 
 
 
