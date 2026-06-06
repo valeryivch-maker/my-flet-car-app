@@ -276,9 +276,21 @@ def create_task_history_ops(
 # Фрагмент №5.2: Собственный безопасный UI-проводник и дисковый навигатор
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
     """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
+    import platform
     
-    # Используем nonlocal переменную для хранения текущего пути
-    current_path = os.getcwd()
+    # Определение стартовой папки в зависимости от платформы
+    if platform.system() == "Java" or hasattr(sys, "getandroidapkname"):  # Проверка на Android среду
+        try:
+            # Стандартный путь к папке Загрузки на большинстве устройств Android
+            current_path = "/storage/emulated/0/Download"
+            # Если папка по какой-то причине недоступна, откатываемся на корень внешнего хранилища
+            if not os.path.exists(current_path):
+                current_path = "/storage/emulated/0"
+        except Exception:
+            current_path = os.getcwd()
+    else:
+        # Для Windows/Linux/macOS оставляем текущую рабочую директорию
+        current_path = os.getcwd()
     
     file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
     path_text = ft.Text(value=current_path, size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
@@ -294,7 +306,6 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
         file_name_input = ft.TextField(label="Имя файла сохранения", value="auto_backup.json")
         dialog_controls.append(file_name_input)
 
-    # 1. Сначала объявляем функцию обновления контента (основная логика)
     def refresh_folder_contents():
         nonlocal current_path
         file_list_column.controls.clear()
@@ -328,11 +339,10 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                     )
         except Exception:
             file_list_column.controls.append(
-                ft.Text("Доступ к этой папке ограничен", color=ft.Colors.RED_500)
+                ft.Text("Доступ ограничен. Проверьте разрешения приложения!", color=ft.Colors.RED_500)
             )
         page.update()
 
-    # 2. Объявляем вспомогательные навигационные функции, которые используют refresh
     def navigate_into_folder(new_path):
         nonlocal current_path
         current_path = new_path
@@ -368,7 +378,6 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
  
     page.open(dialog)
     refresh_folder_contents()
-
 
 
 
