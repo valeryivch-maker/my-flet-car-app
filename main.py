@@ -273,72 +273,102 @@ def create_task_history_ops(
     return open_edit_dialog, open_delete_dialog
 
 
-# Фрагмент №5.2: Визуальный список истории ремонтов регламента ТО
+# Фрагмент №5.2: Собственный безопасный UI-проводник и дисковый навигатор
+def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
+    """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
+    
+    # Используем nonlocal переменную для хранения текущего пути
+    current_path = os.getcwd()
+    
+    file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
+    path_text = ft.Text(value=current_path, size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
+    
+    dialog_controls = [
+        path_text, 
+        ft.Divider(height=10), 
+        file_list_column, 
+        ft.Divider(height=10)
+    ]
+    
+    if mode == "export":
+        file_name_input = ft.TextField(label="Имя файла сохранения", value="auto_backup.json")
+        dialog_controls.append(file_name_input)
 
-def show_task_history_dialog(
-    page, db_data, t_name, p_profile, rebuild_callback, show_message
-):
-    """Окно просмотра и отрисовки списка выполненных ТО."""
-    history_list_container = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
-
-    def get_sort_key(item):
+    # 1. Сначала объявляем функцию обновления контента (основная логика)
+    def refresh_folder_contents():
+        nonlocal current_path
+        file_list_column.controls.clear()
+        path_text.value = current_path
         try:
-            return datetime.strptime(item["date"], "%d.%m.%Y")
-        except ValueError:
-            return datetime.min
-
-    def render_task_history():
-        history_list_container.controls.clear()
-        task_history = [
-            h for h in p_profile.get("history", []) if h["task"] == t_name
-        ]
-        
-        if not task_history:
-            history_list_container.controls.append(
-                ft.Text("История обслуживания пуста.")
-            )
-            page.update()
-            return
-
-        sorted_h = sorted(task_history, key=get_sort_key, reverse=True)
-        
-        for item in sorted_h:
-            # Вызываем логику кнопок из Фрагмента 5.1
-            fn_edit, fn_delete = create_task_history_ops(
-                page, db_data, p_profile, t_name, item,
-                render_task_history, rebuild_callback, show_message, get_sort_key
-            )
-
-            val_txt = f"{item['odometer']} км"
-            date_txt = f"Дата: {item['date']}"
-            
-            history_list_container.controls.append(
-                ft.Container(
-                    content=ft.Row([
-                        ft.Column([
-                            ft.Text(val_txt, weight=ft.FontWeight.BOLD, size=14),
-                            ft.Text(date_txt, size=12, color=ft.Colors.GREY_500)
-                        ], spacing=2),
-                        ft.Row([
-                            ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color=ft.Colors.BLUE_600, on_click=fn_edit),
-                            ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=ft.Colors.RED_500, on_click=fn_delete)
-                        ], spacing=0)
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    padding=5, border=ft.Border.all(1, ft.Colors.BLACK_12), border_radius=5
+            items = os.listdir(current_path)
+            file_list_column.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.ARROW_UPWARD, color=ft.Colors.BLUE_700), 
+                    title=ft.Text(".. [На уровень вверх]"), 
+                    on_click=lambda _: go_up_folder()
                 )
+            )
+            for item in sorted(items):
+                full_path = os.path.join(current_path, item)
+                if os.path.isdir(full_path):
+                    file_list_column.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.Icons.FOLDER, color=ft.Colors.AMBER_700), 
+                            title=ft.Text(item), 
+                            on_click=lambda _, p=full_path: navigate_into_folder(p)
+                        )
+                    )
+                elif item.endswith(".json") or item.endswith(".txt"):
+                    file_list_column.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.Icons.INSERT_DRIVE_FILE, color=ft.Colors.BLUE_GREY_500), 
+                            title=ft.Text(item), 
+                            on_click=lambda _, p=full_path: select_target_file(p)
+                        )
+                    )
+        except Exception:
+            file_list_column.controls.append(
+                ft.Text("Доступ к этой папке ограничен", color=ft.Colors.RED_500)
             )
         page.update()
 
-    main_dialog = ft.AlertDialog(
-        title=ft.Text(f"Журнал ремонта: {t_name}"),
-        content=ft.Container(content=history_list_container, width=400, height=300),
-        actions=[
-            ft.TextButton("Закрыть", on_click=lambda _: [setattr(main_dialog, "open", False), page.update()])
-        ]
+    # 2. Объявляем вспомогательные навигационные функции, которые используют refresh
+    def navigate_into_folder(new_path):
+        nonlocal current_path
+        current_path = new_path
+        refresh_folder_contents()
+
+    def go_up_folder():
+        nonlocal current_path
+        current_path = os.path.dirname(current_path)
+        refresh_folder_contents()
+
+    def select_target_file(file_path):
+        if mode == "import":
+            on_file_selected_callback(file_path)
+            page.close(dialog)
+
+    def handle_export_confirmation(_):
+        if mode == "export":
+            name = file_name_input.value.strip()
+            if not name: 
+                return
+            if not name.endswith(".json"): 
+                name += ".json"
+            on_file_selected_callback(os.path.join(current_path, name))
+            page.close(dialog)
+ 
+    dialog_action_btn = ft.TextButton("Экспортировать сюда", on_click=handle_export_confirmation) if mode == "export" else ft.TextButton("Закрыть", on_click=lambda _: page.close(dialog))
+ 
+    dialog = ft.AlertDialog(
+        title=ft.Text("Экспорт данных" if mode == "export" else "Выберите файл импорта"),
+        content=ft.Container(content=ft.Column(dialog_controls, tight=True, spacing=5), width=450),
+        actions=[dialog_action_btn]
     )
-    page.overlay.append(main_dialog)
-    main_dialog.open = True
-    render_task_history()
+ 
+    page.open(dialog)
+    refresh_folder_contents()
+
 
 
 
