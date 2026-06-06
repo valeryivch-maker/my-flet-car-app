@@ -484,18 +484,26 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
     import platform
     import sys
     
-    # Задаем правильный стартовый путь в зависимости от платформы
-    if platform.system() == "Java" or hasattr(sys, "getandroidapkname"):
+    # Расширенная проверка на Android (проверяем систему, APK-имя и переменные среды Flet/Kivy)
+    is_android = (
+        platform.system() == "Java" or 
+        hasattr(sys, "getandroidapkname") or 
+        os.environ.get("ANDROID_ARGUMENT") is not None or 
+        os.path.exists("/sdcard")
+    )
+    
+    if is_android:
         try:
+            # Принудительный старт в общедоступной папке Загрузок
             init_path = "/storage/emulated/0/Download"
             if not os.path.exists(init_path):
                 init_path = "/storage/emulated/0"
         except Exception:
             init_path = os.getcwd()
     else:
+        # Для Windows/Linux/macOS оставляем папку проекта
         init_path = os.getcwd()
         
-    # Переменная состояния текущего пути для навигации
     state = {"current": init_path}
     
     file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
