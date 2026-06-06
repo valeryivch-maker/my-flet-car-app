@@ -27,7 +27,7 @@ jobs:
 
       - name: Сборка финального APK
         run: |
-          flet build apk
+          flet build apk --permissions READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
