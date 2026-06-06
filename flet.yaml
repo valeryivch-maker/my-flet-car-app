@@ -1,5 +1,5 @@
 product: "Журнал ТО"
-description: "Автономный журнал технического обслуживания автомобиля"
+description: "Автономный журнал technical обслуживания автомобиля"
 org: "com.mycompany"
 bundle_id: "com.mycompany.carjournal"
 build_version: "1.2.0"
@@ -7,4 +7,4 @@ build_number: 3
 
 android:
   permissions:
-    - MANAGE_EXTERNAL_STORAGE
+    - manage_external_storage
