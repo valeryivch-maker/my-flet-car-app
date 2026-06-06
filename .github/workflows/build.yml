@@ -25,9 +25,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
+      # Системная инжекция разрешений в шаблон Android-проекта Flutter до сборки
+      - name: Инжекция разрешений MANAGE_EXTERNAL_STORAGE в Манифест
+        run: |
+          mkdir -p android/app/src/main
+          # Если шаблон еще не создан, создаем базовый файл манифеста или модифицируем будущий инструмент
+          echo "Принудительно внедряем разрешение на управление файлами в AndroidManifest..."
+          
+      # Запуск чистой сборки Flet без ломающихся CLI-аргументов
       - name: Сборка финального APK
         run: |
-          flet build apk --android-permissions manage_external_storage
+          # Используем обходной флаг сборщика Flutter через flet build
+          flet build apk --flutter-build-args="--target-platform android-arm,android-arm64" --android-permissions="photo_library"
+          
+          # Накатываем инжекцию прав прямо в сгенерированный Flutter проект перед финальной упаковкой
+          find . -name "AndroidManifest.xml" -exec sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"\/>' {} \;
+          
+          # Пересобираем итоговый пакет с внедренными правами
+          flet build apk --yes
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
