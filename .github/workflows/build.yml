@@ -25,19 +25,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # Шаг 1: Запускаем первичную генерацию проекта во Flet (без ограничений на права)
-      - name: Генерация структуры Flutter-проекта
+      # Сборщик создает структуру проекта во временной папке перед финальной компиляцией
+      - name: Предварительная сборка проекта Flet
         run: |
-          flet build apk --flutter-build-args="--target-platform android-arm,android-arm64"
+          flet build apk --yes
 
-      # Шаг 2: Системный поиск AndroidManifest.xml и жесткая инжекция нужного разрешения
-      - name: Принудительное внедрение разрешения MANAGE_EXTERNAL_STORAGE в Манифест
+      # Принудительная инжекция прав MANAGE_EXTERNAL_STORAGE прямо в сгенерированный код
+      - name: Принудительное внедрение разрешения в AndroidManifest
         run: |
-          find build -name "AndroidManifest.xml" -exec sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"\/>' {} \;
-          echo "Разрешение успешно инжектировано в файлы манифеста."
+          find . -name "AndroidManifest.xml" -exec sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"\/>' {} \;
+          echo "Разрешение успешно добавлено в Манифест."
 
-      # Шаг 3: Финальная упаковка APK сборщиком Flet
-      - name: Финальная сборка и упаковка APK
+      # Повторный вызов flet build apk подхватит измененный манифест и перепакует APK
+      - name: Финальная пересборка итогового APK
         run: |
           flet build apk --yes
 
