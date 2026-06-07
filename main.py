@@ -478,125 +478,103 @@ def build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuil
     return ft.Column(controls=[header_card] + maintenance_cards, scroll=ft.ScrollMode.AUTO, expand=True)
 
 
-# Фрагмент №5.2: Собственный безопасный UI-проводник и дисковый навигатор
+# Фрагмент №5.2: Кроссплатформенный надежный менеджер диалогов импорта и экспорта
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
-    """Внутренний изолированный проводник папок на чистом Python (Вариант 6)."""
-    import platform
+    """Вызов нативных диалогов ОС с защитой от разрыва асинхронных сессий на десктопе."""
+    import os
     import sys
-    
-    # Расширенная проверка на Android (проверяем систему, APK-имя и переменные среды Flet/Kivy)
-    is_android = (
-        platform.system() == "Java" or 
-        hasattr(sys, "getandroidapkname") or 
-        os.environ.get("ANDROID_ARGUMENT") is not None or 
-        os.path.exists("/sdcard")
-    )
-    
-    if is_android:
-        try:
-            # Принудительный старт в общедоступной папке Загрузок
-            init_path = "/storage/emulated/0/Download"
-            if not os.path.exists(init_path):
-                init_path = "/storage/emulated/0"
-        except Exception:
-            init_path = os.getcwd()
-    else:
-        # Для Windows/Linux/macOS оставляем папку проекта
-        init_path = os.getcwd()
-        
-    state = {"current": init_path}
-    
-    file_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=280)
-    path_text = ft.Text(value=state["current"], size=12, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD)
-    
-    dialog_controls = [
-        path_text, 
-        ft.Divider(height=10), 
-        file_list_column, 
-        ft.Divider(height=10)
-    ]
-    
-    file_name_input = None
-    if mode == "export":
-        file_name_input = ft.TextField(label="Имя файла сохранения", value="auto_backup.json")
-        dialog_controls.append(file_name_input)
 
-    def refresh_folder_contents():
-        file_list_column.controls.clear()
-        path_text.value = state["current"]
+    # ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ: Проверяем, запущены ли мы на Windows или Android
+    is_windows = sys.platform.startswith("win")
+
+    # ==================== ЛОГИКА ДЛЯ WINDOWS (Через Tkinter) ====================
+    if is_windows:
         try:
-            items = os.listdir(state["current"])
-            file_list_column.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.ARROW_UPWARD, color=ft.Colors.BLUE_700), 
-                    title=ft.Text(".. [На уровень вверх]"), 
-                    on_click=lambda _: go_up_folder()
+            import tkinter as tk
+            from tkinter import filedialog
+            
+            # Скрываем корневое графическое окно самого Tkinter
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)  # Помещаем окно выбора поверх Flet приложения
+
+            if mode == "import":
+                # Классическое белое окно Windows "Открыть файл"
+                file_path = filedialog.askopenfilename(
+                    title="Выберите файл импорта базы данных (.json)",
+                    filetypes=[("Файлы JSON", "*.json")]
                 )
-            )
-            for item in sorted(items):
-                full_path = os.path.join(state["current"], item)
-                if os.path.isdir(full_path):
-                    file_list_column.controls.append(
-                        ft.ListTile(
-                            leading=ft.Icon(ft.Icons.FOLDER, color=ft.Colors.AMBER_700), 
-                            title=ft.Text(item), 
-                            on_click=lambda _, p=full_path: navigate_into_folder(p)
-                        )
+                if file_path:
+                    # Передаем точный путь в синхронную функцию импорта JSON
+                    on_file_selected_callback(file_path)
+                    show_message_callback("База данных успешно импортирована!")
+                    if page.data and "refresh_ui" in page.data:
+                        page.data["refresh_ui"]()
+                else:
+                    show_message_callback("Импорт отменен пользователем")
+
+            elif mode == "export":
+                # Классическое окно Windows "Сохранить как..."
+                file_path = filedialog.asksaveasfilename(
+                    title="Выберите место для сохранения резервной копии",
+                    initialfile="auto_backup.json",
+                    defaultextension=".json",
+                    filetypes=[("Файлы JSON", "*.json")]
+                )
+                if file_path:
+                    # Передаем путь в функцию записи JSON
+                    on_file_selected_callback(file_path)
+                    show_message_callback("Резервная копия успешно создана!")
+                    page.update()
+                else:
+                    show_message_callback("Экспорт отменен пользователем")
+            
+            root.destroy()  # Выгружаем Tkinter из оперативной памяти
+
+        except Exception as ex:
+            show_message_callback(f"Ошибка проводника Windows: {str(ex)}")
+
+    # ==================== ЛОГИКА ДЛЯ ANDROID (Через FilePicker) ====================
+    else:
+        async def launch_android_picker():
+            try:
+                if mode == "import":
+                    result = await ft.FilePicker().pick_files(
+                        allowed_extensions=["json"],
+                        allow_multiple=False,
+                        with_data=True
                     )
-                elif item.endswith(".json") or item.endswith(".txt"):
-                    file_list_column.controls.append(
-                        ft.ListTile(
-                            leading=ft.Icon(ft.Icons.INSERT_DRIVE_FILE, color=ft.Colors.BLUE_GREY_500), 
-                            title=ft.Text(item), 
-                            on_click=lambda _, p=full_path: select_target_file(p)
-                        )
+                    if result and result.files and len(result.files) > 0:
+                        target_file = result.files[0]
+                        if getattr(target_file, "bytes", None) is not None:
+                            import json
+                            json_text = target_file.bytes.decode("utf-8")
+                            raw_data = json.loads(json_text)
+                            save_data(raw_data)
+                            show_message_callback("База данных успешно импортирована!")
+                            if page.data and "refresh_ui" in page.data:
+                                page.data["refresh_ui"]()
+                    else:
+                        show_message_callback("Импорт отменен пользователем")
+
+                elif mode == "export":
+                    export_path = await ft.FilePicker().save_file(
+                        dialog_title="Выберите место для сохранения резервной копии",
+                        file_name="auto_backup.json",
+                        allowed_extensions=["json"]
                     )
-        except Exception:
-            file_list_column.controls.append(
-                ft.Text("Доступ ограничен. Проверьте разрешения!", color=ft.Colors.RED_500)
-            )
-        page.update()
+                    if export_path:
+                        on_file_selected_callback(export_path)
+                        show_message_callback("Резервная копия успешно создана!")
+                        page.update()
+                    else:
+                        show_message_callback("Экспорт отменен пользователем")
+            except Exception as ex:
+                show_message_callback(f"Ошибка проводника Android: {str(ex)}")
 
-    def navigate_into_folder(new_path):
-        state["current"] = new_path
-        refresh_folder_contents()
+        page.run_task(launch_android_picker)
 
-    def go_up_folder():
-        state["current"] = os.path.dirname(state["current"])
-        refresh_folder_contents()
 
-    def select_target_file(file_path):
-        if mode == "import":
-            on_file_selected_callback(file_path)
-            dialog.open = False
-            page.update()
-
-    def handle_export_confirmation(_):
-        if mode == "export" and file_name_input:
-            name = file_name_input.value.strip()
-            if not name: 
-                return
-            if not name.endswith(".json") and not name.endswith(".txt"): 
-                name += ".json"
-            on_file_selected_callback(os.path.join(state["current"], name))
-            dialog.open = False
-            page.update()
- 
-    def close_dlg(_):
-        dialog.open = False
-        page.update()
-
-    dialog_action_btn = ft.TextButton("Экспортировать сюда", on_click=handle_export_confirmation) if mode == "export" else ft.TextButton("Закрыть", on_click=close_dlg)
- 
-    dialog = ft.AlertDialog(
-        title=ft.Text("Экспорт данных" if mode == "export" else "Выберите файл импорта"),
-        content=ft.Container(content=ft.Column(dialog_controls, tight=True, spacing=5), width=450),
-        actions=[dialog_action_btn]
-    )
- 
-    page.overlay.append(dialog)
-    dialog.open = True
-    refresh_folder_contents()
 
 
 
@@ -1488,7 +1466,7 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
 
 
 
-# Фрагмент №13: Главная точка входа приложения и синхронизация индекса состояния
+# Фрагмент №13: Главная точка входа приложения по спецификации Flet 1.0+
 def main(page: ft.Page):
     page.title = "Журнал ТО"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -1543,6 +1521,9 @@ def main(page: ft.Page):
         
         page.add(tabs_control)
         page.update()
+
+    # Сохраняем ссылку на функцию обновления, чтобы Фрагмент №5.2 мог её вызвать
+    page.data = {"refresh_ui": build_tabs_ui}
 
     # Запускаем построение интерфейса при старте
     build_tabs_ui()
