@@ -7,5 +7,5 @@ build_number: 4
 
 android:
   permissions:
-    - read_external_storage
-    - write_external_storage
+    - android.permission.READ_EXTERNAL_STORAGE
+    - android.permission.WRITE_EXTERNAL_STORAGE
