@@ -1,8 +1,8 @@
 name: Сборка Flet APK
 
 on:
-  push:
-    branches: [ main, master ]
+  # Отключаем триггеры на push. Сборка запустится только по нажатию кнопки на сайте.
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,35 +27,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # Генерируем проект, чтобы Flet развернул свои временные файлы в системе
-      - name: Генерация структуры Android проекта
-        run: |
-          flet build apk --patch || true
-
-      # ПРАВИЛЬНЫЙ ПОИСК: Ищем по всей файловой системе сервера, включая временную папку /tmp
-      - name: Принудительное исправление AndroidManifest
-        run: |
-          echo "Запускаем глобальный поиск манифеста..."
-          MANIFEST_PATH=$(find / -name "AndroidManifest.xml" 2>/dev/null | grep -E "android/app/src/main|flet_flutter_build" | head -n 1)
-          
-          if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
-            echo "Файл успешно найден по пути: $MANIFEST_PATH"
-            sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
-            echo "Разрешение успешно внедрено. Проверяем результат:"
-            cat "$MANIFEST_PATH" | grep -C 3 "MANAGE_EXTERNAL_STORAGE"
-          else
-            echo "Глобальный поиск не дал результатов, пробуем найти абсолютно любой AndroidManifest..."
-            MANIFEST_PATH=$(find / -name "AndroidManifest.xml" 2>/dev/null | head -n 1)
-            if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
-              sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
-              echo "Модифицирован манифест по пути: $MANIFEST_PATH"
-            else
-              echo "Критическая ошибка: Сборщик Flet не создал манифест."
-              exit 1
-            fi
-          fi
-
-      # Собираем финальный APK
       - name: Сборка финального APK
         run: |
           flet build apk
