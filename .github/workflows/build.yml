@@ -27,10 +27,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # ПРИНУДИТЕЛЬНАЯ ИНЖЕКЦИЯ: Жестко требуем от компилятора Flet прописать права доступа ко всем файлам
+      # Инициализируем проект Flet, чтобы создалась внутренняя структура Flutter
+      - name: Подготовка окружения сборки
+        run: |
+          flet build apk --no-build || true
+
+      # ПРЯМАЯ ИНЖЕКЦИЯ: Вставляем разрешение строго ПЕРЕД тегом <application>, не нарушая синтаксис
+      - name: Принудительное исправление AndroidManifest
+        run: |
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "main/AndroidManifest.xml" | head -n 1)
+          if [ -f "$MANIFEST_PATH" ]; then
+            sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
+            echo "Манифест успешно обновлен по пути: $MANIFEST_PATH"
+            cat "$MANIFEST_PATH"
+          else
+            echo "Файл AndroidManifest.xml не найден!"
+            exit 1
+          fi
+
+      # Запускаем финальную компиляцию
       - name: Сборка финального APK
         run: |
-          flet build apk --android-permissions android.permission.MANAGE_EXTERNAL_STORAGE=True
+          flet build apk
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
