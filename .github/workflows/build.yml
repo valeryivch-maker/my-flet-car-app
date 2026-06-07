@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # ИЗМЕНЕНИЕ: Заменяем медиа-права на управление всеми файлами
+      # ПРИНУДИТЕЛЬНАЯ ИНЖЕКЦИЯ: Жестко требуем от компилятора Flet прописать права доступа ко всем файлам
       - name: Сборка финального APK
         run: |
           flet build apk --android-permissions android.permission.MANAGE_EXTERNAL_STORAGE=True
