@@ -27,25 +27,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # Инициализируем проект Flet, чтобы создалась внутренняя структура Flutter
-      - name: Подготовка окружения сборки
+      # ШАГ 1: Запускаем генерацию проекта. Команда создаст все файлы, включая AndroidManifest
+      - name: Генерация структуры Android проекта
         run: |
-          flet build apk --no-build || true
+          flet build apk --patch || true
 
-      # ПРЯМАЯ ИНЖЕКЦИЯ: Вставляем разрешение строго ПЕРЕД тегом <application>, не нарушая синтаксис
+      # ШАГ 2: Теперь файл точно на месте. Находим его и аккуратно вставляем разрешение
       - name: Принудительное исправление AndroidManifest
         run: |
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep "main/AndroidManifest.xml" | head -n 1)
-          if [ -f "$MANIFEST_PATH" ]; then
+          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep -E "android/app/src/main|build/android" | head -n 1)
+          if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
             sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
             echo "Манифест успешно обновлен по пути: $MANIFEST_PATH"
-            cat "$MANIFEST_PATH"
+            cat "$MANIFEST_PATH" | grep -C 3 "MANAGE_EXTERNAL_STORAGE"
           else
-            echo "Файл AndroidManifest.xml не найден!"
-            exit 1
+            echo "Файл AndroidManifest.xml все еще не создан, пробуем альтернативный поиск..."
+            MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
+            if [ -f "$MANIFEST_PATH" ]; then
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
+              echo "Манифест найден по альтернативному пути: $MANIFEST_PATH"
+            else
+              echo "Критическая ошибка: Манифест не найден ни в одной папке!"
+              exit 1
+            fi
           fi
 
-      # Запускаем финальную компиляцию
+      # ШАГ 3: Запускаем чистую финальную сборку уже с модифицированным манифестом
       - name: Сборка финального APK
         run: |
           flet build apk
