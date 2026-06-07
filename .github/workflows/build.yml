@@ -27,32 +27,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # ШАГ 1: Запускаем генерацию проекта. Команда создаст все файлы, включая AndroidManifest
+      # Генерируем проект, чтобы Flet развернул свои временные файлы в системе
       - name: Генерация структуры Android проекта
         run: |
           flet build apk --patch || true
 
-      # ШАГ 2: Теперь файл точно на месте. Находим его и аккуратно вставляем разрешение
+      # ПРАВИЛЬНЫЙ ПОИСК: Ищем по всей файловой системе сервера, включая временную папку /tmp
       - name: Принудительное исправление AndroidManifest
         run: |
-          MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | grep -E "android/app/src/main|build/android" | head -n 1)
+          echo "Запускаем глобальный поиск манифеста..."
+          MANIFEST_PATH=$(find / -name "AndroidManifest.xml" 2>/dev/null | grep -E "android/app/src/main|flet_flutter_build" | head -n 1)
+          
           if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
+            echo "Файл успешно найден по пути: $MANIFEST_PATH"
             sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
-            echo "Манифест успешно обновлен по пути: $MANIFEST_PATH"
+            echo "Разрешение успешно внедрено. Проверяем результат:"
             cat "$MANIFEST_PATH" | grep -C 3 "MANAGE_EXTERNAL_STORAGE"
           else
-            echo "Файл AndroidManifest.xml все еще не создан, пробуем альтернативный поиск..."
-            MANIFEST_PATH=$(find . -name "AndroidManifest.xml" | head -n 1)
-            if [ -f "$MANIFEST_PATH" ]; then
+            echo "Глобальный поиск не дал результатов, пробуем найти абсолютно любой AndroidManifest..."
+            MANIFEST_PATH=$(find / -name "AndroidManifest.xml" 2>/dev/null | head -n 1)
+            if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
               sed -i '/<application/i \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" \/>' "$MANIFEST_PATH"
-              echo "Манифест найден по альтернативному пути: $MANIFEST_PATH"
+              echo "Модифицирован манифест по пути: $MANIFEST_PATH"
             else
-              echo "Критическая ошибка: Манифест не найден ни в одной папке!"
+              echo "Критическая ошибка: Сборщик Flet не создал манифест."
               exit 1
             fi
           fi
 
-      # ШАГ 3: Запускаем чистую финальную сборку уже с модифицированным манифестом
+      # Собираем финальный APK
       - name: Сборка финального APK
         run: |
           flet build apk
