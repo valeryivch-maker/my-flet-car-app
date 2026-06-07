@@ -27,10 +27,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install flet
 
-      # СИНХРОНИЗАЦИЯ: Передаем параметры компиляции в формате Ключ=Значение через пробел
+      # ИЗМЕНЕНИЕ: Заменяем медиа-права на управление всеми файлами
       - name: Сборка финального APK
         run: |
-          flet build apk --android-permissions android.permission.READ_EXTERNAL_STORAGE=True android.permission.WRITE_EXTERNAL_STORAGE=True
+          flet build apk --android-permissions android.permission.MANAGE_EXTERNAL_STORAGE=True
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
