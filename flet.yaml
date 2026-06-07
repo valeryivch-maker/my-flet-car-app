@@ -2,9 +2,5 @@ product: "Журнал ТО"
 description: "Автономный журнал технического обслуживания автомобиля"
 org: "com.mycompany"
 bundle_id: "com.mycompany.carjournal"
-build_version: "1.2.4"
-build_number: 8
-
-android:
-  permissions:
-    - android.permission.MANAGE_EXTERNAL_STORAGE
+build_version: "1.2.5"
+build_number: 9
