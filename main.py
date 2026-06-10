@@ -481,7 +481,7 @@ def build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuil
 # Фрагмент №5.2: Кроссплатформенный надежный менеджер диалогов импорта и экспорта
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, 
 show_message_callback):
-    """Вызов нативных диалогов ОС с защитой от разрыва асинхронных сессий на десктопе."""
+    """Вызов нативных диалогов ОС с явным указанием типов данных для Android SAF."""
     import os
     import sys
     import flet as ft
@@ -540,13 +540,14 @@ show_message_callback):
         async def launch_android_picker():
             try:
                 if mode == "import":
-                    # Убран жесткий фильтр allowed_extensions, чтобы Android отображал .json файлы
+                    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Переводим тип в TEXT, чтобы Android показал немедийные файлы
                     result = await ft.FilePicker().pick_files(
+                        type=ft.FilePickerFileType.TEXT,
                         allow_multiple=False,
                         with_data=True
                     )
                     if result and result.files and len(result.files) > 0:
-                        # ИСПРАВЛЕНО: Извлекаем первый элемент списка файлов [0]
+                        # Извлекаем первый элемент списка файлов
                         target_file = result.files[0]
                         
                         # Внутренняя валидация расширения файла на стороне Python
@@ -569,11 +570,11 @@ show_message_callback):
                         show_message_callback("Импорт отменен пользователем")
                         
                 elif mode == "export":
-                    # Для экспорта оставляем нативный диалог сохранения
+                    # Для экспорта на Android используем явный тип TEXT
                     export_path = await ft.FilePicker().save_file(
                         dialog_title="Выберите место для сохранения резервной копии",
                         file_name="auto_backup.json",
-                        allowed_extensions=["json"]
+                        type=ft.FilePickerFileType.TEXT
                     )
                     if export_path:
                         on_file_selected_callback(export_path)
@@ -585,7 +586,6 @@ show_message_callback):
                 show_message_callback(f"Ошибка проводника Android: {str(ex)}")
                 
         page.run_task(launch_android_picker)
-
 
 
 # Фрагмент №6: Окно добавления записи в журнал ТО
