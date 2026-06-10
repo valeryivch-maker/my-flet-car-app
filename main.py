@@ -479,10 +479,12 @@ def build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuil
 
 
 # Фрагмент №5.2: Кроссплатформенный надежный менеджер диалогов импорта и экспорта
-def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
+def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, 
+show_message_callback):
     """Вызов нативных диалогов ОС с защитой от разрыва асинхронных сессий на десктопе."""
     import os
     import sys
+    import flet as ft
 
     # ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ: Проверяем, запущены ли мы на Windows или Android
     is_windows = sys.platform.startswith("win")
@@ -496,8 +498,8 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
             # Скрываем корневое графическое окно самого Tkinter
             root = tk.Tk()
             root.withdraw()
-            root.attributes("-topmost", True)  # Помещаем окно выбора поверх Flet приложения
-
+            root.attributes("-topmost", True) # Помещаем окно выбора поверх Flet приложения
+            
             if mode == "import":
                 # Классическое белое окно Windows "Открыть файл"
                 file_path = filedialog.askopenfilename(
@@ -512,7 +514,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                         page.data["refresh_ui"]()
                 else:
                     show_message_callback("Импорт отменен пользователем")
-
+                    
             elif mode == "export":
                 # Классическое окно Windows "Сохранить как..."
                 file_path = filedialog.asksaveasfilename(
@@ -529,8 +531,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 else:
                     show_message_callback("Экспорт отменен пользователем")
             
-            root.destroy()  # Выгружаем Tkinter из оперативной памяти
-
+            root.destroy() # Выгружаем Tkinter из оперативной памяти
         except Exception as ex:
             show_message_callback(f"Ошибка проводника Windows: {str(ex)}")
 
@@ -539,25 +540,36 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
         async def launch_android_picker():
             try:
                 if mode == "import":
+                    # Убран жесткий фильтр allowed_extensions, чтобы Android отображал .json файлы
                     result = await ft.FilePicker().pick_files(
-                        allowed_extensions=["json"],
                         allow_multiple=False,
                         with_data=True
                     )
                     if result and result.files and len(result.files) > 0:
+                        # ИСПРАВЛЕНО: Извлекаем первый элемент списка файлов [0]
                         target_file = result.files[0]
+                        
+                        # Внутренняя валидация расширения файла на стороне Python
+                        if not target_file.name.lower().endswith(".json"):
+                            show_message_callback("Ошибка: Можно импортировать только файлы .json")
+                            return
+                            
                         if getattr(target_file, "bytes", None) is not None:
                             import json
                             json_text = target_file.bytes.decode("utf-8")
                             raw_data = json.loads(json_text)
-                            save_data(raw_data)
+                            
+                            # Передаем данные в функцию сохранения (запись в локальный storage приложения)
+                            on_file_selected_callback(raw_data) 
                             show_message_callback("База данных успешно импортирована!")
+                            
                             if page.data and "refresh_ui" in page.data:
                                 page.data["refresh_ui"]()
                     else:
                         show_message_callback("Импорт отменен пользователем")
-
+                        
                 elif mode == "export":
+                    # Для экспорта оставляем нативный диалог сохранения
                     export_path = await ft.FilePicker().save_file(
                         dialog_title="Выберите место для сохранения резервной копии",
                         file_name="auto_backup.json",
@@ -571,12 +583,8 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                         show_message_callback("Экспорт отменен пользователем")
             except Exception as ex:
                 show_message_callback(f"Ошибка проводника Android: {str(ex)}")
-
+                
         page.run_task(launch_android_picker)
-
-
-
-
 
 
 
