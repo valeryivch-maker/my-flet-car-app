@@ -481,7 +481,7 @@ def build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuil
 # Фрагмент №5.2: Кроссплатформенный надежный менеджер диалогов импорта и экспорта
 def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, 
 show_message_callback):
-    """Вызов нативных диалогов ОС с явным указанием типов данных для Android SAF."""
+    """Вызов нативных диалогов ОС с явным указанием кастомных фильтров для Android SAF."""
     import os
     import sys
     import flet as ft
@@ -540,9 +540,10 @@ show_message_callback):
         async def launch_android_picker():
             try:
                 if mode == "import":
-                    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Переводим тип в TEXT, чтобы Android показал немедийные файлы
+                    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Комбинация CUSTOM и allowed_extensions форсирует Android SAF
                     result = await ft.FilePicker().pick_files(
-                        type=ft.FilePickerFileType.TEXT,
+                        type=ft.FilePickerFileType.CUSTOM,
+                        allowed_extensions=["json"],
                         allow_multiple=False,
                         with_data=True
                     )
@@ -550,7 +551,7 @@ show_message_callback):
                         # Извлекаем первый элемент списка файлов
                         target_file = result.files[0]
                         
-                        # Внутренняя валидация расширения файла на стороне Python
+                        # Дополнительная валидация расширения файла на стороне Python
                         if not target_file.name.lower().endswith(".json"):
                             show_message_callback("Ошибка: Можно импортировать только файлы .json")
                             return
@@ -570,11 +571,12 @@ show_message_callback):
                         show_message_callback("Импорт отменен пользователем")
                         
                 elif mode == "export":
-                    # Для экспорта на Android используем явный тип TEXT
+                    # Для экспорта на Android используем аналогичный кастомный тип
                     export_path = await ft.FilePicker().save_file(
                         dialog_title="Выберите место для сохранения резервной копии",
                         file_name="auto_backup.json",
-                        type=ft.FilePickerFileType.TEXT
+                        type=ft.FilePickerFileType.CUSTOM,
+                        allowed_extensions=["json"]
                     )
                     if export_path:
                         on_file_selected_callback(export_path)
