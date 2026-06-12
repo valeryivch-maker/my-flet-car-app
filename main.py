@@ -1542,3 +1542,116 @@ if __name__ == "__main__":
     ft.run(main)
 
 
+# Фрагмент №14: Главная точка входа main и подсистема перехвата входящих файлов бэкапа
+def main(page: ft.Page):
+    page.title = "Журнал ТО"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    
+    # Загружаем текущие данные из локального текстового файла database.txt
+    db_data = load_data()
+    
+    def show_message(text):
+        """Универсальный быстрый показ системных уведомлений."""
+        page.snack_bar = ft.SnackBar(ft.Text(text))
+        page.snack_bar.open = True
+        page.update()
+
+    def rebuild_ui():
+        """Полная перерисовка интерфейса при переключении вкладок или импорте данных."""
+        page.controls.clear()
+        
+        # Получаем список имен автомобилей из нашей базы данных
+        car_names = list(db_data.get("cars", {}).keys())
+        
+        if not car_names:
+            page.add(ft.SafeArea(content=ft.Text("Нет доступных автомобилей. Добавьте первый!")))
+            return
+
+        # Защита от выхода индекса активной вкладки за границы обновленного списка машин
+        if app_state["active_tab"] >= len(car_names):
+            app_state["active_tab"] = 0
+
+        # Формируем верхнюю панель вкладок (Tabs) для переключения между машинами
+        tabs_control = ft.Tabs(
+            selected_index=app_state["active_tab"],
+            on_change=lambda e: (setattr(app_state, "active_tab", int(e.control.selected_index)), rebuild_ui()),
+            tabs=[ft.Tab(text=name) for name in car_names]
+        )
+
+        current_car_name = car_names[app_state["active_tab"]]
+        current_car_profile = db_data["cars"][current_car_name]
+
+        # Генерируем основную рабочую область автомобиля (Фрагмент №5.1 + Фрагмент №5.3)
+        main_content = generate_car_view(
+            page=page,
+            db_data=db_data,
+            car_name=current_car_name,
+            car_profile=current_car_profile,
+            show_message=show_message,
+            rebuild_callback=rebuild_ui
+        )
+
+        # Выводим все элементы в безопасную зону экрана смартфона (SafeArea)
+        page.add(
+            ft.SafeArea(
+                content=ft.Column([
+                    tabs_control,
+                    ft.Container(content=main_content, expand=True)
+                ], expand=True),
+                expand=True
+            )
+        )
+        page.update()
+
+    # Сохраняем ссылку на функцию обновления в глобальный контекст страницы
+    page.data = {"refresh_ui": rebuild_ui}
+
+    # ==================== СИСТЕМА ПЕРЕХВАТА ФАЙЛОВ ИЗ МЕНЮ "ПОДЕЛИТЬСЯ" ====================
+    async def handle_incoming_protocol_file(e):
+        """Асинхронный обработчик, вызываемый Android при открытии файла .json через приложение."""
+        file_url = e.route  # Извлекаем переданный операционной системой URI (схемы content:// или file://)
+        
+        if not file_url:
+            return
+
+        # Проверяем, что интент действительно пришел из внешнего файлового потока Android
+        if file_url.startswith("content://") or file_url.startswith("file://") or ".json" in file_url.lower():
+            try:
+                # Встроенный метод Flet для чтения сырых байтов файла напрямую из подсистемы Android SAF
+                content_bytes = await page.read_assets_file(file_url)
+                
+                if content_bytes:
+                    # Декодируем текстовый поток и парсим структуру JSON бэкапа
+                    json_text = content_bytes.decode("utf-8")
+                    imported_json = json.loads(json_text)
+                    
+                    if "cars" in imported_json:
+                        # Полностью очищаем старое состояние ОЗУ и накатываем новые данные
+                        db_data.clear()
+                        for key, value in imported_json.items():
+                            db_data[key] = json.loads(json.dumps(value))
+                        
+                        # Сбрасываем временные флаги новых машин и пишем бэкап в локальный database.txt
+                        app_state["newly_added_cars"].clear()
+                        save_data(db_data)
+                        
+                        # Мгновенно обновляем интерфейс приложения с новыми машинами
+                        app_state["active_tab"] = 0
+                        rebuild_ui()
+                        show_message("База данных успешно импортирована из внешнего файла!")
+                    else:
+                        show_message("Ошибка: Выбранный файл JSON не содержит профилей автомобилей")
+                else:
+                    show_message("Не удалось прочитать данные переданного файла бэкапа")
+            except Exception as ex:
+                show_message(f"Критическая ошибка автоимпорта: {str(ex)}")
+
+    # Регистрируем наш обработчик на системное событие протокола Android
+    page.on_protocol_route_change = handle_incoming_protocol_file
+
+    # Самый первый запуск отрисовки интерфейса при старте приложения
+    rebuild_ui()
+
+# Запуск всего кроссплатформенного движка Flet
+if __name__ == "__main__":
+    ft.app(target=main)
