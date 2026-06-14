@@ -478,116 +478,150 @@ def build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuil
     return ft.Column(controls=[header_card] + maintenance_cards, scroll=ft.ScrollMode.AUTO, expand=True)
 
 
-# Фрагмент №5.2: Кроссплатформенный надежный менеджер диалогов импорта и экспорта
-def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, 
-show_message_callback):
-    """Вызов нативных диалогов ОС с явным указанием кастомных фильтров для Android SAF."""
-    import os
-    import sys
-    import flet as ft
+# Фрагмент №5.2: Кроссплатформенный менеджер бэкапов через скрытые сетевые запросы к Telegram Bot API
+import requests
+import json
 
-    # ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ: Проверяем, запущены ли мы на Windows или Android
-    is_windows = sys.platform.startswith("win")
+# Персональные ключи авторизации вашей облачной подсистемы
+TG_TOKEN = "8859678783:AAHA9MbUhnS17bmf7w-vlNLkwYPiI-gOVuU"
+TG_CHAT_ID = "1036911003"
 
-    # ==================== ЛОГИКА ДЛЯ WINDOWS (Через Tkinter) ====================
-    if is_windows:
+def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_message_callback):
+    """Вызов облачного экспорта и импорта без использования файлового проводника смартфона."""
+    
+    if mode == "export":
         try:
-            import tkinter as tk
-            from tkinter import filedialog
+            # Запрашиваем актуальный словарь данных из ОЗУ через вызов коллбека
+            try:
+                # Пытаемся получить данные напрямую через флаг, если функция поддерживает
+                current_db_data = on_file_selected_callback(None, only_get_data=True)
+            except TypeError:
+                # Если коллбек старой структуры, читаем глобальный кэш через load_data
+                current_db_data = load_data()
+
+            # Сериализуем данные в текстовый JSON-поток прямо в памяти устройства
+            json_text = json.dumps(current_db_data, ensure_ascii=False, indent=2)
+            file_bytes = json_text.encode("utf-8")
+
+            # Формируем запрос к серверам Telegram для отправки документа в ваш чат
+            url = f"https://telegram.org{TG_TOKEN}/sendDocument"
+            files = {"document": ("auto_backup.json", file_bytes, "application/json")}
+            data = {"chat_id": TG_CHAT_ID, "caption": "📦 Резервная копия базы данных Журнала ТО (v1.2.5)"}
+
+            response = requests.post(url, files=files, data=data, timeout=15)
             
-            # Скрываем корневое графическое окно самого Tkinter
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True) # Помещаем окно выбора поверх Flet приложения
+            if response.status_code == 200:
+                show_message_callback("Бэкап успешно отправлен вашему Telegram-боту!")
+            else:
+                show_message_callback(f"Ошибка Telegram API: Код {response.status_code}")
+        except Exception as ex:
+            show_message_callback(f"Не удалось выполнить экспорт: {str(ex)}")
+
+    elif mode == "import":
+        # Создаем элементы управления для модального окна загрузки
+        progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
+        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+
+        async def start_async_import(e):
+            # Переводим окно в состояние загрузки сети
+            confirm_btn.visible = False
+            action_container.content = progress_ring
+            page.update()
             
-            if mode == "import":
-                # Классическое белое окно Windows "Открыть файл"
-                file_path = filedialog.askopenfilename(
-                    title="Выберите файл импорта базы данных (.json)",
-                    filetypes=[("Файлы JSON", "*.json")]
-                )
-                if file_path:
-                    # Передаем точный путь в синхронную функцию импорта JSON
-                    on_file_selected_callback(file_path)
-                    show_message_callback("База данных успешно импортирована!")
+            try:
+                # Шаг 1: Запрашиваем лог сообщений у бота, чтобы найти отправленный файл
+                url_updates = f"https://telegram.org{TG_TOKEN}/getUpdates"
+                response = requests.get(url_updates, timeout=15)
+                
+                if response.status_code != 200:
+                    status_text.value = f"Ошибка сети: Код {response.status_code}"
+                    page.update()
+                    return
+
+                updates_data = response.json()
+                results = updates_data.get("result", [])
+                
+                # Сканируем историю с конца, ища последний валидный .json файл бэкапа
+                target_file_id = None
+                for update in reversed(results):
+                    message = update.get("message", {})
+                    document = message.get("document", {})
+                    if document and document.get("file_name", "").lower().endswith(".json"):
+                        target_file_id = document.get("file_id")
+                        break
+
+                if not target_file_id:
+                    status_text.value = "В чате не найден бэкап. Сначала нажмите Экспорт!"
+                    page.update()
+                    return
+
+                # Шаг 2: Запрашиваем у Telegram внутренний путь к файлу на сервере
+                status_text.value = "Файл найден! Получение ссылки..."
+                page.update()
+                
+                url_file_info = f"https://telegram.org{TG_TOKEN}/getFile?file_id={target_file_id}"
+                file_info_res = requests.get(url_file_info, timeout=15).json()
+                file_path = file_info_res.get("result", {}).get("file_path")
+                
+                if not file_path:
+                    status_text.value = "Ошибка генерации ссылки скачивания"
+                    page.update()
+                    return
+
+                # Шаг 3: Скачиваем байты бэкапа и накатываем их на локальный database.txt
+                status_text.value = "Загрузка данных из облака..."
+                page.update()
+                
+                url_download = f"https://telegram.org{TG_TOKEN}/{file_path}"
+                download_res = requests.get(url_download, timeout=15)
+                imported_json = download_res.json()
+                
+                if "cars" in imported_json:
+                    # Очищаем ОЗУ и перезаписываем данные
+                    db_data = load_data()
+                    db_data.clear()
+                    for key, value in imported_json.items():
+                        db_data[key] = json.loads(json.dumps(value))
+                    
+                    # Сбрасываем временные маркеры и принудительно пишем бэкап на диск устройства
+                    app_state["newly_added_cars"].clear()
+                    save_data(db_data)
+                    
+                    # Принудительно сбрасываем активную вкладку и обновляем интерфейс приложения
+                    app_state["active_tab"] = 0
+                    dialog.open = False
+                    show_message_callback("База данных успешно импортирована из Telegram!")
                     if page.data and "refresh_ui" in page.data:
                         page.data["refresh_ui"]()
                 else:
-                    show_message_callback("Импорт отменен пользователем")
-                    
-            elif mode == "export":
-                # Классическое окно Windows "Сохранить как..."
-                file_path = filedialog.asksaveasfilename(
-                    title="Выберите место для сохранения резервной копии",
-                    initialfile="auto_backup.json",
-                    defaultextension=".json",
-                    filetypes=[("Файлы JSON", "*.json")]
-                )
-                if file_path:
-                    # Передаем путь в функцию записи JSON
-                    on_file_selected_callback(file_path)
-                    show_message_callback("Резервная копия успешно создана!")
+                    status_text.value = "Файл поврежден: Отсутствует блок 'cars'"
                     page.update()
-                else:
-                    show_message_callback("Экспорт отменен пользователем")
-            
-            root.destroy() # Выгружаем Tkinter из оперативной памяти
-        except Exception as ex:
-            show_message_callback(f"Ошибка проводника Windows: {str(ex)}")
-
-    # ==================== ЛОГИКА ДЛЯ ANDROID (Через FilePicker) ====================
-    else:
-        async def launch_android_picker():
-            try:
-                if mode == "import":
-                    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Комбинация CUSTOM и allowed_extensions форсирует Android SAF
-                    result = await ft.FilePicker().pick_files(
-                        type=ft.FilePickerFileType.CUSTOM,
-                        allowed_extensions=["json"],
-                        allow_multiple=False,
-                        with_data=True
-                    )
-                    if result and result.files and len(result.files) > 0:
-                        # Извлекаем первый элемент списка файлов
-                        target_file = result.files[0]
-                        
-                        # Дополнительная валидация расширения файла на стороне Python
-                        if not target_file.name.lower().endswith(".json"):
-                            show_message_callback("Ошибка: Можно импортировать только файлы .json")
-                            return
-                            
-                        if getattr(target_file, "bytes", None) is not None:
-                            import json
-                            json_text = target_file.bytes.decode("utf-8")
-                            raw_data = json.loads(json_text)
-                            
-                            # Передаем данные в функцию сохранения (запись в локальный storage приложения)
-                            on_file_selected_callback(raw_data) 
-                            show_message_callback("База данных успешно импортирована!")
-                            
-                            if page.data and "refresh_ui" in page.data:
-                                page.data["refresh_ui"]()
-                    else:
-                        show_message_callback("Импорт отменен пользователем")
-                        
-                elif mode == "export":
-                    # Для экспорта на Android используем аналогичный кастомный тип
-                    export_path = await ft.FilePicker().save_file(
-                        dialog_title="Выберите место для сохранения резервной копии",
-                        file_name="auto_backup.json",
-                        type=ft.FilePickerFileType.CUSTOM,
-                        allowed_extensions=["json"]
-                    )
-                    if export_path:
-                        on_file_selected_callback(export_path)
-                        show_message_callback("Резервная копия успешно создана!")
-                        page.update()
-                    else:
-                        show_message_callback("Экспорт отменен пользователем")
             except Exception as ex:
-                show_message_callback(f"Ошибка проводника Android: {str(ex)}")
-                
-        page.run_task(launch_android_picker)
+                status_text.value = "Сбой скачивания. Проверьте интернет!"
+                page.update()
+
+        confirm_btn = ft.ElevatedButton(
+            "Начать импорт", 
+            on_click=lambda e: page.run_task(start_async_import), 
+            style=ft.ButtonStyle(color=ft.colors.WHITE, bgcolor=ft.colors.BLUE)
+        )
+        action_container = ft.Container(content=confirm_btn)
+
+        # Компонуем модальное окно поверх основного UI
+        dialog = ft.AlertDialog(
+            title=ft.Text("Облачный Импорт"),
+            content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            actions=[ft.TextButton("Отмена", on_click=close_dialog)],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
 
 
 # Фрагмент №6: Окно добавления записи в журнал ТО
@@ -1375,104 +1409,93 @@ def setup_car_profile_actions(page, db_data, car_name, show_message, rebuild_cal
 
 
 
-# Фрагмент №12: Панель пробега автомобиля и создание карточки вида
-def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuild_callback):
-    """Генерация основного экрана автомобиля."""
-    # Извлекаем данные пробега. Если машина в списке чистых — строго выводим 0
-    if car_name in app_state["newly_added_cars"]:
-        current_value, current_date, daily_mileage_val = "0", datetime.now().strftime("%d.%m.%Y"), "0"
-    else:
-        odo_data = car_profile.get("odometer", {"value": 125000, "date": "—"})
-        current_value = str(odo_data.get("value", 125000))
-        current_date = odo_data.get("date", "—")
-        daily_mileage_val = str(car_profile.get("daily_mileage", 45))
+# Фрагмент №12: Главная точка входа main и отображение технической версии приложения
+APP_VERSION = "1.2.5"
+BUILD_NUMBER = "11"
 
-    current_odo_input = ft.TextField(label=f"Пробег (км) [от {current_date}]", value=current_value, keyboard_type=ft.KeyboardType.NUMBER, expand=True)
-    daily_input = ft.TextField(label="Пробег в день (км)", value=daily_mileage_val, keyboard_type=ft.KeyboardType.NUMBER, expand=True)
+def main(page: ft.Page):
+    page.title = "Журнал ТО"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    
+    # Первичная загрузка актуального состояния базы данных из database.txt
+    db_data = load_data()
+    
+    def show_message(text):
+        """Быстрый всплывающий показ системных сообщений (SnackBar)."""
+        page.snack_bar = ft.SnackBar(ft.Text(text))
+        page.snack_bar.open = True
+        page.update()
 
-    def execute_custom_export(full_path):
-        try:
-            fresh_db_data = load_data()
-            with open(full_path, "w", encoding="utf-8") as f: json.dump(fresh_db_data, f, ensure_ascii=False, indent=4)
-            show_message("Экспорт завершен!")
-        except Exception as ex: show_message(f"Ошибка экспорта: {ex}")
+    def rebuild_ui():
+        """Полная перерисовка рабочей зоны при переключениях и облачном импорте."""
+        page.controls.clear()
+        
+        # Получаем динамический список зарегистрированных автомобилей
+        car_names = list(db_data.get("cars", {}).keys())
+        
+        if not car_names:
+            page.add(ft.SafeArea(content=ft.Text("Нет доступных автомобилей. Добавьте первый!")))
+            return
 
-    def execute_custom_import(full_path):
-        try:
-            with open(full_path, "r", encoding="utf-8") as f: imported_json = json.load(f)
-            if "cars" in imported_json:
-                save_data(imported_json)
-                app_state["newly_added_cars"].clear()
-                rebuild_callback()
-                show_message("База импортирована!")
-            else: show_message("Неверный формат!")
-        except Exception as ex: show_message(f"Ошибка импорта: {ex}")
+        # Защита от выхода активного индекса за границы при обновлении базы
+        if app_state["active_tab"] >= len(car_names):
+            app_state["active_tab"] = 0
 
-    def update_forecast_click(e):
-        try:
-            val = int(current_odo_input.value)
-            now_str = datetime.now().strftime("%d.%m.%Y")
-            car_profile["odometer"] = {"value": val, "date": now_str}
-            car_profile["daily_mileage"] = int(daily_input.value)
-            if car_name in app_state["newly_added_cars"]: app_state["newly_added_cars"].remove(car_name)
-            h_list = car_profile["odometer_history"]
-            if not any(h["value"] == val for h in h_list): h_list.append({"value": val, "date": now_str})
-            car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
-            save_data(db_data)
-            rebuild_callback()
-            show_message("Данные обновлены!")
-        except ValueError: show_message("Ошибка: Проверьте поля!")
+        # Компонент переключения вкладок между машинами
+        tabs_control = ft.Tabs(
+            selected_index=app_state["active_tab"],
+            on_change=lambda e: (setattr(app_state, "active_tab", int(e.control.selected_index)), rebuild_ui()),
+            tabs=[ft.Tab(text=name) for name in car_names]
+        )
 
-    def add_custom_task_click(e):
-        t_title, t_int = ft.TextField(label="Название"), ft.TextField(label="Интервал", value="10000")
-        def save_custom_task(_):
-            title = t_title.value.strip()
-            m_data = car_profile["maintenance_data"]
-            if not title or title in m_data: return
-            try:
-                km = int(current_odo_input.value)
-                now_date = datetime.now().strftime("%d.%m.%Y")
-                m_data[title] = {"last_service": km, "interval": int(t_int.value), "date": now_date}
-                car_profile["history"].append({"task": title, "odometer": km, "date": now_date})
-                save_data(db_data)
-                dlg.open = False; page.update(); rebuild_callback()
-            except ValueError: pass
-        dlg = ft.AlertDialog(title=ft.Text("Добавить свою работу"), content=ft.Column([t_title, t_int], tight=True), actions=[ft.TextButton("Сохранить", on_click=save_custom_task)])
-        # ИСПРАВЛЕНО: Теперь имена переменных строго совпадают (везде dlg)
-        page.overlay.append(dlg); dlg.open = True; page.update()
+        current_car_name = car_names[app_state["active_tab"]]
+        current_car_profile = db_data["cars"][current_car_name]
 
-    act_fns = setup_car_profile_actions(page, db_data, car_name, show_message, rebuild_callback)
-    add_car_fn, edit_car_fn, del_car_fn = act_fns
+        # Генерируем карточки и счетчики пробега (из Фрагментов №5.1 и №9.2)
+        main_content = build_maintenance_list(
+            page=page,
+            db_data=db_data,
+            car_name=current_car_name,
+            car_profile=current_car_profile,
+            header_card=generate_car_view(page, db_data, current_car_name, current_car_profile, show_message, rebuild_ui),
+            rebuild_callback=rebuild_ui,
+            show_message=show_message,
+            add_task_fn=lambda e: show_add_task_history_dialog(page, db_data, current_car_name, current_car_profile, rebuild_ui, show_message)
+        )
 
-    def open_export(_): show_custom_file_manager_dialog(page, "export", execute_custom_export, show_message)
-    def open_import(_): show_custom_file_manager_dialog(page, "import", execute_custom_import, show_message)
-    def open_odo_hist(_): show_car_odometer_history_dialog(page, db_data, car_profile, rebuild_callback, show_message)
+        # ТЕХНИЧЕСКАЯ ПОДПИСЬ: Создаем мелкий серый ярлык версии в самом низу экрана
+        version_label = ft.Container(
+            content=ft.Text(
+                f"Версия: {APP_VERSION} (Билд {BUILD_NUMBER})", 
+                size=11, 
+                color=ft.colors.GREY_500
+            ),
+            alignment=ft.alignment.center,
+            padding=ft.padding.only(bottom=10, top=10)
+        )
 
-    action_panel = ft.Row([
-        ft.Row([
-            ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
-            ft.IconButton(ft.Icons.CLOUD_UPLOAD, icon_color=ft.Colors.BLUE_600, on_click=open_export),
-            ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, icon_color=ft.Colors.GREEN_600, on_click=open_import),
-        ], spacing=2),
-        ft.Row([
-            ft.IconButton(ft.Icons.ADD_CIRCLE, on_click=add_car_fn),
-            ft.IconButton(icon=ft.Icons.EDIT, on_click=edit_car_fn),
-            ft.IconButton(ft.Icons.DELETE_FOREVER, icon_color=ft.Colors.RED_500, on_click=del_car_fn),
-            ft.Container(width=40),
-        ], spacing=2),
-    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        # Собираем всё в безопасную область экрана SafeArea
+        page.add(
+            ft.SafeArea(
+                content=ft.Column([
+                    tabs_control,
+                    ft.Container(content=main_content, expand=True),
+                    version_label  # Метка версии закреплена под основным списком
+                ], expand=True),
+                expand=True
+            )
+        )
+        page.update()
 
-    header_card = ft.Card(content=ft.Container(content=ft.Column([
-        action_panel, ft.Divider(height=5, color=ft.Colors.BLACK_12), ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
-        ft.Row([current_odo_input, daily_input], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-        ft.Row([
-            ft.Button("Обновить", on_click=update_forecast_click, height=45),
-            ft.OutlinedButton("📖 История пробега", icon=ft.Icons.HISTORY, height=45, on_click=open_odo_hist),
-        ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
-    ], spacing=12), padding=12))
+    # Фиксируем коллбек перерисовки в глобальном контексте страницы для доступа из диалогов
+    page.data = {"refresh_ui": rebuild_ui}
+    
+    # Инициализируем стартовую отрисовку интерфейса журнала ТО
+    rebuild_ui()
 
-    return build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message, add_custom_task_click)
-
+# Инструкция запуска кроссплатформенного движка Flet
+if __name__ == "__main__":
+    ft.app(target=main)
 
 
 
