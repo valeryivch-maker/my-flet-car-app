@@ -1542,36 +1542,164 @@ if __name__ == "__main__":
     ft.run(main)
 
 
-# Фрагмент №14: Главная точка входа main и подсистема перехвата входящих файлов бэкапа
+# Фрагмент №14: Облачный Импорт/Экспорт через Telegram Bot API и точка входа main
+import json
+import requests
+
+# Константы интеграции с вашим персональным Telegram-ботом
+TG_TOKEN = "8859678783:AAHA9MbUhnS17bmf7w-vlNLkwYPiI-gOVuU"
+TG_CHAT_ID = "1036911003"
+
+def show_custom_file_manager_dialog(page: ft.Page, mode: str, on_file_selected_callback, show_message_callback):
+    """Кроссплатформенный менеджер бэкапов через скрытые сетевые запросы к Telegram Bot API."""
+    
+    if mode == "export":
+        try:
+            # Загружаем актуальные данные из ОЗУ/файла через коллбек приложения
+            try:
+                current_db_data = on_file_selected_callback(None, only_get_data=True)
+            except TypeError:
+                from main import load_data
+                current_db_data = load_data()
+
+            # Превращаем структуру бэкапа в текстовый файл JSON в оперативной памяти
+            json_text = json.dumps(current_db_data, ensure_ascii=False, indent=2)
+            file_bytes = json_text.encode("utf-8")
+
+            # Формируем POST-запрос для отправки документа в чат Telegram
+            url = f"https://telegram.org{TG_TOKEN}/sendDocument"
+            files = {"document": ("auto_backup.json", file_bytes, "application/json")}
+            data = {"chat_id": TG_CHAT_ID, "caption": "📦 Резервная копия базы данных Журнала ТО"}
+
+            response = requests.post(url, files=files, data=data, timeout=15)
+            
+            if response.status_code == 200:
+                show_message_callback("Бэкап успешно отправлен в облако вашего Telegram-боту!")
+            else:
+                show_message_callback(f"Ошибка Telegram API: Код {response.status_code}")
+        except Exception as ex:
+            show_message_callback(f"Не удалось выполнить экспорт по сети: {str(ex)}")
+
+    elif mode == "import":
+        # Создаем модальное окно с индикатором загрузки сети
+        progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
+        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
+        
+        def close_dialog(e):
+            page.open(dialog)
+            dialog.open = False
+            page.update()
+
+        async def start_async_import(e):
+            # Переключаем UI диалога в режим загрузки
+            confirm_btn.visible = False
+            action_container.content = progress_ring
+            page.update()
+            
+            try:
+                # Шаг 1: Запрашиваем историю последних сообщений у бота (метод getUpdates)
+                url_updates = f"https://telegram.org{TG_TOKEN}/getUpdates"
+                response = requests.get(url_updates, timeout=15)
+                
+                if response.status_code != 200:
+                    status_text.value = f"Ошибка связи с сервером: Код {response.status_code}"
+                    page.update()
+                    return
+
+                updates_data = response.json()
+                results = updates_data.get("result", [])
+                
+                # Ищем самый последний документ с расширением .json в истории чата
+                target_file_id = None
+                for update in reversed(results):
+                    message = update.get("message", {})
+                    document = message.get("document", {})
+                    if document and document.get("file_name", "").lower().endswith(".json"):
+                        target_file_id = document.get("file_id")
+                        break
+
+                if not target_file_id:
+                    status_text.value = "Ошибка: В чате с ботом не найдены файлы .json. Сначала сделайте Экспорт!"
+                    page.update()
+                    return
+
+                # Шаг 2: Получаем прямую ссылку на скачивание файла по его file_id
+                status_text.value = "Файл найден! Скачивание данных..."
+                page.update()
+                
+                url_file_info = f"https://telegram.org{TG_TOKEN}/getFile?file_id={target_file_id}"
+                file_info_res = requests.get(url_file_info, timeout=15).json()
+                file_path = file_info_info_res.get("result", {}).get("file_path")
+                
+                if not file_path:
+                    status_text.value = "Не удалось сгенерировать ссылку на файл"
+                    page.update()
+                    return
+
+                # Шаг 3: Скачиваем байты JSON-документа из облака Telegram
+                url_download = f"https://telegram.org{TG_TOKEN}/{file_path}"
+                download_res = requests.get(url_download, timeout=15)
+                
+                imported_json = download_res.json()
+                
+                if "cars" in imported_json:
+                    # Накатываем новые данные на локальную базу данных в ОЗУ
+                    from main import load_data, save_data, app_state
+                    db_data = load_data()
+                    db_data.clear()
+                    for key, value in imported_json.items():
+                        db_data[key] = json.loads(json.dumps(value))
+                    
+                    app_state["newly_added_cars"].clear()
+                    save_data(db_data) # Синхронизируем с локальным database.txt
+                    
+                    app_state["active_tab"] = 0
+                    close_dialog(None)
+                    show_message_callback("База данных успешно импортирована из Telegram!")
+                    if page.data and "refresh_ui" in page.data:
+                        page.data["refresh_ui"]()
+                else:
+                    status_text.value = "Ошибка: Файл в Telegram поврежден или не содержит блок 'cars'"
+                    page.update()
+            except Exception as ex:
+                status_text.value = f"Сбой импорта: Проверьте интернет-соединение"
+                page.update()
+
+        confirm_btn = ft.ElevatedButton("Начать импорт", on_click=lambda e: page.run_task(start_async_import), style=ft.ButtonStyle(color=ft.colors.WHITE, bgcolor=ft.colors.BLUE))
+        action_container = ft.Container(content=confirm_btn)
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Облачный Импорт"),
+            content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            actions=[ft.TextButton("Отмена", on_click=close_dialog)],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.open(dialog)
+        page.update()
+
+
 def main(page: ft.Page):
     page.title = "Журнал ТО"
     page.theme_mode = ft.ThemeMode.LIGHT
     
-    # Загружаем текущие данные из локального текстового файла database.txt
     db_data = load_data()
     
     def show_message(text):
-        """Универсальный быстрый показ системных уведомлений."""
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
         page.update()
 
     def rebuild_ui():
-        """Полная перерисовка интерфейса при переключении вкладок или импорте данных."""
         page.controls.clear()
-        
-        # Получаем список имен автомобилей из нашей базы данных
         car_names = list(db_data.get("cars", {}).keys())
         
         if not car_names:
             page.add(ft.SafeArea(content=ft.Text("Нет доступных автомобилей. Добавьте первый!")))
             return
 
-        # Защита от выхода индекса активной вкладки за границы обновленного списка машин
         if app_state["active_tab"] >= len(car_names):
             app_state["active_tab"] = 0
 
-        # Формируем верхнюю панель вкладок (Tabs) для переключения между машинами
         tabs_control = ft.Tabs(
             selected_index=app_state["active_tab"],
             on_change=lambda e: (setattr(app_state, "active_tab", int(e.control.selected_index)), rebuild_ui()),
@@ -1581,7 +1709,6 @@ def main(page: ft.Page):
         current_car_name = car_names[app_state["active_tab"]]
         current_car_profile = db_data["cars"][current_car_name]
 
-        # Генерируем основную рабочую область автомобиля (Фрагмент №5.1 + Фрагмент №5.3)
         main_content = generate_car_view(
             page=page,
             db_data=db_data,
@@ -1591,7 +1718,6 @@ def main(page: ft.Page):
             rebuild_callback=rebuild_ui
         )
 
-        # Выводим все элементы в безопасную зону экрана смартфона (SafeArea)
         page.add(
             ft.SafeArea(
                 content=ft.Column([
@@ -1603,55 +1729,8 @@ def main(page: ft.Page):
         )
         page.update()
 
-    # Сохраняем ссылку на функцию обновления в глобальный контекст страницы
     page.data = {"refresh_ui": rebuild_ui}
-
-    # ==================== СИСТЕМА ПЕРЕХВАТА ФАЙЛОВ ИЗ МЕНЮ "ПОДЕЛИТЬСЯ" ====================
-    async def handle_incoming_protocol_file(e):
-        """Асинхронный обработчик, вызываемый Android при открытии файла .json через приложение."""
-        file_url = e.route  # Извлекаем переданный операционной системой URI (схемы content:// или file://)
-        
-        if not file_url:
-            return
-
-        # Проверяем, что интент действительно пришел из внешнего файлового потока Android
-        if file_url.startswith("content://") or file_url.startswith("file://") or ".json" in file_url.lower():
-            try:
-                # Встроенный метод Flet для чтения сырых байтов файла напрямую из подсистемы Android SAF
-                content_bytes = await page.read_assets_file(file_url)
-                
-                if content_bytes:
-                    # Декодируем текстовый поток и парсим структуру JSON бэкапа
-                    json_text = content_bytes.decode("utf-8")
-                    imported_json = json.loads(json_text)
-                    
-                    if "cars" in imported_json:
-                        # Полностью очищаем старое состояние ОЗУ и накатываем новые данные
-                        db_data.clear()
-                        for key, value in imported_json.items():
-                            db_data[key] = json.loads(json.dumps(value))
-                        
-                        # Сбрасываем временные флаги новых машин и пишем бэкап в локальный database.txt
-                        app_state["newly_added_cars"].clear()
-                        save_data(db_data)
-                        
-                        # Мгновенно обновляем интерфейс приложения с новыми машинами
-                        app_state["active_tab"] = 0
-                        rebuild_ui()
-                        show_message("База данных успешно импортирована из внешнего файла!")
-                    else:
-                        show_message("Ошибка: Выбранный файл JSON не содержит профилей автомобилей")
-                else:
-                    show_message("Не удалось прочитать данные переданного файла бэкапа")
-            except Exception as ex:
-                show_message(f"Критическая ошибка автоимпорта: {str(ex)}")
-
-    # Регистрируем наш обработчик на системное событие протокола Android
-    page.on_protocol_route_change = handle_incoming_protocol_file
-
-    # Самый первый запуск отрисовки интерфейса при старте приложения
     rebuild_ui()
 
-# Запуск всего кроссплатформенного движка Flet
 if __name__ == "__main__":
     ft.app(target=main)
