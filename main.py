@@ -1542,13 +1542,15 @@ if __name__ == "__main__":
     ft.run(main)
 
 
-# Фрагмент №14: Облачный Импорт/Экспорт через Telegram Bot API и точка входа main
+# Фрагмент №14: Облачный Импорт/Экспорт через Telegram Bot API, вывод версии и точка входа main
 import json
 import requests
 
 # Константы интеграции с вашим персональным Telegram-ботом
 TG_TOKEN = "8859678783:AAHA9MbUhnS17bmf7w-vlNLkwYPiI-gOVuU"
 TG_CHAT_ID = "1036911003"
+APP_VERSION = "1.2.5"
+BUILD_NUMBER = "11"
 
 def show_custom_file_manager_dialog(page: ft.Page, mode: str, on_file_selected_callback, show_message_callback):
     """Кроссплатформенный менеджер бэкапов через скрытые сетевые запросы к Telegram Bot API."""
@@ -1569,7 +1571,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, on_file_selected_c
             # Формируем POST-запрос для отправки документа в чат Telegram
             url = f"https://telegram.org{TG_TOKEN}/sendDocument"
             files = {"document": ("auto_backup.json", file_bytes, "application/json")}
-            data = {"chat_id": TG_CHAT_ID, "caption": "📦 Резервная копия базы данных Журнала ТО"}
+            data = {"chat_id": TG_CHAT_ID, "caption": f"📦 Резервная копия базы данных Журнала ТО (v{APP_VERSION})"}
 
             response = requests.post(url, files=files, data=data, timeout=15)
             
@@ -1629,7 +1631,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, on_file_selected_c
                 
                 url_file_info = f"https://telegram.org{TG_TOKEN}/getFile?file_id={target_file_id}"
                 file_info_res = requests.get(url_file_info, timeout=15).json()
-                file_path = file_info_info_res.get("result", {}).get("file_path")
+                file_path = file_info_res.get("result", {}).get("file_path")
                 
                 if not file_path:
                     status_text.value = "Не удалось сгенерировать ссылку на файл"
@@ -1718,11 +1720,23 @@ def main(page: ft.Page):
             rebuild_callback=rebuild_ui
         )
 
+        # ТЕХНИЧЕСКАЯ ИНФОРМАЦИЯ: Создаем мелкую подпись версии в самом низу экрана
+        version_label = ft.Container(
+            content=ft.Text(
+                f"Версия: {APP_VERSION} (Билд {BUILD_NUMBER})", 
+                size=11, 
+                color=ft.colors.GREY_500
+            ),
+            alignment=ft.alignment.center,
+            padding=ft.padding.only(bottom=10, top=10)
+        )
+
         page.add(
             ft.SafeArea(
                 content=ft.Column([
                     tabs_control,
-                    ft.Container(content=main_content, expand=True)
+                    ft.Container(content=main_content, expand=True),
+                    version_label  # Добавили контейнер с версией под основную рабочую область
                 ], expand=True),
                 expand=True
             )
