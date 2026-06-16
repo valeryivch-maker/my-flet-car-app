@@ -552,12 +552,11 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
     
     network_executor = ThreadPoolExecutor(max_workers=2)
     
-    # Полностью маскируем ссылки в байты, чтобы обмануть скрытые регулярные выражения в main.py
-    # Больше ни один внутренний скрипт перехвата не сможет испортить эти строки!
-    URL_EXPORT = b"https://telegram.org".decode("utf-8")
-    URL_UPDATES = b"https://telegram.org".decode("utf-8")
-    URL_FILE_INFO = b"https://telegram.org".decode("utf-8")
-    URL_DOWNLOAD_BASE = b"https://telegram.org".decode("utf-8")
+    # Прямые строки URL для Android (на смартфонах они не блокируются)
+    URL_EXPORT = f"https://telegram.org{TG_TOKEN}/sendDocument"
+    URL_UPDATES = f"https://telegram.org{TG_TOKEN}/getUpdates"
+    URL_FILE_INFO = f"https://telegram.org{TG_TOKEN}/getFile"
+    URL_DOWNLOAD_BASE = f"https://telegram.org{TG_TOKEN}/"
     
     if mode == "export":
         def async_export_worker():
@@ -565,20 +564,14 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 print("[LOG] Старт асинхронного экспорта базы...")
                 current_db_data = None
                 
-                if on_file_selected_callback:
-                    try: current_db_data = on_file_selected_callback(None, only_get_data=True)
-                    except: pass
+                # На Android берем данные напрямую из стабильной функции чтения файла базы
+                try:
+                    current_db_data = load_data()
+                except Exception as e:
+                    print(f"[LOG] Ошибка вызова load_data: {e}")
                 
                 if not current_db_data:
-                    try:
-                        global db_data
-                        current_db_data = db_data
-                    except NameError:
-                        try: current_db_data = load_data()
-                        except Exception as e: print(f"[LOG] Ошибка load_data: {e}")
-                
-                if not current_db_data:
-                    show_message_callback("Ошибка: Данные базы не найдены в ОЗУ!")
+                    show_message_callback("Ошибка: Не удалось прочитать базу данных!")
                     return
                     
                 json_text = json.dumps(current_db_data, ensure_ascii=False, indent=4)
@@ -591,18 +584,14 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 session = requests.Session()
                 session.trust_env = False
                 
-                print(f"[LOG] Отправка запроса на замаскированный API: {URL_EXPORT}")
                 response = session.post(URL_EXPORT, data=payload_data, files=payload_files, timeout=15)
-                print(f"[LOG] Ответ Telegram API получен. Статус-код: {response.status_code}")
-                print(f"[LOG] Текст ответа: {response.text[:150]}")
                 
-                if response.status_code == 200 and '"ok":true' in response.text.lower():
-                    show_message_callback("Резервная копия успешно отправлена в Telegram!")
+                if response.status_code == 200:
+                    show_message_callback("Бэкап успешно отправлен в Telegram!")
                 else:
-                    show_message_callback(f"Сбой Telegram API: Код {response.status_code}")
+                    show_message_callback(f"Ошибка облака: {response.status_code}")
             except Exception as ex:
-                print(f"[LOG] Критическая ошибка экспорта: {str(ex)}")
-                show_message_callback("Ошибка сети. Проверьте подключение.")
+                show_message_callback(f"Сбой сети: {str(ex)}")
                 
         network_executor.submit(async_export_worker)
         
@@ -616,7 +605,6 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
             
         def async_import_worker():
             try:
-                print("[LOG] Старт асинхронного импорта базы...")
                 session = requests.Session()
                 session.trust_env = False
                 
@@ -637,11 +625,11 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                         break
                         
                 if not backup_file_id:
-                    status_text.value = "Файл бэкапа в облаке не найден!"
+                    status_text.value = "Бэкап в облаке не найден!"
                     page.update()
                     return
                     
-                status_text.value = "Файл найден! Скачивание..."
+                status_text.value = "Скачивание файла..."
                 page.update()
                 
                 file_info_res = session.get(URL_FILE_INFO, params={"file_id": backup_file_id})
@@ -651,19 +639,22 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 imported_json = json.loads(download_res.text)
                 
                 if "cars" in imported_json:
-                    global db_data
-                    db_data = imported_json
-                    try: save_data(db_data)
-                    except NameError: pass
+                    try:
+                        save_data(imported_json)
+                    except Exception as e:
+                        print(f"Ошибка сохранения: {e}")
+                        
                     status_text.value = "Синхронизация успешна!"
                     page.update()
-                    show_message_callback("База данных успешно восстановлена!")
+                    show_message_callback("База успешно восстановлена!")
+                    
+                    # Принудительно перезагружаем UI Flet на Android
                     if page.data and "refresh_ui" in page.data:
                         page.data["refresh_ui"]()
                     dialog.open = False
                     page.update()
                 else:
-                    status_text.value = "Файл поврежден (нет узла cars)"
+                    status_text.value = "Файл поврежден."
                     page.update()
             except Exception as ex:
                 status_text.value = f"Ошибка: {str(ex)}"
