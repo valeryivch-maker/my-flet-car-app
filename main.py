@@ -552,10 +552,9 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
     
     network_executor = ThreadPoolExecutor(max_workers=2)
     
-    # Прямые строки URL для Android (на смартфонах они не блокируются)
-    URL_EXPORT = f"https://telegram.org{TG_TOKEN}/sendDocument"
-    URL_UPDATES = f"https://telegram.org{TG_TOKEN}/getUpdates"
-    URL_FILE_INFO = f"https://telegram.org{TG_TOKEN}/getFile"
+    URL_EXPORT = f"https://api.telegram.org/bot{TG_TOKEN}/sendDocument"
+    URL_UPDATES = f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates"
+    URL_FILE_INFO = f"https://api.telegram.org/bot{TG_TOKEN}/getFile"
     URL_DOWNLOAD_BASE = f"https://telegram.org{TG_TOKEN}/"
     
     if mode == "export":
@@ -564,15 +563,12 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 print("[LOG] Старт асинхронного экспорта базы...")
                 current_db_data = None
                 
-                # На Android берем данные напрямую из стабильной функции чтения файла базы
-                try:
-                    current_db_data = load_data()
-                except Exception as e:
-                    print(f"[LOG] Ошибка вызова load_data: {e}")
+                try: current_db_data = load_data()
+                except: pass
                 
-                if not current_db_data:
-                    show_message_callback("Ошибка: Не удалось прочитать базу данных!")
-                    return
+                # Если база данных на телефоне еще пустая, создаем валидный стартовый каркас
+                if not current_db_data or "cars" not in current_db_data:
+                    current_db_data = {"cars": {}, "history": []}
                     
                 json_text = json.dumps(current_db_data, ensure_ascii=False, indent=4)
                 file_stream = io.BytesIO(json_text.encode("utf-8"))
@@ -589,7 +585,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 if response.status_code == 200:
                     show_message_callback("Бэкап успешно отправлен в Telegram!")
                 else:
-                    show_message_callback(f"Ошибка облака: {response.status_code}")
+                    show_message_callback(f"Ошибка облака: Код {response.status_code}")
             except Exception as ex:
                 show_message_callback(f"Сбой сети: {str(ex)}")
                 
@@ -639,16 +635,13 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 imported_json = json.loads(download_res.text)
                 
                 if "cars" in imported_json:
-                    try:
-                        save_data(imported_json)
-                    except Exception as e:
-                        print(f"Ошибка сохранения: {e}")
+                    try: save_data(imported_json)
+                    except Exception as e: print(f"Ошибка сохранения: {e}")
                         
                     status_text.value = "Синхронизация успешна!"
                     page.update()
                     show_message_callback("База успешно восстановлена!")
                     
-                    # Принудительно перезагружаем UI Flet на Android
                     if page.data and "refresh_ui" in page.data:
                         page.data["refresh_ui"]()
                     dialog.open = False
