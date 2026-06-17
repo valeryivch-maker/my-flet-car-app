@@ -6,6 +6,72 @@ from datetime import datetime, timedelta
 
 # СИНХРОНИЗАЦИЯ: Связываем оба имени с одним физическим файлом
 DB_FILE = "database.txt"
+
+def generate_analytics_view(page, car_profile):
+    import flet as ft
+    
+    view_column = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=15)
+    current_km = car_profile.get("odometer", {}).get("value", 0)
+    maintenance_tasks = car_profile.get("maintenance_data", {})
+    
+    view_column.controls.append(
+        ft.Text("Аналитика износа расходников", size=20, weight=ft.FontWeight.BOLD)
+    )
+    
+    if not maintenance_tasks:
+        view_column.controls.append(
+            ft.Text("Нет данных для анализа. Добавьте регламентные работы.", 
+                    color=ft.Colors.GREY_500, italic=True)
+        )
+        return view_column
+        
+    for task_name, task_data in maintenance_tasks.items():
+        interval = task_data.get("interval", 1) # Защита от деления на 0
+        last_service = task_data.get("last_service", 0)
+        
+        target_km = last_service + interval
+        remains = target_km - current_km
+        
+        # Считаем остаток ресурса (от 0.0 до 1.0)
+        passed = current_km - last_service
+        if passed < 0: passed = 0
+        
+        resource_left = 1.0 - (passed / interval)
+        # Ограничиваем рамками 0.0 - 1.0
+        resource_left = max(0.0, min(1.0, resource_left))
+        
+        # Динамически выбираем цвет полосы и статус
+        if remains <= 0:
+            bar_color = ft.Colors.RED_600
+            status_text = "Срочно заменить!"
+        elif remains <= 500:
+            bar_color = ft.Colors.ORANGE_700
+            status_text = f"Скоро замена (осталось {remains} км)"
+        else:
+            bar_color = ft.Colors.GREEN_700
+            status_text = f"Ресурс в норме (осталось {remains} км)"
+            
+        # Красивая карточка с прогресс-баром
+        task_card = ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Text(task_name, size=15, weight=ft.FontWeight.BOLD, expand=True),
+                        ft.Text(f"{int(resource_left * 100)}%", size=14, weight=ft.FontWeight.W_500, color=bar_color)
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Container(height=4),
+                    ft.ProgressBar(value=resource_left, color=bar_color, bgcolor=ft.Colors.GREY_200, height=8),
+                    ft.Container(height=2),
+                    ft.Text(status_text, size=12, color=ft.Colors.GREY_600, italic=True)
+                ], spacing=4),
+                padding=12
+            )
+        )
+        view_column.controls.append(task_card)
+        
+    return view_column
+
+
 DB_PATH = DB_FILE
 
 # Глобальный словарь состояния приложения
@@ -385,6 +451,9 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
             ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
             ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт в Telegram", icon_color=ft.Colors.BLUE_600, on_click=lambda _: show_custom_file_manager_dialog(page, "export", None, show_message)),
             ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт из Telegram", icon_color=ft.Colors.GREEN_600, on_click=lambda _: show_custom_file_manager_dialog(page, "import", None, show_message)),
+            ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip='Переключить Графики / Список ТО', 
+            icon_color=ft.Colors.ORANGE_800, 
+            on_click=lambda _: [app_state.update({'view_mode': 'analytics' if app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_callback()]),
         ], spacing=2),
         ft.Row([
             ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
@@ -415,6 +484,14 @@ def generate_car_view(page, db_data, car_name, car_profile, show_message, rebuil
         )
     )
     
+        # Проверка режима отображения (Списки или Аналитика с прогресс-барами)
+    if app_state.get("view_mode") == "analytics":
+        # Создаем контейнер, наверх кидаем header_card, снизу — прогресс-бары
+        analytics_container = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
+        analytics_container.controls.append(header_card)
+        analytics_container.controls.append(generate_analytics_view(page, car_profile))
+        return analytics_container
+        
     return build_maintenance_list_cards(page, db_data, car_profile, header_card, rebuild_callback, show_message)
 
 
@@ -614,7 +691,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                 backup_file_id = None
                 
                 for update in reversed(updates):
-                    message = update.get("update", {}).get("message", update.get("message", {}))
+                    message = update.get("message", {})
                     document = message.get("document", {})
                     if document and "json" in document.get("file_name", "").lower():
                         backup_file_id = document.get("file_id")
@@ -638,6 +715,15 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected_callback, show_
                     try: save_data(imported_json)
                     except Exception as e: print(f"Ошибка сохранения: {e}")
                         
+                    # ХАК ДЛЯ ОЖИВЛЕНИЯ UI: Сброс кэша оперативной памяти
+                    if 'db_data' in globals():
+                        global db_data
+                        db_data.clear()
+                        db_data.update(load_data())
+                    elif 'db' in globals():
+                        global db
+                        db.clear()
+                        db.update(load_data())
                     status_text.value = "Синхронизация успешна!"
                     page.update()
                     show_message_callback("База успешно восстановлена!")
@@ -1171,88 +1257,85 @@ def create_task_actions(
 
 
 # Фрагмент №9.2: Полное восстановление оригинальной бизнес-логики интерфейса без дубликата заголовка
-def build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message, add_task_fn):
+def build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild_callback, show_message, add_task_fn=None):
     import flet as ft
+    from datetime import datetime, timedelta
     
-    # Создаем вертикальную колонку интерфейса автомобиля
     content_list = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
-    
-    # 1. Добавляем верхнюю карточку автомобиля (header_card) со всеми счетчиками
     content_list.controls.append(header_card)
     
-    # Строка-дубликат отсюда удалена навсегда, чтобы не портить оригинальный дизайн.
-
-    maintenance_tasks = car_profile.get("maintenance", {})
+    current_km = car_profile.get("odometer", {}).get("value", 0)
+    daily_run = car_profile.get("daily_mileage", 45)
+    maintenance_tasks = car_profile.get("maintenance_data", {})
+    
     if not maintenance_tasks:
         content_list.controls.append(
             ft.Container(
-                content=ft.Text("Для этого автомобиля еще не добавлено ни одного регламента ТО.", size=14, color=ft.Colors.GREY_500),
+                content=ft.Text("Для этого автомобиля еще не добавлено ни одного регламента ТО.", 
+                                size=14, color=ft.Colors.GREY_500),
                 alignment=ft.Alignment.CENTER,
                 padding=ft.Padding.only(top=20)
             )
         )
         return content_list
-
-    # 2. Перебор и генерация раскрывающихся карточек регламентов ТО
-    for task_id, task_data in maintenance_tasks.items():
+        
+    for task_name, task_data in maintenance_tasks.items():
         interval = task_data.get("interval", 0)
-        last_replace = task_data.get("last_replace_mileage", 0)
-        current_mileage = car_profile.get("current_mileage", 0)
+        last_service = task_data.get("last_service", 0)
         
-        # Полное восстановление оригинальных формул расчета остатка пробега
-        target_mileage = last_replace + interval
-        remaining = target_mileage - current_mileage
+        target_mileage = last_service + interval
+        remaining = target_mileage - current_km
         
-        # Определение цвета предупреждения в зависимости от износа
-        if remaining <= 0:
-            status_color = ft.Colors.RED
-            subtitle_str = f"Просрочено на {abs(remaining)} км! (Замена на {target_mileage} км)"
-        elif remaining <= 500:
-            status_color = ft.Colors.ORANGE
-            subtitle_str = f"Осталось: {remaining} км (Замена на {target_mileage} км)"
+        # Расчет прогнозной даты ТО
+        if remaining > 0 and daily_run > 0:
+            days_left = remaining / daily_run
+            future_date = datetime.now() + timedelta(days=days_left)
+            forecast_str = future_date.strftime("%d.%m.%Y")
         else:
-            status_color = ft.Colors.GREEN
-            subtitle_str = f"Осталось: {remaining} км (Замена на {target_mileage} км)"
-
-        # Восстановление оригинальной структуры ExpansionTile со всеми кнопками управления
+            forecast_str = "Срочно ТО!"
+            
+        # Определение цвета и статуса износа
+        if remaining <= 0:
+            status_color = ft.Colors.RED_600
+            subtitle_str = f"Просрочено на {abs(remaining)} км! | Прогноз: {forecast_str}"
+        elif remaining <= 500:
+            status_color = ft.Colors.ORANGE_700
+            subtitle_str = f"Осталось: {remaining} км (Скоро ТО) | Прогноз: {forecast_str}"
+        else:
+            status_color = ft.Colors.GREEN_700
+            subtitle_str = f"Осталось: {remaining} км | Прогноз: {forecast_str}"
+            
+        # Генерация замыканий для кнопок управления
+        reset_fn, change_fn, delete_fn = create_task_actions(
+            page, db_data, car_profile, task_name, current_km, rebuild_callback, show_message
+        )
+        
         tile = ft.ExpansionTile(
-            title=ft.Text(task_data.get("name", "Регламент"), size=16, weight=ft.FontWeight.BOLD),
+            title=ft.Text(task_name, size=16, weight=ft.FontWeight.BOLD),
             subtitle=ft.Text(subtitle_str, color=status_color, size=13),
             controls=[
                 ft.Container(
                     content=ft.Column([
+                        # Добавлено название работы внутрь карточки
+                        ft.Text(f"🛠️ Выполняемая работа: {task_name}", size=14, weight=ft.FontWeight.W_500),
+                        ft.Container(height=5),
                         ft.Row([
                             ft.Text(f"Интервал ТО: {interval} км", size=14),
-                            ft.Text(f"Последняя замена: {last_replace} км", size=14),
+                            ft.Text(f"Последний сервис: {last_service} км", size=14),
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ft.Container(height=10),
-                        
-                        # ВОССТАНОВЛЕНИЕ ВСЕХ КНОПОК: Ввод истории, Изменение регламента, Сброс и Удаление
                         ft.Row([
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Ввод истории",
                                 icon=ft.Icons.HISTORY,
-                                on_click=lambda e, t_id=task_id: add_task_fn(t_id),
+                                on_click=lambda e, t=task_name: show_add_task_history_dialog(
+                                    page, db_data, t, car_profile, rebuild_callback, show_message
+                                ),
                                 style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE, color=ft.Colors.WHITE)
                             ),
-                            ft.IconButton(
-                                icon=ft.Icons.EDIT,
-                                icon_color=ft.Colors.BLUE,
-                                tooltip="Редактировать регламент",
-                                on_click=lambda e, t_id=task_id: show_edit_task_dialog(page, db_data, car_name, car_profile, t_id, rebuild_callback, show_message)
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.REFRESH,
-                                icon_color=ft.Colors.ORANGE,
-                                tooltip="Сбросить интервал (Замена выполнена сейчас)",
-                                on_click=lambda e, t_id=task_id: confirm_reset_task(page, db_data, car_name, car_profile, t_id, rebuild_callback, show_message)
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE,
-                                icon_color=ft.Colors.RED,
-                                tooltip="Удалить регламент",
-                                on_click=lambda e, t_id=task_id: confirm_delete_task(page, db_data, car_name, car_profile, t_id, rebuild_callback, show_message)
-                            )
+                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, tooltip="Редактировать", on_click=change_fn),
+                            ft.IconButton(ft.Icons.CHECK_CIRCLE, icon_color=ft.Colors.GREEN_600, tooltip="Выполнено", on_click=reset_fn),
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, tooltip="Удалить", on_click=delete_fn)
                         ], alignment=ft.MainAxisAlignment.END, spacing=10)
                     ]),
                     padding=ft.Padding.all(15),
@@ -1261,22 +1344,10 @@ def build_maintenance_list(page, db_data, car_name, car_profile, header_card, re
             ]
         )
         content_list.controls.append(tile)
-
+        
     return content_list
 
 
-
-
-# Фрагмент №10: Кастомный файловый менеджер (Устаревшая заглушка отключена)
-# Данный блок намеренно оставлен пустым для бесконфликтной работы Фрагмента №5.2
-pass
-
-
-
-
-
-
-# Фрагмент №11: Подсистема загрузки, сохранения и автоматической миграции структуры БД
 def load_data():
     """Загрузка локальной базы данных из database.txt с сохранением оригинальной миграции."""
     if not os.path.exists(DB_FILE):
@@ -1457,108 +1528,94 @@ APP_VERSION = "1.2.5"
 BUILD_NUMBER = "11"
 
 def main(page: ft.Page):
-    page.title = "Журнал ТО"
-    page.theme_mode = ft.ThemeMode.LIGHT
+    import flet as ft
     
-    # Первичная загрузка актуального состояния базы данных из database.txt (Твой Фрагмент №3)
+    # 1. Настройка светлой темы и параметров окна
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
+    page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
+    page.title = "Журнал ТО"
+    page.window_width = 1200
+    page.window_height = 800
+    
+    global app_state, db_data
+    if 'app_state' not in globals():
+        app_state = {"view_mode": "list", "active_tab": 0, "newly_added_cars": []}
+        
     db_data = load_data()
     
-    def show_message(text):
-        """Быстрый всплывающий показ системных сообщений (SnackBar)."""
-        page.snack_bar = ft.SnackBar(ft.Text(text))
-        page.snack_bar.open = True
-        page.update()
-
+    # 2. Главный обработчик отрисовки
     def rebuild_ui():
-        page.controls.clear()
+        page.clean()
         
-        # Получаем динамический список зарегистрированных автомобилей из твоей оригинальной структуры БД
-        car_names = list(db_data.get("cars", {}).keys())
-        
-        if not car_names:
-            page.add(ft.SafeArea(content=ft.Text("Нет доступных автомобилей. Добавьте первый!")))
+        cars_dict = db_data.get("cars", {})
+        if not cars_dict:
+            page.add(ft.Text("В базе данных нет автомобилей. Добавьте первый автомобиль.", size=16))
+            page.update()
             return
-
-        # Защита от выхода активного индекса за границы при обновлении базы данных
-        if app_state["active_tab"] >= len(car_names):
-            app_state["active_tab"] = 0
-
-        current_car_name = car_names[app_state["active_tab"]]
-        current_car_profile = db_data["cars"][current_car_name]
-
-        # НАДЕЖНЫЕ ВКЛАДКИ НА КНОПКАХ: ИСПРАВЛЕНО НА КВАДРАТНЫЕ СКОБКИ СЛОВАРЯ ДЛЯ app_state
-        tabs_list = []
-        for index, name in enumerate(car_names):
-            is_active = (index == app_state["active_tab"])
             
-            # Внутренняя функция-коллбек для безопасной смены активного индекса машины в словаре
-            def make_click_cb(idx=index):
-                def click_handler(e):
-                    app_state["active_tab"] = idx  # ЧЕСТНОЕ ОБНОВЛЕНИЕ ЗНАЧЕНИЯ ВНУТРИ СЛОВАРЯ
-                    rebuild_ui()
-                return click_handler
-
-            tabs_list.append(
-                ft.Container(
-                    content=ft.TextButton(
-                        name,
-                        on_click=make_click_cb(),
-                        style=ft.ButtonStyle(
-                            color=ft.Colors.WHITE if is_active else ft.Colors.BLUE,
-                        )
-                    ),
-                    bgcolor=ft.Colors.BLUE if is_active else ft.Colors.GREY_200,
-                    border_radius=8,
-                    padding=ft.Padding.only(left=5, right=5)
-                )
+        car_names = list(cars_dict.keys())
+        
+        selected_car = app_state.get("selected_car")
+        if not selected_car or selected_car not in cars_dict:
+            selected_car = car_names[0]
+            app_state["selected_car"] = selected_car
+            
+        # Панель переключения машин на чистых кнопках ft.Row
+        car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
+        
+        for name in car_names:
+            is_selected = (name == selected_car)
+            
+            def make_click_handler(car_name_to_select):
+                return lambda _: [app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
+            
+            btn = ft.Container(
+                content=ft.Text(
+                    str(name), 
+                    color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
+                    weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL,
+                    size=14
+                ),
+                bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
+                # ИСПРАВЛЕНО ПО СТАНДАРТУ FLET 1.0+ (лево, верх, право, низ)
+                padding=ft.Padding(16, 8, 16, 8),
+                border_radius=8,
+                on_click=make_click_handler(name),
+                animate=200
             )
-
-        tabs_control = ft.Row(
-            controls=tabs_list,
-            scroll=ft.ScrollMode.AUTO,
-            spacing=10
-        )
-
-        # СВЯЗЫВАНИЕ С ОРИГИНАЛЬНЫМ КОДОМ ИЗ PDF: Вызываем твою родную функцию генерации интерфейса
-        main_content = generate_car_view(
-            page=page,
-            db_data=db_data,
-            car_name=current_car_name,
-            car_profile=current_car_profile,
-            show_message=show_message,
-            rebuild_callback=rebuild_ui
-        )
-
-        # ТЕХНИЧЕСКАЯ ПОДПИСЬ ВЕРСИИ: Серый аккуратный ярлык в самом низу экрана
-        version_label = ft.Container(
-            content=ft.Text(
-                f"Версия: {APP_VERSION} (Билд {BUILD_NUMBER})", 
-                size=11, 
-                color=ft.Colors.GREY_500
-            ),
-            alignment=ft.Alignment.CENTER,
-            padding=ft.Padding.only(bottom=10, top=10)
-        )
-
-        # Собираем интерфейс в безопасную зону экрана SafeArea: вкладки сверху, оригинальный контент, подпись
-        page.add(
-            ft.SafeArea(
-                content=ft.Column([
-                    ft.Container(content=tabs_control, padding=ft.Padding.only(top=5, bottom=5)), # Вкладки машин
-                    ft.Container(content=main_content, expand=True), # Твой настоящий рабочий интерфейс со всеми кнопками
-                    version_label # Метка версии
-                ], expand=True),
-                expand=True
+            car_buttons_row.controls.append(btn)
+                
+        car_profile = cars_dict[selected_car]
+        
+        if 'generate_car_view' in globals():
+            main_layout = generate_car_view(
+                page=page,
+                db_data=db_data,
+                car_name=selected_car,
+                car_profile=car_profile,
+                rebuild_callback=rebuild_ui,
+                show_message=lambda msg: page.show_snack_bar(ft.SnackBar(ft.Text(msg)))
             )
-        )
+            
+            # Собираем интерфейс: сверху кнопки машин, ниже — весь контент автомобиля
+            final_layout = ft.Column(
+                expand=True,
+                controls=[
+                    # ИСПРАВЛЕНО ПО СТАНДАРТУ FLET 1.0+
+                    ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)),
+                    main_layout
+                ]
+            )
+            page.add(final_layout)
+        else:
+            page.add(ft.Text("Ошибка: Функция generate_car_view не найдена.", color=ft.Colors.RED))
+            
         page.update()
-
-    # Фиксируем коллбек перерисовки в глобальном контексте страницы для доступа из диалогов импорта
+        
     page.data = {"refresh_ui": rebuild_ui}
-    
-    # Стартовый запуск отрисовки
     rebuild_ui()
 
-# Запуск движка через современный метод run
 if __name__ == "__main__":
+    import flet as ft
     ft.run(main)
