@@ -32,7 +32,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected, show_msg):
     elif mode == "import":
         ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
         lbl = ft.Text("Поиск бэкапа в Telegram...", size=14)
-                def async_import():
+        def async_import():
             try:
                 res = requests.Session().get(URL_UPDATES, params={"offset": -20, "limit": 20}, timeout=5)
                 if res.status_code != 200: 
@@ -84,7 +84,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected, show_msg):
                 lbl.value = f"Сбой: {str(ex)[:25]}"
                 page.update()
 
-ac = ft.Container(content=ft.FilledButton("Начать импорт", on_click=lambda _: [setattr(ac, "content", ring), page.update(), network_executor.submit(async_import)], style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)))
+        ac = ft.Container(content=ft.FilledButton("Начать импорт", on_click=lambda _: [setattr(ac, "content", ring), page.update(), network_executor.submit(async_import)], style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)))
         dlg = ft.AlertDialog(title=ft.Text("Облачный Импорт"), content=ft.Column([lbl, ft.Container(height=10), ac], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER), actions=[ft.TextButton("Отмена", on_click=lambda _: [setattr(dlg, "open", False), page.update()])])
         page.overlay.append(dlg); dlg.open = True; page.update()
 def generate_car_view(page, db_data, car_name, car_profile, show_msg, rebuild):
