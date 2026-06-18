@@ -25,68 +25,78 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected, show_msg):
                 js_t = json.dumps(curr, ensure_ascii=False, indent=4)
                 stream = io.BytesIO(js_t.encode("utf-8"))
                 stream.name = "CarJournal_database.json"
-                res = requests.Session().post(URL_EXPORT, data={"chat_id": int(TG_CHAT_ID), "caption": "📦 Бэкап Журнала ТО"}, files={"document": stream}, timeout=15)
+                res = requests.Session().post(URL_EXPORT, data={"chat_id": int(TG_CHAT_ID), "caption": "📦 Бэкап Журнала ТО"}, files={"document": stream}, timeout=10)
                 show_msg("Бэкап успешно отправлен!" if res.status_code == 200 else f"Ошибка: {res.status_code}")
             except Exception as ex: show_msg(f"Сбой сети: {ex}")
         network_executor.submit(async_export)
     elif mode == "import":
         ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
         lbl = ft.Text("Поиск бэкапа в Telegram...", size=14)
+        
         def async_import():
             try:
-                res = requests.Session().get(URL_UPDATES, params={"offset": -20, "limit": 20}, timeout=5)
-                if res.status_code != 200: 
+                # Жесткий таймаут 5 секунд, запрашиваем только последние сообщения
+                res = requests.Session().get(URL_UPDATES, params={"offset": -10, "limit": 10}, timeout=5)
+                if res.status_code != 200:
                     lbl.value = f"Ошибка сервера: {res.status_code}"
                     page.update()
                     return
+                
                 updates = res.json().get("result", [])
                 if not updates:
-                    lbl.value = "Чат пуст! Отправьте файл в бот."
+                    lbl.value = "Чат пуст! Отправьте файл боту."
                     page.update()
                     return
+                
                 f_id = None
                 for upd in reversed(updates):
                     msg_obj = upd.get("message") or upd.get("edited_message") or {}
                     doc = msg_obj.get("document", {})
-                    if doc and "json" in doc.get("file_name", "").lower(): 
+                    if doc and "json" in doc.get("file_name", "").lower():
                         f_id = doc.get("file_id")
                         break
-                if not f_id: 
-                    lbl.value = "Бэкап .json не найден в чате!"
+                
+                if not f_id:
+                    lbl.value = "Файл бэкапа .json не найден!"
                     page.update()
                     return
+                
                 lbl.value = "Скачивание бэкапа..."
                 page.update()
+                
                 f_res = requests.Session().get(URL_FILE_INFO, params={"file_id": f_id}, timeout=5)
                 f_path = f_res.json().get("result", {}).get("file_path")
+                
                 dl_res = requests.Session().get(URL_DOWNLOAD_BASE + f_path, timeout=10)
                 imported = json.loads(dl_res.text)
+                
                 if "cars" in imported:
                     engine.save_data(imported)
-                    if 'db_data' in globals(): 
+                    if 'db_data' in globals():
                         global db_data
                         db_data.clear()
                         db_data.update(engine.load_data())
                     lbl.value = "Успешно импортировано!"
                     page.update()
                     show_msg("База данных восстановлена!")
-                    if page.data and "refresh_ui" in page.data: 
+                    if page.data and "refresh_ui" in page.data:
                         page.data["refresh_ui"]()
                     dlg.open = False
                     page.update()
-                else: 
+                else:
                     lbl.value = "Неверная структура файла."
                     page.update()
             except requests.exceptions.Timeout:
-                lbl.value = "Превышено время ожидания сети."
+                lbl.value = "Время ожидания сети истекло."
                 page.update()
-            except Exception as ex: 
-                lbl.value = f"Сбой: {str(ex)[:25]}"
+            except Exception as ex:
+                lbl.value = f"Сбой: {str(ex)[:20]}"
                 page.update()
 
         ac = ft.Container(content=ft.FilledButton("Начать импорт", on_click=lambda _: [setattr(ac, "content", ring), page.update(), network_executor.submit(async_import)], style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)))
         dlg = ft.AlertDialog(title=ft.Text("Облачный Импорт"), content=ft.Column([lbl, ft.Container(height=10), ac], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER), actions=[ft.TextButton("Отмена", on_click=lambda _: [setattr(dlg, "open", False), page.update()])])
         page.overlay.append(dlg); dlg.open = True; page.update()
+
 def generate_car_view(page, db_data, car_name, car_profile, show_msg, rebuild):
     if car_name in engine.app_state["newly_added_cars"]:
         c_val, c_dt, d_val = "0", datetime.now().strftime("%d.%m.%Y"), "0"
