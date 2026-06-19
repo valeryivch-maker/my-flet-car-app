@@ -36,7 +36,7 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected, show_msg):
         def async_import():
             try:
                 # Жесткий таймаут 5 секунд, запрашиваем только последние сообщения
-                res = requests.Session().get(URL_UPDATES, params={"offset": -10, "limit": 10}, timeout=5)
+                res = requests.get(URL_UPDATES, params={"offset": -10, "limit": 10}, timeout=5, verify=False)
                 if res.status_code != 200:
                     lbl.value = f"Ошибка сервера: {res.status_code}"
                     page.update()
@@ -64,10 +64,10 @@ def show_custom_file_manager_dialog(page, mode, on_file_selected, show_msg):
                 lbl.value = "Скачивание бэкапа..."
                 page.update()
                 
-                f_res = requests.Session().get(URL_FILE_INFO, params={"file_id": f_id}, timeout=5)
+                f_res = requests.get(URL_FILE_INFO, params={"file_id": f_id}, timeout=5, verify=False)
                 f_path = f_res.json().get("result", {}).get("file_path")
                 
-                dl_res = requests.Session().get(URL_DOWNLOAD_BASE + f_path, timeout=10)
+                dl_res = requests.get(URL_DOWNLOAD_BASE + f_path, timeout=10, verify=False)
                 imported = json.loads(dl_res.text)
                 
                 if "cars" in imported:
