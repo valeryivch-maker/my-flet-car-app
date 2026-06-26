@@ -1,4 +1,9 @@
-﻿import flet as ft
+import sys
+import os
+# Принудительно ставим текущую папку проекта на первое место в путях поиска
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+import flet as ft
 from datetime import datetime
 import engine
 import views
