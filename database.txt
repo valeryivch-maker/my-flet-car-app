@@ -3,7 +3,7 @@
         "Шевролле Лачетти": {
             "odometer": {
                 "value": 195789,
-                "date": "18.06.2026"
+                "date": "26.06.2026"
             },
             "daily_mileage": 20,
             "odometer_history": [
