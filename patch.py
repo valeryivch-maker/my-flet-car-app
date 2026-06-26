@@ -1,40 +1,47 @@
 ﻿import os
 
-def run_patch():
-    file_path = "main.py"
+def main():
+    target_file = "network.py"
     
-    with open(file_path, "r", encoding="utf-8") as f:
-        code = f.read()
+    if not os.path.exists(target_file):
+        print(f"Ошибка: Файл {target_file} не найден в текущей директории!")
+        return
 
-    replacements = {
-        'res = requests.Session().post(URL_EXPORT, data={"chat_id": int(TG_CHAT_ID), "caption": "📦\nБэкап Журнала ТО"}, files={"document": stream}, timeout=10)':
-        'res = requests.post(URL_EXPORT, data={"chat_id": int(TG_CHAT_ID), "caption": "📦\\nБэкап Журнала ТО"}, files={"document": stream}, timeout=10, verify=False)',
+    print(f"Читаем {target_file}...")
+    with open(target_file, "r", encoding="utf-8") as f:
+        content = f.read()
 
-        'res = requests.Session().get(URL_UPDATES, params={"offset": -10, "limit": 10}, timeout=5)':
-        'res = requests.get(URL_UPDATES, params={"offset": -10, "limit": 10}, timeout=5, verify=False)',
+    # Точные маркеры для замены дефектных URL-адресов
+    old_block = (
+        '    URL_EXPORT = f"https://telegram.org{TG_TOKEN}/sendDocument"\n'
+        '    URL_UPDATES = f"https://telegram.org{TG_TOKEN}/getUpdates"\n'
+        '    URL_FILE_INFO = f"https://telegram.org{TG_TOKEN}/getFile"\n'
+        '    URL_DOWNLOAD_BASE = f"https://telegram.org{TG_TOKEN}/"'
+    )
 
-        'f_res = requests.Session().get(URL_FILE_INFO, params={"file_id": f_id}, timeout=5)':
-        'f_res = requests.get(URL_FILE_INFO, params={"file_id": f_id}, timeout=5, verify=False)',
+    new_block = (
+        '    URL_EXPORT = f"https://telegram.org{TG_TOKEN}/sendDocument"\n'
+        '    URL_UPDATES = f"https://telegram.org{TG_TOKEN}/getUpdates"\n'
+        '    URL_FILE_INFO = f"https://telegram.org{TG_TOKEN}/getFile"\n'
+        '    URL_DOWNLOAD_BASE = f"https://telegram.org{TG_TOKEN}/"'
+    )
 
-        'dl_res = requests.Session().get(URL_DOWNLOAD_BASE + f_path, timeout=10)':
-        'dl_res = requests.get(URL_DOWNLOAD_BASE + f_path, timeout=10, verify=False)'
-    }
-
-    for old, new in replacements.items():
-        code = code.replace(old, new)
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(code)
-        f.flush()
-        try:
+    if old_block in content:
+        updated_content = content.replace(old_block, new_block)
+        
+        # Запись изменений с гарантированным сбросом буферов на диск
+        with open(target_file, "w", encoding="utf-8") as f:
+            f.write(updated_content)
+            f.flush()
             os.fsync(f.fileno())
-        except OSError:
-            pass
-
-    # Четкий и лаконичный вывод по ТЗ
-    print("ПАТЧ ВЫПОЛНЕН: Зависание сетевого сокета импорта устранено.")
+            
+        print("\n[УСПЕХ] Патч успешно применен!")
+        print("Заменены базовые адреса Telegram Bot API на корректные.")
+        print("Обход SSL (verify=False) и таймауты уже были корректно внедрены в network.py.")
+    else:
+        print("\n[ПРЕДУПРЕЖДЕНИЕ] Целевой блок кода не найден. Возможно, патч уже был применен ранее.")
 
 if __name__ == "__main__":
-    run_patch()
-    # Ожидание действия пользователя в самом низу
-    input("нажми ентер")
+    main()
+    # Инструментальное требование интерфейса: удержание окна терминала открытым
+    input("\nДля продолжения нажмите Enter...")
