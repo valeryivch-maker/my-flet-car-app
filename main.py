@@ -72,8 +72,24 @@ def main(page: ft.Page):
 
         # Текстовые поля ввода пробега
         odo_dict = car_profile.get("odometer") or {}
-        current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True)
-        daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True)
+        current_odo_input = ft.TextField(
+    label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]",
+    value=str(odo_dict.get("value", "0")),
+    keyboard_type=ft.KeyboardType.NUMBER,
+    expand=True,
+    border=ft.InputBorder.NONE,
+    filled=True,
+    border_radius=ft.BorderRadius(8, 8, 8, 8)
+)
+        daily_input = ft.TextField(
+    label="Пробег в день (км)",
+    value=str(car_profile.get("daily_mileage", "0")),
+    keyboard_type=ft.KeyboardType.NUMBER,
+    expand=True,
+    border=ft.InputBorder.NONE,
+    filled=True,
+    border_radius=ft.BorderRadius(8, 8, 8, 8)
+)
 
         def update_forecast_click(e):
             try:
