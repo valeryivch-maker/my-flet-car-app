@@ -8,21 +8,32 @@ def main():
         return
 
     with open(target_file, "r", encoding="utf-8") as f:
-        content = f.read()
+        lines = f.readlines()
 
-    # Точечная и гарантированная замена доменов
-    if "https://telegram.org" in content:
-        content = content.replace("https://telegram.org", "https://telegram.org")
-        # Корректируем базовый URL скачивания файлов (у него другой формат в API)
-        content = content.replace("api.telegram.org/bot{TG_TOKEN}/\"", "api.telegram.org/file/bot{TG_TOKEN}/\"")
-        
+    modified = False
+    for i, line in enumerate(lines):
+        # Ищем строки объявления констант и жестко их перезаписываем
+        if "URL_EXPORT =" in line and "telegram.org" in line:
+            lines[i] = '    URL_EXPORT = f"https://telegram.org{TG_TOKEN}/sendDocument"\n'
+            modified = True
+        elif "URL_UPDATES =" in line and "telegram.org" in line:
+            lines[i] = '    URL_UPDATES = f"https://telegram.org{TG_TOKEN}/getUpdates"\n'
+            modified = True
+        elif "URL_FILE_INFO =" in line and "telegram.org" in line:
+            lines[i] = '    URL_FILE_INFO = f"https://telegram.org{TG_TOKEN}/getFile"\n'
+            modified = True
+        elif "URL_DOWNLOAD_BASE =" in line and "telegram.org" in line:
+            lines[i] = '    URL_DOWNLOAD_BASE = f"https://telegram.org{TG_TOKEN}/"\n'
+            modified = True
+
+    if modified:
         with open(target_file, "w", encoding="utf-8") as f:
-            f.write(content)
+            f.writelines(lines)
             f.flush()
             os.fsync(f.fileno())
-        print("\n[УСПЕХ] Файл network.py успешно обновлен!")
+        print("\n[УСПЕХ] network.py принудительно обновлен по маске констант!")
     else:
-        print("\n[ИНФО] Похоже, домен telegram.org в файле не найден или уже заменен.")
+        print("\n[ВНИМАНИЕ] Совпадений не найдено. Проверь, что вывело в консоль.")
 
 if __name__ == "__main__":
     main()
