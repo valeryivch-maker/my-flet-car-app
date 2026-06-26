@@ -178,7 +178,7 @@ def main(page: ft.Page):
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
 
-        page.add(ft.Column(expand=True, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout]))
+        page.add(ft.SafeArea(content=ft.Column(expand=True, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
 
     rebuild_ui()
