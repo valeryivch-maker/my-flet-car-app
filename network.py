@@ -32,6 +32,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         def async_export_worker():
             try:
                 print("\n[DEBUG] Воркер экспорта запущен!")
+                import engine
                 current_db_data = engine.load_data()
                 if not current_db_data or "cars" not in current_db_data:
                     current_db_data = {"cars": {}, "history": []}
