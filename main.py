@@ -175,7 +175,7 @@ def main(page: ft.Page):
                 content=ft.Column([
                     action_panel, ft.Divider(height=5, color=ft.Colors.BLACK_12),
                     ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
-                    ft.Row([current_odo_input, daily_input], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                    ft.Column([current_odo_input, daily_input], expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=8),
                     ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
                     ft.Row([
                         ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45),
