@@ -3,7 +3,7 @@
         "Автомобиль 1": {
             "odometer": {
                 "value": 195789,
-                "date": "26.01.2026"
+                "date": "28.06.2026"
             },
             "daily_mileage": 20,
             "odometer_history": [

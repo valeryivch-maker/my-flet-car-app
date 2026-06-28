@@ -85,6 +85,13 @@ def create_task_actions(page, db_data, p, t, current_km, rebuild, show_msg):
 def build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild, show_msg, add_task_fn=None):
     c_list = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=10)
     c_list.controls.append(header_card)
+    
+    # ВОССТАНОВЛЕНИЕ ОРИГИНАЛЬНОЙ СРЕДНЕЙ ПАНЕЛИ С КНОПКОЙ ДОБАВЛЕНИЯ ЗАДАЧИ
+    status_header = ft.Row([
+        ft.Text("Статус регламентных работ по автомобилю:", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_800),
+        ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить работу", icon_color=ft.Colors.BLUE_600, on_click=add_task_fn)
+    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    c_list.controls.append(ft.Container(content=status_header, padding=ft.Padding.only(left=0, top=10, right=0, bottom=5)))
     current_km = car_profile.get("odometer", {}).get("value", 0)
     daily = car_profile.get("daily_mileage", 45)
     tasks = car_profile.get("maintenance_data", {})

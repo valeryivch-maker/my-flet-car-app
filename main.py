@@ -14,6 +14,9 @@ BUILD_NUMBER = "11"
 db_data = {}
 
 def main(page: ft.Page):
+    page.scroll = ft.ScrollMode.AUTO
+def main(page: ft.Page):
+    page.scroll = ft.ScrollMode.AUTO
     global db_data
 
     # Настройка темы и базовых параметров окна
@@ -177,24 +180,24 @@ def main(page: ft.Page):
                     ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
                     ft.Column([current_odo_input, daily_input], expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=8),
                     ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
-                    ft.Row([
+                    ft.Column([
                         ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45),
                         ft.Button("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)
-                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
                 ], spacing=12), padding=12
             )
         )
 
         # Выбор результирующего макета отображения
         if engine.app_state.get("view_mode") == "analytics":
-            analytics_container = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
+            analytics_container = ft.Column(expand=False, scroll=ft.ScrollMode.AUTO)
             analytics_container.controls.append(header_card)
             analytics_container.controls.append(views.generate_analytics_view(page, car_profile))
             main_layout = analytics_container
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
 
-        page.add(ft.SafeArea(content=ft.Column(expand=True, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
+        page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
 
     rebuild_ui()
