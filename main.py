@@ -24,6 +24,9 @@ def main(page: ft.Page):
     page.window_height = 800
 
     db_data = engine.load_data()
+    # Инициализация мобильного файл-пикера
+    
+    
 
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
@@ -145,8 +148,8 @@ def main(page: ft.Page):
         action_panel = ft.Row([
             ft.Row([
                 ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
-                ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: network.show_custom_file_manager_dialog(page, "export", db_data, show_message)),
-                ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.show_custom_file_manager_dialog(page, "import", db_data, show_message)),
+                ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: page.share_file('Carjournal_database.json')),
+                ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.auto_import_last_file(show_message) or refresh_ui()),
                 ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
             ], spacing=2),
             ft.Row([
