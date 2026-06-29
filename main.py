@@ -148,7 +148,7 @@ def main(page: ft.Page):
         action_panel = ft.Row([
             ft.Row([
                 ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
-                ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: page.share_file('Carjournal_database.json')),
+                ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: page.share_file(os.path.abspath('Carjournal_database.json'))),
                 ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.auto_import_last_file(show_message) or refresh_ui()),
                 ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
             ], spacing=2),
