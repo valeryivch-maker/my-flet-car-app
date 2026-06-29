@@ -1,3 +1,4 @@
+LAST_SENT_ALERTS = {}
 import flet as ft
 import json
 import io
@@ -206,3 +207,47 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
+
+
+def send_telegram_alert_message(text_msg):
+    """Внутренний фоновый воркер отправки критических уведомлений."""
+    url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": 1036911003,
+        "text": text_msg,
+        "parse_mode": "HTML"
+    }
+    try:
+        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=False)
+    except Exception:
+        pass
+
+def check_and_send_alerts(car_profile, car_name=None):
+    """Сканирует прогнозы, исправляет имя None и защищает от дублирования алертов."""
+    global LAST_SENT_ALERTS
+    predictions = car_profile.get("predictions", {})
+    alerts_to_send = []
+    
+    # Исправление бага None: берем переданное имя или ищем в app_state
+    if not car_name:
+        car_name = engine.app_state.get("selected_car", "Мой Автомобиль")
+        
+    for task_name, pred in predictions.items():
+        rem_km = pred.get("rem_km", 9999)
+        if rem_km <= 500:
+            status = f"<b>ПРОСРОЧЕНО</b> на {-rem_km} км!" if rem_km < 0 else f"осталось всего {rem_km} км."
+            alerts_to_send.append(f"• ⚠️ <b>{task_name}</b>: {status}")
+            
+    if alerts_to_send:
+        full_message_body = "\n".join(alerts_to_send)
+        
+        # Флуд-контроль: если для этой машины алерты не изменились, игнорируем повторную отправку
+        if LAST_SENT_ALERTS.get(car_name) == full_message_body:
+            return
+            
+        LAST_SENT_ALERTS[car_name] = full_message_body
+        
+        msg_header = f"🚨 <b>Внимание! Критический износ ТО</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
+        full_message = msg_header + full_message_body
+        
+        network_executor.submit(send_telegram_alert_message, full_message)

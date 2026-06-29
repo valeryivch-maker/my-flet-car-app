@@ -1,9 +1,9 @@
 {
     "cars": {
-        "Автомобиль 1": {
+        "Chevrolet lacetti": {
             "odometer": {
                 "value": 195789,
-                "date": "26.01.2026"
+                "date": "29.06.2026"
             },
             "daily_mileage": 20,
             "odometer_history": [
@@ -84,9 +84,36 @@
                     "odometer": 165090,
                     "date": "04.06.2020"
                 }
-            ]
+            ],
+            "predictions": {
+                "Замена масла + фильтры": {
+                    "rem_km": 5082,
+                    "rem_days": 254,
+                    "is_overdue": false
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "rem_km": 29301,
+                    "rem_days": 1465,
+                    "is_overdue": false
+                },
+                "Замена антифриза": {
+                    "rem_km": 39911,
+                    "rem_days": 1995,
+                    "is_overdue": false
+                },
+                "Тормозная жидкость": {
+                    "rem_km": 35081,
+                    "rem_days": 1754,
+                    "is_overdue": false
+                },
+                "Обслуживание кондиционера": {
+                    "rem_km": -55789,
+                    "rem_days": -2789,
+                    "is_overdue": true
+                }
+            }
         },
-        "Автомобиль 2": {
+        "ВАЗ 2103": {
             "odometer": {
                 "value": 125000,
                 "date": "04.06.2026"
@@ -122,14 +149,36 @@
                     "last_service": 100000,
                     "interval": 40000,
                     "date": "04.06.2026"
-                },
-                "Обслуживание кондиционера": {
-                    "last_service": 110000,
-                    "interval": 30000,
-                    "date": "04.06.2026"
                 }
             },
-            "history": []
+            "history": [],
+            "predictions": {
+                "Замена масла + фильтры": {
+                    "rem_km": 5000,
+                    "rem_days": 111,
+                    "is_overdue": false
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "rem_km": 25000,
+                    "rem_days": 555,
+                    "is_overdue": false
+                },
+                "Замена антифриза": {
+                    "rem_km": 25000,
+                    "rem_days": 555,
+                    "is_overdue": false
+                },
+                "Тормозная жидкость": {
+                    "rem_km": 15000,
+                    "rem_days": 333,
+                    "is_overdue": false
+                },
+                "Обслуживание кондиционера": {
+                    "rem_km": 15000,
+                    "rem_days": 333,
+                    "is_overdue": false
+                }
+            }
         }
     }
 }

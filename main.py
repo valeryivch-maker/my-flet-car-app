@@ -1,13 +1,12 @@
 import sys
 import os
-# Принудительно ставим текущую папку проекта на первое место в путях поиска
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 import flet as ft
 from datetime import datetime
 import engine
 import views
-import network  # Импортируем вынесенный сетевой модуль
+import network
 
 APP_VERSION = "1.2.5"
 BUILD_NUMBER = "11"
@@ -15,11 +14,8 @@ db_data = {}
 
 def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
-def main(page: ft.Page):
-    page.scroll = ft.ScrollMode.AUTO
     global db_data
-
-    # Настройка темы и базовых параметров окна
+    
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
     page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
@@ -27,7 +23,6 @@ def main(page: ft.Page):
     page.window_width = 1200
     page.window_height = 800
 
-    # Стартовая загрузка локальной БД
     db_data = engine.load_data()
 
     def show_message(text: str):
@@ -37,19 +32,18 @@ def main(page: ft.Page):
     def refresh_ui():
         rebuild_ui()
 
-    # Хук обновления интерфейса для обратного вызова из network.py
     page.data = {"refresh_ui": refresh_ui}
 
     def rebuild_ui():
         page.clean()
         current_db = engine.load_data()
         cars_dict = current_db.get("cars", {})
-
+        
         if not cars_dict:
-            page.add(ft.Text("В базе данных нет автомобилей. Добавьте первый автомобиль.", size=16))
+            page.add(ft.Text("В базе данных нет автомобилей.", size=16))
             page.update()
             return
-
+            
         car_names = list(cars_dict.keys())
         selected_car = engine.app_state.get("selected_car")
         
@@ -57,42 +51,37 @@ def main(page: ft.Page):
             selected_car = car_names[0]
             engine.app_state["selected_car"] = selected_car
 
-        # Верхняя панель переключения активных машин car_buttons_row
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
             is_selected = (name == selected_car)
             def make_click_handler(car_name_to_select=name):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
-
+                
             btn = ft.Container(
-                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
+                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
+                                weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
                 bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
-                padding=ft.Padding(16, 8, 16, 8), border_radius=8, on_click=make_click_handler(), animate=200
+                padding=ft.Padding(16, 8, 16, 8), border_radius=8, on_click=make_click_handler(),
+                animate=200
             )
             car_buttons_row.controls.append(btn)
-
+            
         car_profile = cars_dict[selected_car]
-
-        # Текстовые поля ввода пробега
+        
         odo_dict = car_profile.get("odometer") or {}
         current_odo_input = ft.TextField(
-    label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]",
-    value=str(odo_dict.get("value", "0")),
-    keyboard_type=ft.KeyboardType.NUMBER,
-    expand=True,
-    border=ft.InputBorder.NONE,
-    filled=True,
-    border_radius=ft.BorderRadius(8, 8, 8, 8)
-)
+            label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]",
+            value=str(odo_dict.get("value", "0")),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8)
+        )
+        
         daily_input = ft.TextField(
-    label="Пробег в день (км)",
-    value=str(car_profile.get("daily_mileage", "0")),
-    keyboard_type=ft.KeyboardType.NUMBER,
-    expand=True,
-    border=ft.InputBorder.NONE,
-    filled=True,
-    border_radius=ft.BorderRadius(8, 8, 8, 8)
-)
+            label="Пробег в день (км)",
+            value=str(car_profile.get("daily_mileage", "0")),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8)
+        )
 
         def update_forecast_click(e):
             try:
@@ -100,29 +89,28 @@ def main(page: ft.Page):
                 now_date_str = datetime.now().strftime("%d.%m.%Y")
                 car_profile["odometer"] = {"value": val, "date": now_date_str}
                 car_profile["daily_mileage"] = int(daily_input.value)
-                
                 if "odometer_history" not in car_profile: car_profile["odometer_history"] = []
                 if not any(h["value"] == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": now_date_str})
-                    
                 engine.save_data(current_db)
                 rebuild_ui()
                 show_message("Данные успешно обновлены!")
-            except ValueError:
-                show_message("Ошибка: Проверьте числовое поле пробега")
-        # Вложенные обработчики добавления, изменения и удаления машин (кнопки добавления)
+            except ValueError: show_message("Ошибка поля пробега")
+
         def add_car_click(e):
             car_name_input = ft.TextField(label="Марка / Модель")
             def save_new_car(_):
                 name = car_name_input.value.strip()
                 if not name or name in current_db["cars"]: return
-                if name not in engine.app_state["newly_added_cars"]: engine.app_state["newly_added_cars"].append(name)
-                
-                current_db["cars"][name] = {"odometer": {"value": 0, "date": datetime.now().strftime("%d.%m.%Y")}, "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []}
+                if name not in engine.app_state["newly_added_cars"]:
+                    engine.app_state["newly_added_cars"].append(name)
+                current_db["cars"][name] = {
+                    "odometer": {"value": 0, "date": datetime.now().strftime("%d.%m.%Y")}, 
+                    "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []
+                }
                 engine.save_data(current_db)
                 engine.app_state["selected_car"] = name
                 dialog.open = False; page.update(); rebuild_ui()
-
             dialog = ft.AlertDialog(title=ft.Text("Добавить автомобиль"), content=ft.Column([car_name_input], tight=True), actions=[ft.TextButton("Добавить", on_click=save_new_car)])
             page.overlay.append(dialog); dialog.open = True; page.update()
 
@@ -130,14 +118,15 @@ def main(page: ft.Page):
             edit_name_input = ft.TextField(label="Новое имя профиля", value=selected_car)
             def save_name_change(_):
                 new_name = edit_name_input.value.strip()
-                if not new_name or new_name == selected_car or new_name in current_db["cars"]: return
-                current_db["cars"][new_name] = current_db["cars"].pop(selected_car)
+                success_rename, rename_msg = engine.rename_car_profile(current_db, selected_car, new_name)
+                if not success_rename:
+                    show_message(rename_msg)
+                    return
                 if selected_car in engine.app_state["newly_added_cars"]:
                     engine.app_state["newly_added_cars"].remove(selected_car)
                     engine.app_state["newly_added_cars"].append(new_name)
-                engine.save_data(current_db); engine.app_state["selected_car"] = new_name
+                engine.app_state["selected_car"] = new_name
                 dialog.open = False; page.update(); rebuild_ui()
-
             dialog = ft.AlertDialog(title=ft.Text("Редактировать имя"), content=ft.Column([edit_name_input], tight=True), actions=[ft.TextButton("Сохранить", on_click=save_name_change)])
             page.overlay.append(dialog); dialog.open = True; page.update()
 
@@ -145,34 +134,32 @@ def main(page: ft.Page):
             if len(current_db["cars"]) <= 1: return
             def confirm_delete(_):
                 current_db["cars"].pop(selected_car)
-                if selected_car in engine.app_state["newly_added_cars"]: engine.app_state["newly_added_cars"].remove(selected_car)
-                engine.save_data(current_db); engine.app_state["selected_car"] = list(current_db["cars"].keys())[0]
+                if selected_car in engine.app_state["newly_added_cars"]:
+                    engine.app_state["newly_added_cars"].remove(selected_car)
+                engine.save_data(current_db)
+                engine.app_state["selected_car"] = list(current_db["cars"].keys())[0]
                 dialog.open = False; page.update(); rebuild_ui()
-
             dialog = ft.AlertDialog(title=ft.Text("Удаление профиля"), content=ft.Text(f"Удалить '{selected_car}'?"), actions=[ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED_600))])
             page.overlay.append(dialog); dialog.open = True; page.update()
 
-        # Верхняя панель управления с перенаправлением вызовов в network.py
         action_panel = ft.Row([
             ft.Row([
                 ft.Text("База:", size=14, weight=ft.FontWeight.W_500),
-                ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт в Telegram", icon_color=ft.Colors.BLUE_600, on_click=lambda _: network.show_custom_file_manager_dialog(page, "export", db_data, show_message)),
-                ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт из Telegram", icon_color=ft.Colors.GREEN_600, on_click=lambda _: network.show_custom_file_manager_dialog(page, "import", db_data, show_message)),
-                ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip='Переключить Графики / Список ТО', icon_color=ft.Colors.ORANGE_800, 
-                              on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
+                ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: network.show_custom_file_manager_dialog(page, "export", db_data, show_message)),
+                ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.show_custom_file_manager_dialog(page, "import", db_data, show_message)),
+                ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
             ], spacing=2),
             ft.Row([
-                ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
-                ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать", on_click=edit_car_name_click),
-                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=delete_car_click, icon_color=ft.Colors.RED_500),
+                ft.IconButton(ft.Icons.ADD_CIRCLE, on_click=add_car_click),
+                ft.IconButton(icon=ft.Icons.EDIT, on_click=edit_car_name_click),
+                ft.IconButton(ft.Icons.DELETE_FOREVER, on_click=delete_car_click, icon_color=ft.Colors.RED_500),
                 ft.Container(width=40)
             ], spacing=2)
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
         odo_hist = car_profile.get("odometer_history", [])
-        hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История изменений пробега пуста"
+        hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
 
-        # Сборка Header Card панели управления
         header_card = ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -188,7 +175,6 @@ def main(page: ft.Page):
             )
         )
 
-        # Выбор результирующего макета отображения
         if engine.app_state.get("view_mode") == "analytics":
             analytics_container = ft.Column(expand=False, scroll=ft.ScrollMode.AUTO)
             analytics_container.controls.append(header_card)
@@ -196,7 +182,7 @@ def main(page: ft.Page):
             main_layout = analytics_container
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
-
+            
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
 
