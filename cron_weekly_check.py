@@ -76,7 +76,7 @@ def main():
             print(f"[CRON] Автомобиль: {car_name}. Прошло дней: {days_passed}")
             
             # Если пробег не обновлялся 7 или более дней — отправляем пуш
-            if days_passed >= 7:
+            if days_passed >= 0:
                 msg = (
                     f"📅 <b>Автономное напоминание!</b>\n"
                     f"Для автомобиля <b>{car_name}</b> пробег не обновлялся уже <b>{days_passed} дн.</b>\n"
