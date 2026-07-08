@@ -2,9 +2,8 @@
 
 on:
   schedule:
-    # Запуск каждый понедельник в 09:00 по UTC (12:00 по МСК)
     - cron: '0 9 * * 1'
-  workflow_dispatch: # Позволяет тестировать запуск кнопкой в интерфейсе GitHub
+  workflow_dispatch:
 
 jobs:
   check-and-remind:
@@ -22,4 +21,7 @@ jobs:
         run: pip install requests urllib3
 
       - name: Execute Autonomous Reminder
+        # Передаем секрет из сейфа GitHub в системную переменную скрипта
+        env:
+          SECRET_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: python cron_weekly_check.py
