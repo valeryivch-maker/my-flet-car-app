@@ -1,10 +1,10 @@
-name: Autonomous Weekly Telegram Reminder
+п»їname: Autonomous Weekly Telegram Reminder
 
 on:
   schedule:
-    # Запуск каждый понедельник в 09:00 по UTC (12:00 по МСК)
+    # Р—Р°РїСѓСЃРє РєР°Р¶РґС‹Р№ РїРѕРЅРµРґРµР»СЊРЅРёРє РІ 09:00 РїРѕ UTC (12:00 РїРѕ РњРЎРљ)
     - cron: '0 9 * * 1'
-  workflow_dispatch: # Позволяет тестировать запуск кнопкой в интерфейсе GitHub
+  workflow_dispatch: # РџРѕР·РІРѕР»СЏРµС‚ С‚РµСЃС‚РёСЂРѕРІР°С‚СЊ Р·Р°РїСѓСЃРє РєРЅРѕРїРєРѕР№ РІ РёРЅС‚РµСЂС„РµР№СЃРµ GitHub
 
 jobs:
   check-and-remind:
