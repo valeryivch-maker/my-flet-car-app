@@ -1,4 +1,4 @@
-import os
+﻿import os
 import engine
 # Берем точное имя файла базы данных, которое использует само приложение
 DB_REAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), getattr(engine, "DB_FILE", "database.txt"))
@@ -16,7 +16,7 @@ import engine
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 network_executor = ThreadPoolExecutor(max_workers=2)
 
-BOT_TOKEN = "8859678783:AAFKgP9dc7hk5YsRkh02kfcIoT4M_liFVbs"
+BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
 
 TELEGRAM_IP = "149.154.167.220"
 BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
