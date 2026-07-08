@@ -1,0 +1,25 @@
+name: Autonomous Weekly Telegram Reminder
+
+on:
+  schedule:
+    # Запуск каждый понедельник в 09:00 по UTC (12:00 по МСК)
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Позволяет тестировать запуск кнопкой в интерфейсе GitHub
+
+jobs:
+  check-and-remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Requirements
+        run: pip install requests urllib3
+
+      - name: Execute Autonomous Reminder
+        run: python cron_weekly_check.py
