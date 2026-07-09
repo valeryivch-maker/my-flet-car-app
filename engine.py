@@ -88,34 +88,48 @@ def parse_h_date(item):
         return datetime.min
 
 def recalculate_auto_daily_mileage(car_profile):
-    """Счет реального пробега в сутки по истории с защитой от скачков и опечаток."""
+    """Вычисляет реальный пробег в сутки на основе скользящего среднего между соседними записями."""
     history = car_profile.get("odometer_history", [])
     if len(history) < 2:
         return int(car_profile.get("daily_mileage", 45))
+        
     try:
+        # Сортируем историю строго по хронологии дат
         sorted_hist = sorted(history, key=lambda x: datetime.strptime(x["date"], "%d.%m.%Y"))
-        now_dt = datetime.now()
-        recent_hist = []
-        for x in sorted_hist:
-            x_dt = datetime.strptime(x["date"], "%d.%m.%Y")
-            if (now_dt - x_dt).days <= 90:
-                recent_hist.append(x)
-        if len(recent_hist) < 2:
-            recent_hist = sorted_hist
-        first, last = recent_hist[0], recent_hist[-1]
-        d1 = datetime.strptime(first["date"], "%d.%m.%Y")
-        d2 = datetime.strptime(last["date"], "%d.%m.%Y")
-        days = (d2 - d1).days
-        km = last["value"] - first["value"]
-        if days == 0 and km > 0:
-            days = 1
-        if days > 0 and km > 0:
-            calculated_rate = int(km / days)
+        
+        rates = []
+        # Проходим по парам соседних (последовательных) записей пробега
+        for i in range(1, len(sorted_hist)):
+            prev_entry = sorted_hist[i-1]
+            curr_entry = sorted_hist[i]
+            
+            d1 = datetime.strptime(prev_entry["date"], "%d.%m.%Y")
+            d2 = datetime.strptime(curr_entry["date"], "%d.%m.%Y")
+            
+            days = (d2 - d1).days
+            km = int(curr_entry["value"]) - int(prev_entry["value"])
+            
+            # Если записи сделаны в один день, считаем как за 1 день, чтобы избежать деления на ноль
+            if days == 0 and km > 0:
+                days = 1
+                
+            if days > 0 and km > 0:
+                rates.append(km / days)
+                
+        # Если удалось посчитать отрезки, берём среднее по последним 4 периодам (свежая статистика)
+        if rates:
+            recent_rates = rates[-4:]  # Берём только актуальный плавающий интервал поездок
+            calculated_rate = int(sum(recent_rates) / len(recent_rates))
+            
+            # Защита от опечаток и случайных лишних нулей при вводе км (ограничение 1000 км/день)
             if calculated_rate > 1000:
                 return int(car_profile.get("daily_mileage", 45))
+                
             return max(1, calculated_rate)
+            
     except Exception:
         pass
+        
     return int(car_profile.get("daily_mileage", 45))
 
 def calculate_task_status(task_info, current_odometer, daily_mileage):

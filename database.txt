@@ -2,7 +2,7 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 199200,
+                "value": 200000,
                 "date": "09.07.2026"
             },
             "daily_mileage": 2,
@@ -40,7 +40,7 @@
                     "date": "23.05.2026"
                 },
                 {
-                    "value": 199200,
+                    "value": 200000,
                     "date": "09.07.2026"
                 }
             ],
@@ -139,7 +139,7 @@
                     "liters": 20.0,
                     "price": 67.5,
                     "cost": 1350.0,
-                    "odometer": 199200,
+                    "odometer": 200000,
                     "consumption": 0.0,
                     "comment": "БРСМ"
                 }

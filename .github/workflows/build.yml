@@ -41,7 +41,7 @@ jobs:
       - name: Сборка финального APK с флагами разрешений сети
         run: |
           # Флаги --android-permissions принудительно вшивают интернет на уровне компилятора Flutter/Flet
-          flet build apk --android-permissions android.permission.INTERNET=true android.permission.ACCESS_NETWORK_STATE=true
+          flet build apk --build-version 1.2.5 --build-number 11
 
       - name: Переименование установочного файла под текущую версию
         run: |
