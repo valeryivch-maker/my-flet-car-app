@@ -151,15 +151,13 @@ def main(page: ft.Page):
                 ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
                 ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.auto_import_last_file(page, show_message) or refresh_ui()),
                 ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
-            ], spacing=2),
-            ft.Row([
+            ], spacing=2, tight=True),
+            ft.Row([ 
                 ft.IconButton(ft.Icons.ADD_CIRCLE, on_click=add_car_click),
                 ft.IconButton(icon=ft.Icons.EDIT, on_click=edit_car_name_click),
                 ft.IconButton(ft.Icons.DELETE_FOREVER, on_click=delete_car_click, icon_color=ft.Colors.RED_500),
-                ft.Container(width=40)
-            ], spacing=2)
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-
+            ], spacing=2, tight=True)
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True)
         odo_hist = car_profile.get("odometer_history", [])
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
 

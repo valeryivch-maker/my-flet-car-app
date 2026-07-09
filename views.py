@@ -38,7 +38,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                     ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, on_click=make_del())
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), padding=6, bgcolor=ft.Colors.GREY_50))
         page.update()
-    dlg = ft.AlertDialog(title=ft.Text(task_name), content=ft.Container(content=h_col, width=420),
+    dlg = ft.AlertDialog(title=ft.Text(task_name), content=ft.Container(content=h_col, adaptive=True),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])])
     page.overlay.append(dlg); dlg.open = True; refresh()
 
@@ -162,5 +162,5 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
             except: show_msg("Ошибка")
         adlg = ft.AlertDialog(title=ft.Text("Добавить"), content=ft.Column([a_km, a_dt], tight=True), actions=[ft.TextButton("OK", on_click=save)])
         page.overlay.append(adlg); adlg.open = True; page.update()
-    dlg = ft.AlertDialog(title=ft.Text("История пробега"), content=ft.Container(content=ft.Column([ft.Button("+ Добавить", on_click=add_click), h_cont], tight=True), width=400))
+    dlg = ft.AlertDialog(title=ft.Text("История пробега"), content=ft.Container(content=ft.Column([ft.Button("+ Добавить", on_click=add_click), h_cont], tight=True), adaptive=True))
     page.overlay.append(dlg); dlg.open = True; render()
