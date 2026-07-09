@@ -2,10 +2,10 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 195820,
-                "date": "29.06.2026"
+                "value": 199111,
+                "date": "09.07.2026"
             },
-            "daily_mileage": 20,
+            "daily_mileage": 1,
             "odometer_history": [
                 {
                     "value": 183503,
@@ -34,9 +34,26 @@
                 {
                     "value": 195789,
                     "date": "26.01.2026"
+                },
+                {
+                    "value": 199105,
+                    "date": "23.05.2026"
+                },
+                {
+                    "value": 199110,
+                    "date": "09.07.2026"
+                },
+                {
+                    "value": 199111,
+                    "date": "09.07.2026"
                 }
             ],
             "maintenance_data": {
+                "Замена масла + фильтры": {
+                    "last_service": 199104,
+                    "interval": 9000,
+                    "date": "09.05.2026"
+                },
                 "Замена ГРМ (ремень, помпа)": {
                     "last_service": 165090,
                     "interval": 60000,
@@ -56,11 +73,6 @@
                     "last_service": 110000,
                     "interval": 30000,
                     "date": "04.06.2026"
-                },
-                "Замена масла + фильтры": {
-                    "last_service": 190871,
-                    "interval": 9000,
-                    "date": "13.06.2025"
                 }
             },
             "history": [
@@ -68,11 +80,6 @@
                     "task": "Замена антифриза",
                     "odometer": 185700,
                     "date": "04.10.2024"
-                },
-                {
-                    "task": "Замена масла + фильтры",
-                    "odometer": 190871,
-                    "date": "13.06.2025"
                 },
                 {
                     "task": "Тормозная жидкость",
@@ -89,33 +96,44 @@
                     "odometer": 182454,
                     "date": "01.04.2024",
                     "comment": "проба"
+                },
+                {
+                    "task": "Замена масла + фильтры",
+                    "odometer": 190871,
+                    "date": "13.06.2025"
+                },
+                {
+                    "task": "Замена масла + фильтры",
+                    "odometer": 199104,
+                    "date": "23.05.2026",
+                    "comment": ""
                 }
             ],
             "predictions": {
+                "Замена масла + фильтры": {
+                    "rem_km": 8993,
+                    "rem_days": 8993,
+                    "is_overdue": false
+                },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 29270,
-                    "rem_days": 1463,
+                    "rem_km": 25979,
+                    "rem_days": 25979,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 39880,
-                    "rem_days": 1994,
+                    "rem_km": 36589,
+                    "rem_days": 36589,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 35050,
-                    "rem_days": 1752,
+                    "rem_km": 31759,
+                    "rem_days": 31759,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -55820,
-                    "rem_days": -2791,
+                    "rem_km": -59111,
+                    "rem_days": -59111,
                     "is_overdue": true
-                },
-                "Замена масла + фильтры": {
-                    "rem_km": 4051,
-                    "rem_days": 202,
-                    "is_overdue": false
                 }
             }
         },

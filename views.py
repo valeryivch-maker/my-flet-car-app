@@ -40,7 +40,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
         if not t_hist:
             h_col.controls.append(ft.Text("Пусто", italic=True))
         else:
-            for rec in reversed(t_hist):
+            for rec in sorted(t_hist, key=lambda x: int(x.get('odometer', 0)), reverse=True):
                 # Функция-замыкание для удаления
                 def make_del(r=rec):
                     return lambda _: [car_profile["history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Удалено")]
@@ -237,7 +237,7 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
     
     def render():
         h_cont.controls.clear()
-        for item in sorted(car_profile.get("odometer_history", []), key=engine.parse_h_date, reverse=True):
+        for item in sorted(car_profile.get("odometer_history", []), key=lambda x: int(x.get("value", 0)), reverse=True):
             def make_del(i=item): 
                 return lambda _: [car_profile["odometer_history"].remove(i), engine.save_data(db_data), render(), rebuild(), show_msg("Удалено")]
             h_cont.controls.append(ft.Container(
