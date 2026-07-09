@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 from datetime import datetime, timedelta
 
@@ -161,6 +161,8 @@ def load_data():
                 car_profile["maintenance_data"] = {}
             if "history" not in car_profile:
                 car_profile["history"] = []
+            if "fuel_history" not in car_profile:
+                car_profile["fuel_history"] = []
             car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
             for task_name, task_info in car_profile["maintenance_data"].items():
                 if "last_service" not in task_info:
@@ -195,3 +197,41 @@ def rename_car_profile(data, old_name, new_name):
     data["cars"][new_name] = data["cars"].pop(old_name)
     save_data(data)
     return True, "Автомобиль успешно переименован."
+
+def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str, comment=""):
+    """Добавляет запись о заправке на основе литров и общей суммы."""
+    if "fuel_history" not in car_profile:
+        car_profile["fuel_history"] = []
+        
+    liters = float(liters)
+    cost = float(total_cost)
+    odometer = int(odometer)
+    
+    # Расчётная цена за 1 литр
+    price = round(cost / liters, 2) if liters > 0 else 0.0
+    
+    # Расчёт расхода топлива по сравнению с прошлыми заправками того же типа
+    consumption = 0.0
+    same_type_logs = [log for log in car_profile["fuel_history"] if log.get("type") == f_type]
+    
+    if same_type_logs:
+        same_type_logs.sort(key=lambda x: x.get("odometer", 0))
+        prev_log = same_type_logs[-1]
+        
+        delta_km = odometer - prev_log.get("odometer", 0)
+        if delta_km > 0:
+            consumption = round((liters / delta_km) * 100, 2)
+
+    new_record = {
+        "date": date_str,
+        "type": f_type,
+        "liters": liters,
+        "price": price,
+        "cost": cost,
+        "odometer": odometer,
+        "consumption": consumption,
+        "comment": comment
+    }
+    
+    car_profile["fuel_history"].append(new_record)
+    return new_record

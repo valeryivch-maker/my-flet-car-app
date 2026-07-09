@@ -276,3 +276,99 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
         content=ft.Container(content=ft.Column([ft.Button("+ Добавить запись", icon=ft.Icons.ADD, on_click=add_click), h_cont], tight=True), adaptive=True)
     )
     page.overlay.append(dlg); dlg.open = True; render()
+
+
+def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=300, spacing=8)
+    
+    def refresh():
+        h_col.controls.clear()
+        f_hist = car_profile.get("fuel_history", [])
+        
+        if not f_hist:
+            h_col.controls.append(ft.Text("История заправок пуста", italic=True))
+        else:
+            # Сортируем строго по пробегу от большего к меньшему (самые свежие сверху)
+            for rec in sorted(f_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
+                def make_del(r=rec):
+                    return lambda _: [car_profile["fuel_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Запись удалена")]
+                
+                cons_text = f" | Расход: {rec.get('consumption')} л/100км" if rec.get("consumption", 0) > 0 else ""
+                info_line = f"⛽ {rec.get('type')} | {rec.get('liters')} л | {rec.get('price')} грн/л"
+                cost_line = f"💰 Сумма: {rec.get('cost')} грн{cons_text}"
+                
+                h_col.controls.append(ft.Container(
+                    content=ft.Row([
+                        ft.Column([
+                            ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км", weight=ft.FontWeight.BOLD)]),
+                            ft.Text(info_line, size=13),
+                            ft.Text(cost_line, size=13, color=ft.Colors.BLUE_GREY_700, weight=ft.FontWeight.W_500),
+                            ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_500, italic=True) if rec.get('comment') else ft.Container()
+                        ], spacing=2, expand=True),
+                        ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del())
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
+                ))
+        page.update()
+
+    dlg = ft.AlertDialog(
+        title=ft.Text("Журнал заправок"),
+        content=ft.Container(content=h_col, adaptive=True, width=400),
+        actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
+    )
+    page.overlay.append(dlg)
+    dlg.open = True
+    refresh()
+
+def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
+    f_type = ft.RadioGroup(content=ft.Row([
+        ft.Radio(value="Бензин", label="Бензин"),
+        ft.Radio(value="Газ", label="Газ")
+    ], alignment=ft.MainAxisAlignment.SPACE_AROUND), value="Бензин")
+    
+    in_liters = ft.TextField(label="Количество литров", keyboard_type=ft.KeyboardType.NUMBER)
+    in_cost = ft.TextField(label="Общая сумма (грн)", keyboard_type=ft.KeyboardType.NUMBER)
+    in_odo = ft.TextField(label="Текущий пробег (км)", keyboard_type=ft.KeyboardType.NUMBER, value=str(car_profile.get("odometer", {}).get("value", "")))
+    in_date = ft.TextField(label="Дата заправки", value=datetime.now().strftime("%d.%m.%Y"))
+    in_comm = ft.TextField(label="Комментарий (АЗС, марка)")
+
+    def save_click(_):
+        try:
+            liters = float(in_liters.value)
+            cost = float(in_cost.value)
+            odo = int(in_odo.value)
+            dt_str = in_date.value.strip()
+            datetime.strptime(dt_str, "%d.%m.%Y")
+            
+            if liters <= 0 or cost <= 0 or odo <= 0:
+                raise ValueError
+                
+            # Передаем cost вместо price в обновленный метод
+            engine.add_fuel_record(car_profile, f_type.value, liters, cost, odo, dt_str, in_comm.value.strip())
+            
+            if odo >= car_profile["odometer"].get("value", 0):
+                car_profile["odometer"] = {"value": odo, "date": dt_str}
+                car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
+                
+            engine.save_data(db_data)
+            dlg.open = False
+            page.update()
+            rebuild()
+            show_msg("Заправка успешно учтена!")
+        except:
+            show_msg("Ошибка! Проверьте формат полей.")
+
+    dlg = ft.AlertDialog(
+        title=ft.Text("Учёт заправки (до полного)"),
+        content=ft.Column([
+            ft.Text("Тип топлива:", size=12, color=ft.Colors.GREY_600),
+            f_type, in_liters, in_cost, in_odo, in_date, in_comm
+        ], tight=True, spacing=10),
+        actions=[
+            ft.TextButton("Отмена", on_click=lambda _: [setattr(dlg, "open", False), page.update()]),
+            ft.ElevatedButton("Сохранить", bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=save_click)
+        ]
+    )
+    page.overlay.append(dlg)
+    dlg.open = True
+    page.update()

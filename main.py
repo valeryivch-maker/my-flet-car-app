@@ -170,7 +170,26 @@ def main(page: ft.Page):
         odo_hist = car_profile.get("odometer_history", [])
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
         
-        header_card = ft.Card(content=ft.Container(content=ft.Column([action_panel, ft.Divider(height=5, color=ft.Colors.BLACK_12), ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD), ft.Column([current_odo_input, daily_input], expand=False, horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=8), ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True), ft.Column([ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45), ft.Button("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10)], spacing=12), padding=12))
+        header_card = ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    action_panel, ft.Divider(height=5, color=ft.Colors.BLACK_12),
+                    ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Column([current_odo_input, daily_input], expand=False, horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=8),
+                    ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
+                    ft.Column([
+                        ft.Button("Обновить пробег и прогноз", on_click=update_forecast_click, height=45),
+                        ft.Button("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)
+                    ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
+                    ft.Text("Учёт расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
+                    ft.Row([
+                        ft.Button("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40),
+                        ft.Button("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40)
+                    ], spacing=10, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ], spacing=12), padding=12
+            )
+        )
+        
         if engine.app_state.get("view_mode") == "analytics":
             analytics_container = ft.Column(expand=False, scroll=ft.ScrollMode.AUTO)
             analytics_container.controls.append(header_card); analytics_container.controls.append(views.generate_analytics_view(page, car_profile))

@@ -2,10 +2,10 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 199111,
+                "value": 199200,
                 "date": "09.07.2026"
             },
-            "daily_mileage": 1,
+            "daily_mileage": 2,
             "odometer_history": [
                 {
                     "value": 183503,
@@ -40,11 +40,7 @@
                     "date": "23.05.2026"
                 },
                 {
-                    "value": 199110,
-                    "date": "09.07.2026"
-                },
-                {
-                    "value": 199111,
+                    "value": 199200,
                     "date": "09.07.2026"
                 }
             ],
@@ -111,31 +107,43 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 8993,
-                    "rem_days": 8993,
+                    "rem_km": 8904,
+                    "rem_days": 4452,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 25979,
-                    "rem_days": 25979,
+                    "rem_km": 25890,
+                    "rem_days": 12945,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 36589,
-                    "rem_days": 36589,
+                    "rem_km": 36500,
+                    "rem_days": 18250,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 31759,
-                    "rem_days": 31759,
+                    "rem_km": 31670,
+                    "rem_days": 15835,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -59111,
-                    "rem_days": -59111,
+                    "rem_km": -59200,
+                    "rem_days": -29600,
                     "is_overdue": true
                 }
-            }
+            },
+            "fuel_history": [
+                {
+                    "date": "09.07.2026",
+                    "type": "Бензин",
+                    "liters": 20.0,
+                    "price": 67.5,
+                    "cost": 1350.0,
+                    "odometer": 199200,
+                    "consumption": 0.0,
+                    "comment": "БРСМ"
+                }
+            ]
         },
         "ВАЗ 2103": {
             "odometer": {
@@ -197,7 +205,8 @@
                     "rem_days": 333,
                     "is_overdue": false
                 }
-            }
+            },
+            "fuel_history": []
         }
     }
 }
