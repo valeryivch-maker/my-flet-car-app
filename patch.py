@@ -1,70 +1,75 @@
-﻿# final_safe_fix.py
+﻿# restore_odometer_history.py
 import os
 
-def apply_final_fix():
-    file_path = "main.py"
+def restore_function():
+    file_path = "views.py"
     if not os.path.exists(file_path):
         print(f"[ОШИБКА] Файл {file_path} не найден!")
         return
 
-    print("[СТАРТ] Чтение исходного main.py...")
+    print("[СТАРТ] Анализ файла views.py на наличие функции истории пробега...")
     with open(file_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        code = f.read()
 
-    # Находим блок action_panel
-    start_idx = -1
-    for idx, line in enumerate(lines):
-        if "action_panel =" in line:
-            start_idx = idx
-            break
-
-    if start_idx == -1:
-        print("[ОШИБКА] Блок action_panel не обнаружен.")
+    if "show_car_odometer_history_dialog" in code:
+        print("[ИНФО] Функция уже присутствует в коде. Повторное восстановление не требуется.")
         return
 
-    end_idx = -1
-    for idx in range(start_idx, len(lines)):
-        if "odo_hist =" in lines[idx]:
-            end_idx = idx
-            break
+    # Оригинальный код функции со страницы 6-7, адаптированный под мобильные экраны
+    odometer_dialog_code = """
 
-    if end_idx == -1:
-        print("[ОШИБКА] Конец блока не найден.")
-        return
+def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_msg):
+    h_cont = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
+    
+    def render():
+        h_cont.controls.clear()
+        for item in sorted(car_profile.get("odometer_history", []), key=engine.parse_h_date, reverse=True):
+            def make_del(i=item): 
+                return lambda _: [car_profile["odometer_history"].remove(i), engine.save_data(db_data), render(), rebuild(), show_msg("Удалено")]
+            h_cont.controls.append(ft.Container(
+                content=ft.Row([
+                    ft.Column([ft.Text(f"{item['value']} км", weight=ft.FontWeight.BOLD), ft.Text(item['date'])]),
+                    ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, on_click=make_del())
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), 
+                padding=5, 
+                border=ft.Border.all(1, ft.Colors.BLACK_12),
+                border_radius=6
+            ))
+        page.update()
+        
+    def add_click(_):
+        a_km = ft.TextField(label="Пробег")
+        a_dt = ft.TextField(label="Дата", value=datetime.now().strftime("%d.%m.%Y"))
+        
+        def save(_):
+            try:
+                v = int(a_km.value); d = a_dt.value.strip(); datetime.strptime(d, "%d.%m.%Y")
+                if "odometer_history" not in car_profile:
+                    car_profile["odometer_history"] = []
+                car_profile["odometer_history"].append({"value": v, "date": d})
+                if v >= car_profile["odometer"].get("value", 0): 
+                    car_profile["odometer"] = {"value": v, "date": d}
+                car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
+                engine.save_data(db_data); adlg.open = False; render(); rebuild(); show_msg("Добавлено!")
+            except: 
+                show_msg("Ошибка формата!")
+                
+        adlg = ft.AlertDialog(title=ft.Text("Добавить пробег"), content=ft.Column([a_km, a_dt], tight=True), actions=[ft.TextButton("OK", on_click=save)])
+        page.overlay.append(adlg); adlg.open = True; page.update()
+        
+    dlg = ft.AlertDialog(
+        title=ft.Text("История общего пробега"), 
+        content=ft.Container(content=ft.Column([ft.Button("+ Добавить запись", icon=ft.Icons.ADD, on_click=add_click), h_cont], tight=True), adaptive=True)
+    )
+    page.overlay.append(dlg); dlg.open = True; render()
+"""
 
-    # Динамически определяем отступ
-    base_indent = " " * 4
-    for line in lines:
-        if "cars_dict =" in line:
-            base_indent = line[:len(line) - len(line.lstrip())]
-            break
+    print("[ЗАПИСЬ] Интеграция функции в конец модуля views.py...")
+    with open(file_path, "a", encoding="utf-8") as f:
+        f.write(odometer_dialog_code)
 
-    # Переписываем панель через нативный ft.Row(wrap=True) без f-строк (экранируем вручную)
-    bi = base_indent
-    new_panel = [
-        bi + "action_panel = ft.Row([\n",
-        bi + "    ft.Row([\n",
-        bi + "        ft.Text(\"База:\", size=14, weight=ft.FontWeight.W_500),\n",
-        bi + "        ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),\n",
-        bi + "        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda _: network.auto_import_last_file(page, show_message) or refresh_ui()),\n",
-        bi + "        ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),\n",
-        bi + "    ], spacing=2, tight=True),\n",
-        bi + "    ft.Row([ \n",
-        bi + "        ft.IconButton(ft.Icons.ADD_CIRCLE, on_click=add_car_click),\n",
-        bi + "        ft.IconButton(icon=ft.Icons.EDIT, on_click=edit_car_name_click),\n",
-        bi + "        ft.IconButton(ft.Icons.DELETE_FOREVER, on_click=delete_car_click, icon_color=ft.Colors.RED_500),\n",
-        bi + "    ], spacing=2, tight=True)\n",
-        bi + "], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True)\n"
-    ]
-
-    # Сборка файла
-    final_lines = lines[:start_idx] + new_panel + lines[end_idx:]
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.writelines(final_lines)
-
-    print("[УСПЕХ] Панель переведена на стабильный ft.Row(wrap=True). Ошибки форматирования устранены!")
+    print("[УСПЕХ] Функция show_car_odometer_history_dialog полностью восстановлена и адаптирована!")
 
 if __name__ == "__main__":
-    apply_final_fix()
+    restore_function()
     input("\nНажмите Enter для завершения...")
