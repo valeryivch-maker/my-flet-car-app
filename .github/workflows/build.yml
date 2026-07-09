@@ -1,4 +1,4 @@
-name: Сборка Flet APK
+﻿name: Сборка Flet APK
 
 on:
   push:
@@ -14,6 +14,14 @@ jobs:
     steps:
       - name: Проверка кода проекта
         uses: actions/checkout@v4
+
+      - name: Восстановление сетевого шлюза из шаблона и Secrets
+        # Извлекаем скрытый токен из сейфа GitHub и собираем network.py на лету
+        env:
+          SECRET_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          sed "s/СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН/$SECRET_BOT_TOKEN/g" network_template.py > network.py
+          echo "[УСПЕХ] Модуль network.py успешно сгенерирован для компиляции!"
 
       - name: Настройка Python
         uses: actions/setup-python@v5
