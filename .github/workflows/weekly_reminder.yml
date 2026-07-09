@@ -21,7 +21,7 @@ jobs:
         run: pip install requests urllib3
 
       - name: Execute Autonomous Reminder
-        # Передаем секрет из сейфа GitHub в системную переменную скрипта
         env:
           SECRET_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SECRET_FILE_ID: ${{ secrets.TELEGRAM_FILE_ID }}
         run: python cron_weekly_check.py
