@@ -80,7 +80,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                         page.overlay.append(edit_dlg)
                         edit_dlg.open = True
                         page.update()
-                    return open_edit_dialog
+                    return open_edit_fuel_dialog
 
                 # Отрисовка строки истории с двумя кнопками: Редактировать и Удалить
                 h_col.controls.append(ft.Container(
@@ -288,11 +288,71 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         if not f_hist:
             h_col.controls.append(ft.Text("История заправок пуста", italic=True))
         else:
-            # Сортируем строго по пробегу от большего к меньшему (самые свежие сверху)
+            # Жёсткая сортировка по километражу (пробегу) от большего к меньшему
             for rec in sorted(f_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
+                
+                # Замыкание для удаления записи
                 def make_del(r=rec):
                     return lambda _: [car_profile["fuel_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Запись удалена")]
                 
+                # Замыкание для вызова диалога редактирования записи заправки
+                def make_edit(r=rec):
+                    def open_edit_fuel_dialog(_):
+                        e_liters = ft.TextField(label="Количество литров", value=str(r.get("liters", "")))
+                        e_cost = ft.TextField(label="Общая сумма (грн)", value=str(r.get("cost", "")))
+                        e_odo = ft.TextField(label="Пробег (км)", value=str(r.get("odometer", "")))
+                        e_date = ft.TextField(label="Дата", value=str(r.get("date", "")))
+                        e_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", "")))
+                        
+                        def save_edited_fuel(_):
+                            try:
+                                liters = float(e_liters.value)
+                                cost = float(e_cost.value)
+                                odo = int(e_odo.value)
+                                dt_str = e_date.value.strip()
+                                datetime.strptime(dt_str, "%d.%m.%Y")
+                                
+                                if liters <= 0 or cost <= 0 or odo <= 0:
+                                    raise ValueError
+                                    
+                                # Обновляем данные в оригинальной записи
+                                r["liters"] = liters
+                                r["cost"] = cost
+                                r["odometer"] = odo
+                                r["date"] = dt_str
+                                r["comment"] = e_comm.value.strip()
+                                r["price"] = round(cost / liters, 2)
+                                
+                                # Пересчитываем расходы для всей цепочки заправок этого типа после правки
+                                same_type_logs = [log for log in car_profile["fuel_history"] if log.get("type") == r.get("type")]
+                                same_type_logs.sort(key=lambda x: int(x.get("odometer", 0)))
+                                
+                                for idx, log in enumerate(same_type_logs):
+                                    if idx == 0:
+                                        log["consumption"] = 0.0
+                                    else:
+                                        delta = int(log["odometer"]) - int(same_type_logs[idx-1]["odometer"])
+                                        log["consumption"] = round((float(log["liters"]) / delta) * 100, 2) if delta > 0 else 0.0
+                                
+                                engine.save_data(db_data)
+                                edit_fuel_dlg.open = False
+                                page.update()
+                                refresh()
+                                rebuild()
+                                show_msg("Заправка успешно изменена!")
+                            except:
+                                show_msg("Ошибка формата!")
+                                
+                        edit_fuel_dlg = ft.AlertDialog(
+                            title=ft.Text("Правка записи заправки"),
+                            content=ft.Column([e_liters, e_cost, e_odo, e_date, e_comm], tight=True, spacing=10),
+                            actions=[ft.TextButton("Сохранить", on_click=save_edited_fuel)]
+                        )
+                        page.overlay.append(edit_fuel_dlg)
+                        edit_fuel_dlg.open = True
+                        page.update()
+                    return open_edit_fuel_dialog
+
                 cons_text = f" | Расход: {rec.get('consumption')} л/100км" if rec.get("consumption", 0) > 0 else ""
                 info_line = f"⛽ {rec.get('type')} | {rec.get('liters')} л | {rec.get('price')} грн/л"
                 cost_line = f"💰 Сумма: {rec.get('cost')} грн{cons_text}"
@@ -305,7 +365,10 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                             ft.Text(cost_line, size=13, color=ft.Colors.BLUE_GREY_700, weight=ft.FontWeight.W_500),
                             ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_500, italic=True) if rec.get('comment') else ft.Container()
                         ], spacing=2, expand=True),
-                        ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del())
+                        ft.Row([
+                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()),
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del())
+                        ], spacing=0)
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
                 ))
@@ -330,7 +393,7 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     in_cost = ft.TextField(label="Общая сумма (грн)", keyboard_type=ft.KeyboardType.NUMBER)
     in_odo = ft.TextField(label="Текущий пробег (км)", keyboard_type=ft.KeyboardType.NUMBER, value=str(car_profile.get("odometer", {}).get("value", "")))
     in_date = ft.TextField(label="Дата заправки", value=datetime.now().strftime("%d.%m.%Y"))
-    in_comm = ft.TextField(label="Комментарий (АЗС, марка)")
+    in_comm = ft.TextField(label="Комментарий (АЗС, марка)", value="БРСМ")
 
     def save_click(_):
         try:
