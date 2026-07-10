@@ -1,6 +1,6 @@
 # Конфигурация компиляции мобильного приложения Flet
-app:
-  name: "Бортовой журнал"
-  package: "com.flet.carjournal"
-  version: "1.2.6"
-  build_number: 11
+name: "Бортовой журнал"
+product: "Бортовой журнал"
+package: "com.flet.carjournal"
+version: "1.2.6"
+build_number: 12
