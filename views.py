@@ -28,85 +28,85 @@ def generate_analytics_view(page, car_profile):
         
     return view_column
 
-def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=220, spacing=8)
-    
-    def refresh():
-        h_col.controls.clear()
-        if "history" not in car_profile:
-            car_profile["history"] = []
-        t_hist = [h for h in car_profile.get("history", []) if h.get("task") == task_name]
-        
-        if not t_hist:
-            h_col.controls.append(ft.Text("Пусто", italic=True))
-        else:
-            for rec in sorted(t_hist, key=lambda x: int(x.get('odometer', 0)), reverse=True):
-                # Функция-замыкание для удаления
-                def make_del(r=rec):
-                    return lambda _: [car_profile["history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Удалено")]
-                
-                # Функция-замыкание для вызова окна редактирования записи
-                def make_edit(r=rec):
-                    def open_edit_dialog(_):
-                        edit_odo = ft.TextField(label="Пробег", value=str(r.get("odometer", "")))
-                        edit_date = ft.TextField(label="Дата", value=str(r.get("date", "")))
-                        edit_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", "")))
-                        
-                        def save_edited_rec(_):
-                            try:
-                                km = int(edit_odo.value)
-                                dt_str = edit_date.value.strip()
-                                datetime.strptime(dt_str, "%d.%m.%Y")
-                                
-                                # Обновляем данные в оригинальной записи внутри списка
-                                r["odometer"] = km
-                                r["date"] = dt_str
-                                r["comment"] = edit_comm.value.strip()
-                                
-                                engine.save_data(db_data)
-                                edit_dlg.open = False
-                                page.update()
-                                refresh()
-                                rebuild()
-                                show_msg("Запись изменена!")
-                            except:
-                                show_msg("Ошибка формата!")
-                                
-                        edit_dlg = ft.AlertDialog(
-                            title=ft.Text("Правка записи ТО"),
-                            content=ft.Column([edit_odo, edit_date, edit_comm], tight=True),
-                            actions=[ft.TextButton("Сохранить", on_click=save_edited_rec)]
-                        )
-                        page.overlay.append(edit_dlg)
-                        edit_dlg.open = True
-                        page.update()
-                    return open_edit_fuel_dialog
-
-                # Отрисовка строки истории с двумя кнопками: Редактировать и Удалить
-                h_col.controls.append(ft.Container(
-                    content=ft.Row([
-                        ft.Column([
+def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, show_msg): 
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=220, spacing=8) 
+ 
+    def refresh(): 
+        h_col.controls.clear() 
+        if "history" not in car_profile: 
+            car_profile["history"] = [] 
+        t_hist = [h for h in car_profile.get("history", []) if h.get("task") == task_name] 
+ 
+        if not t_hist: 
+            h_col.controls.append(ft.Text("Пусто", italic=True)) 
+        else: 
+            for rec in sorted(t_hist, key=lambda x: int(x.get('odometer', 0)), reverse=True): 
+                # Функция-замыкание для удаления 
+                def make_del(r=rec): 
+                    return lambda _: [car_profile["history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Удалено")] 
+ 
+                # Функция-замыкание для вызова окна редактирования записи 
+                def make_edit(r=rec): 
+                    def open_edit_dialog(_): 
+                        edit_odo = ft.TextField(label="Пробег", value=str(r.get("odometer", ""))) 
+                        edit_date = ft.TextField(label="Дата", value=str(r.get("date", ""))) 
+                        edit_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", ""))) 
+ 
+                        def save_edited_rec(_): 
+                            try: 
+                                km = int(edit_odo.value) 
+                                dt_str = edit_date.value.strip() 
+                                datetime.strptime(dt_str, "%d.%m.%Y") 
+ 
+                                # Обновляем данные в оригинальной записи внутри списка 
+                                r["odometer"] = km 
+                                r["date"] = dt_str 
+                                r["comment"] = edit_comm.value.strip() 
+ 
+                                engine.save_data(db_data) 
+                                edit_dlg.open = False 
+                                page.update() 
+                                refresh() 
+                                rebuild() 
+                                show_msg("Запись изменена!") 
+                            except: 
+                                show_msg("Ошибка формата!") 
+ 
+                        edit_dlg = ft.AlertDialog( 
+                            title=ft.Text("Правка записи ТО"), 
+                            content=ft.Column([edit_odo, edit_date, edit_comm], tight=True), 
+                            actions=[ft.TextButton("Сохранить", on_click=save_edited_rec)] 
+                        ) 
+                        page.overlay.append(edit_dlg) 
+                        edit_dlg.open = True 
+                        page.update() 
+                    return open_edit_dialog  # ТУТ ИСПРАВЛЕНО: возвращаем правильное имя!
+ 
+                # Отрисовка строки истории с двумя кнопками: Редактировать и Удалить 
+                h_col.controls.append(ft.Container( 
+                    content=ft.Row([ 
+                        ft.Column([ 
                             ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км")]), 
-                            ft.Text(rec.get('comment', ""), size=12, color=ft.Colors.GREY_600, italic=True)
-                        ]),
-                        ft.Row([
-                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()),
-                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del())
-                        ], spacing=0)
+                            ft.Text(rec.get('comment', ""), size=12, color=ft.Colors.GREY_600, italic=True) 
+                        ]), 
+                        ft.Row([ 
+                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()), 
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del()) 
+                        ], spacing=0) 
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), 
-                    padding=6, bgcolor=ft.Colors.GREY_50, border_radius=6
-                ))
-        page.update()
-        
-    dlg = ft.AlertDialog(
+                    padding=6, bgcolor=ft.Colors.GREY_50, border_radius=6 
+                )) 
+        page.update() 
+ 
+    dlg = ft.AlertDialog( 
         title=ft.Text(f"История: {task_name}"), 
-        content=ft.Container(content=h_col, adaptive=True),
+        content=ft.Container(content=h_col, adaptive=True), 
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
-    )
-    page.overlay.append(dlg)
-    dlg.open = True
-    refresh()
-
+    ) 
+    page.overlay.append(dlg) 
+    dlg.open = True 
+    refresh() 
+ 
 def show_add_task_history_dialog(page, db_data, t_name, p_profile, rebuild, show_msg):
     h_odo = ft.TextField(label="Пробег")
     h_date = ft.TextField(label="Дата", value=datetime.now().strftime("%d.%m.%Y"))
@@ -233,69 +233,75 @@ def build_maintenance_list(page, db_data, car_name, car_profile, header_card, re
 
 
 def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_cont = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
-    
+    h_cont = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, height=240)
+    dlg = None
+ 
     def render():
         h_cont.controls.clear()
         for item in sorted(car_profile.get("odometer_history", []), key=lambda x: int(x.get("value", 0)), reverse=True):
-            def make_del(i=item): 
+            def make_del(i=item):
                 return lambda _: [car_profile["odometer_history"].remove(i), engine.save_data(db_data), render(), rebuild(), show_msg("Удалено")]
             h_cont.controls.append(ft.Container(
                 content=ft.Row([
                     ft.Column([ft.Text(f"{item['value']} км", weight=ft.FontWeight.BOLD), ft.Text(item['date'])]),
                     ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, on_click=make_del())
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), 
-                padding=5, 
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=5,
                 border=ft.Border.all(1, ft.Colors.BLACK_12),
                 border_radius=6
             ))
-        page.update()
-        
+        if dlg: dlg.update()
+        else: page.update()
+ 
     def add_click(_):
         a_km = ft.TextField(label="Пробег")
         a_dt = ft.TextField(label="Дата", value=datetime.now().strftime("%d.%m.%Y"))
-        
+ 
         def save(_):
             try:
-                v = int(a_km.value); d = a_dt.value.strip(); datetime.strptime(d, "%d.%m.%Y")
+                v = int(a_km.value); d = a_dt.value.strip(); datetime.strptime(d, '%d.%m.%Y')
                 if "odometer_history" not in car_profile:
                     car_profile["odometer_history"] = []
                 car_profile["odometer_history"].append({"value": v, "date": d})
-                if v >= car_profile["odometer"].get("value", 0): 
+                if v >= car_profile["odometer"].get("value", 0):
                     car_profile["odometer"] = {"value": v, "date": d}
                 car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
                 engine.save_data(db_data); adlg.open = False; render(); rebuild(); show_msg("Добавлено!")
-            except: 
+            except:
                 show_msg("Ошибка формата!")
-                
+ 
         adlg = ft.AlertDialog(title=ft.Text("Добавить пробег"), content=ft.Column([a_km, a_dt], tight=True), actions=[ft.TextButton("OK", on_click=save)])
         page.overlay.append(adlg); adlg.open = True; page.update()
-        
+ 
+    total_count = len(car_profile.get("odometer_history", []))
     dlg = ft.AlertDialog(
-        title=ft.Text("История общего пробега"), 
-        content=ft.Container(content=ft.Column([ft.Button("+ Добавить запись", icon=ft.Icons.ADD, on_click=add_click), h_cont], tight=True), adaptive=True)
+        bgcolor=ft.Colors.WHITE,
+        title=ft.Text(f"История пробега (записей: {total_count})"),
+        content=ft.Column([
+            ft.Button("Добавить запись", icon=ft.Icons.ADD, on_click=add_click),
+            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            h_cont
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=360),
+        actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
-    page.overlay.append(dlg); dlg.open = True; render()
+    page.overlay.append(dlg); dlg.open = True; page.update(); render()
 
 
 def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=300, spacing=8)
-    
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=240, spacing=8)
+    dlg = None
+ 
     def refresh():
         h_col.controls.clear()
         f_hist = car_profile.get("fuel_history", [])
-        
+ 
         if not f_hist:
             h_col.controls.append(ft.Text("История заправок пуста", italic=True))
         else:
-            # Жёсткая сортировка по километражу (пробегу) от большего к меньшему
             for rec in sorted(f_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
-                
-                # Замыкание для удаления записи
                 def make_del(r=rec):
                     return lambda _: [car_profile["fuel_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Запись удалена")]
-                
-                # Замыкание для вызова диалога редактирования записи заправки
+ 
                 def make_edit(r=rec):
                     def open_edit_fuel_dialog(_):
                         e_liters = ft.TextField(label="Количество литров", value=str(r.get("liters", "")))
@@ -303,60 +309,45 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                         e_odo = ft.TextField(label="Пробег (км)", value=str(r.get("odometer", "")))
                         e_date = ft.TextField(label="Дата", value=str(r.get("date", "")))
                         e_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", "")))
-                        
+ 
                         def save_edited_fuel(_):
                             try:
                                 liters = float(e_liters.value)
                                 cost = float(e_cost.value)
                                 odo = int(e_odo.value)
                                 dt_str = e_date.value.strip()
-                                datetime.strptime(dt_str, "%d.%m.%Y")
-                                
-                                if liters <= 0 or cost <= 0 or odo <= 0:
-                                    raise ValueError
-                                    
-                                # Обновляем данные в оригинальной записи
+                                datetime.strptime(dt_str, '%d.%m.%Y')
+                                if liters <= 0 or cost <= 0 or odo <= 0: raise ValueError
+ 
                                 r["liters"] = liters
                                 r["cost"] = cost
                                 r["odometer"] = odo
                                 r["date"] = dt_str
                                 r["comment"] = e_comm.value.strip()
                                 r["price"] = round(cost / liters, 2)
-                                
-                                # Пересчитываем расходы для всей цепочки заправок этого типа после правки
+ 
                                 same_type_logs = [log for log in car_profile["fuel_history"] if log.get("type") == r.get("type")]
                                 same_type_logs.sort(key=lambda x: int(x.get("odometer", 0)))
-                                
+ 
                                 for idx, log in enumerate(same_type_logs):
                                     if idx == 0:
                                         log["consumption"] = 0.0
                                     else:
                                         delta = int(log["odometer"]) - int(same_type_logs[idx-1]["odometer"])
                                         log["consumption"] = round((float(log["liters"]) / delta) * 100, 2) if delta > 0 else 0.0
-                                
-                                engine.save_data(db_data)
-                                edit_fuel_dlg.open = False
-                                page.update()
-                                refresh()
-                                rebuild()
-                                show_msg("Заправка успешно изменена!")
+ 
+                                engine.save_data(db_data); edit_fuel_dlg.open = False; page.update(); refresh(); rebuild(); show_msg("Заправка успешно изменена!")
                             except:
                                 show_msg("Ошибка формата!")
-                                
-                        edit_fuel_dlg = ft.AlertDialog(
-                            title=ft.Text("Правка записи заправки"),
-                            content=ft.Column([e_liters, e_cost, e_odo, e_date, e_comm], tight=True, spacing=10),
-                            actions=[ft.TextButton("Сохранить", on_click=save_edited_fuel)]
-                        )
-                        page.overlay.append(edit_fuel_dlg)
-                        edit_fuel_dlg.open = True
-                        page.update()
+ 
+                        edit_fuel_dlg = ft.AlertDialog(title=ft.Text("Правка записи заправки"), content=ft.Column([e_liters, e_cost, e_odo, e_date, e_comm], tight=True, spacing=10), actions=[ft.TextButton("Сохранить", on_click=save_edited_fuel)])
+                        page.overlay.append(edit_fuel_dlg); edit_fuel_dlg.open = True; page.update()
                     return open_edit_fuel_dialog
-
+ 
                 cons_text = f" | Расход: {rec.get('consumption')} л/100км" if rec.get("consumption", 0) > 0 else ""
                 info_line = f"⛽ {rec.get('type')} | {rec.get('liters')} л | {rec.get('price')} грн/л"
                 cost_line = f"💰 Сумма: {rec.get('cost')} грн{cons_text}"
-                
+ 
                 h_col.controls.append(ft.Container(
                     content=ft.Row([
                         ft.Column([
@@ -372,16 +363,21 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
                 ))
-        page.update()
-
+        if dlg: dlg.update()
+        else: page.update()
+ 
+    total_count = len(car_profile.get("fuel_history", []))
     dlg = ft.AlertDialog(
-        title=ft.Text("Журнал заправок"),
-        content=ft.Container(content=h_col, adaptive=True, width=400),
+        bgcolor=ft.Colors.WHITE,
+        title=ft.Text(f"Журнал заправок (чеков: {total_count})"),
+        content=ft.Column([
+            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            h_col
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=380),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
-    page.overlay.append(dlg)
-    dlg.open = True
-    refresh()
+    page.overlay.append(dlg); dlg.open = True; page.update(); refresh()
+
 
 def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     f_type = ft.RadioGroup(content=ft.Row([

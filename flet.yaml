@@ -1,25 +1,12 @@
-product: "Журнал ТО"
-description: "Автономный журнал технического обслуживания автомобиля"
-org: "com.mycompany"
-bundle_id: "com.mycompany.carjournal"
-build_version: "1.2.5"
-build_number: 11
+# Конфигурация сборки Flet CarJournal
+app_title: "Бортовой журнал"
+product_name: "Flet CarJournal"
+executable_name: "carjournal"
+bundle_id: "com.carjournal.app"
+version: "1.2.6"
+build_number: 12
 
 android:
-  permissions:
-    - android.permission.INTERNET
-    - android.permission.ACCESS_NETWORK_STATE
-  intent_filters:
-    - action: "android.intent.action.VIEW"
-      categories:
-        - "android.intent.category.DEFAULT"
-        - "android.intent.category.BROWSABLE"
-      data:
-        - scheme: "content"
-          mimeType: "application/json"
-        - scheme: "file"
-          mimeType: "application/json"
-        - host: "*"
-          pathPattern: ".*\\.json"
-
-version: "1.2.5"
+  package_name: "com.carjournal.app"
+  # Путь к файлу вашей новой иконки внутри репозитория проекта
+  icon: "assets/icon.png" 

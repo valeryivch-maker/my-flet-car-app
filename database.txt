@@ -2,10 +2,10 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 200000,
-                "date": "09.07.2026"
+                "value": 200227,
+                "date": "10.07.2026"
             },
-            "daily_mileage": 2,
+            "daily_mileage": 74,
             "odometer_history": [
                 {
                     "value": 183503,
@@ -40,8 +40,8 @@
                     "date": "23.05.2026"
                 },
                 {
-                    "value": 200000,
-                    "date": "09.07.2026"
+                    "value": 200227,
+                    "date": "10.07.2026"
                 }
             ],
             "maintenance_data": {
@@ -107,40 +107,70 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 8904,
-                    "rem_days": 4452,
+                    "rem_km": 8104,
+                    "rem_days": 337,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 25890,
-                    "rem_days": 12945,
+                    "rem_km": 25090,
+                    "rem_days": 1045,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 36500,
-                    "rem_days": 18250,
+                    "rem_km": 35700,
+                    "rem_days": 1487,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 31670,
-                    "rem_days": 15835,
+                    "rem_km": 30870,
+                    "rem_days": 1286,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -59200,
-                    "rem_days": -29600,
+                    "rem_km": -60000,
+                    "rem_days": -2500,
                     "is_overdue": true
                 }
             },
             "fuel_history": [
                 {
-                    "date": "09.07.2026",
-                    "type": "Бензин",
-                    "liters": 20.0,
-                    "price": 67.5,
-                    "cost": 1350.0,
-                    "odometer": 200000,
+                    "date": "09.06.2026",
+                    "type": "Газ",
+                    "liters": 35.09,
+                    "price": 43.94,
+                    "cost": 1541.85,
+                    "odometer": 199514,
                     "consumption": 0.0,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "12.06.2026",
+                    "type": "Бензин",
+                    "liters": 14.27,
+                    "price": 70.09,
+                    "cost": 1000.19,
+                    "odometer": 199583,
+                    "consumption": 0.0,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "22.06.2026",
+                    "type": "Газ",
+                    "liters": 34.54,
+                    "price": 40.49,
+                    "cost": 1398.52,
+                    "odometer": 199813,
+                    "consumption": 11.55,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "07.07.2026",
+                    "type": "Газ",
+                    "liters": 34.09,
+                    "price": 37.99,
+                    "cost": 1295.08,
+                    "odometer": 200181,
+                    "consumption": 9.26,
                     "comment": "БРСМ"
                 }
             ]
