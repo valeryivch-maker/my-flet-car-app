@@ -6,10 +6,53 @@ def generate_analytics_view(page, car_profile):
     view_column = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=15)
     current_km = car_profile.get("odometer", {}).get("value", 0)
     tasks = car_profile.get("maintenance_data", {})
-    view_column.controls.append(ft.Text("Аналитика износа", size=20, weight=ft.FontWeight.BOLD))
+    
+    # --- БЛОК 1: ФИНАНСОВАЯ СТАТИСТИКА И СТОИМОСТЬ КИЛОМЕТРА ---
+    stats_30 = engine.calculate_fuel_stats(car_profile, days=30)
+    cost_per_km = engine.calculate_cost_per_km_brsm(car_profile)
+    
+    fin_card = ft.Card(
+        content=ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.MONETIZATION_ON, color=ft.Colors.GREEN_700, size=24),
+                    ft.Text("Финансовая аналитика (30 дн.)", size=16, weight=ft.FontWeight.BOLD)
+                ], alignment=ft.MainAxisAlignment.START, spacing=8),
+                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Row([
+                    ft.Text("⛽ Топливо:", size=13),
+                    ft.Text(f"{stats_30['fuel_spent']} грн", size=13, weight=ft.FontWeight.W_600)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Row([
+                    ft.Text("🛠️ Ремонт и ТО:", size=13),
+                    ft.Text(f"{stats_30['maintenance_spent']} грн", size=13, weight=ft.FontWeight.W_600)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Row([
+                    ft.Text("💰 Всего затрат:", size=14, weight=ft.FontWeight.BOLD),
+                    ft.Text(f"{stats_30['total_spent']} грн", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Row([
+                    ft.Text("📍 Стоимость 1 км пути:", size=13, weight=ft.FontWeight.W_500),
+                    ft.Container(
+                        content=ft.Text(f"{cost_per_km} грн/км", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.GREEN_700,
+                        padding=ft.Padding(6, 2, 6, 2),
+                        border_radius=4
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+            ], spacing=8),
+            padding=14
+        ),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_LOW
+    )
+    view_column.controls.append(fin_card)
+    
+    # --- БЛОК 2: АНАЛИТИКА ИЗНОСА РЕГЛАМЕНТОВ ТО ---
+    view_column.controls.append(ft.Text("Аналитика износа регламентов", size=18, weight=ft.FontWeight.BOLD))
     
     if not tasks:
-        view_column.controls.append(ft.Text("Нет данных", color=ft.Colors.GREY_500, italic=True))
+        view_column.controls.append(ft.Text("Нет данных по регламентам", color=ft.Colors.GREY_500, italic=True))
         return view_column
         
     for t_name, t_data in tasks.items():
@@ -21,7 +64,7 @@ def generate_analytics_view(page, car_profile):
         st_text = "Срочно заменить!" if remains <= 0 else f"Осталось {remains} км"
         
         view_column.controls.append(ft.Card(content=ft.Container(content=ft.Column([
-            ft.Row([ft.Text(t_name, size=15, weight=ft.FontWeight.BOLD, expand=True), ft.Text(f"{int(res * 100)}%", size=14, color=b_color)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Row([ft.Text(t_name, size=14, weight=ft.FontWeight.BOLD, expand=True), ft.Text(f"{int(res * 100)}%", size=13, color=b_color)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.ProgressBar(value=res, color=b_color, bgcolor=ft.Colors.GREY_200, height=8),
             ft.Text(st_text, size=12, color=ft.Colors.GREY_600, italic=True)
         ], spacing=4), padding=12)))

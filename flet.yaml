@@ -1,6 +1,6 @@
-# Конфигурация сборки Flet CarJournal
+name: "Бортовой журнал"
 app_title: "Бортовой журнал"
-product_name: "Flet CarJournal"
+product_name: "Бортовой журнал"
 executable_name: "carjournal"
 bundle_id: "com.carjournal.app"
 version: "1.2.6"
@@ -8,5 +8,4 @@ build_number: 12
 
 android:
   package_name: "com.carjournal.app"
-  # Путь к файлу вашей новой иконки внутри репозитория проекта
-  icon: "assets/icon.png" 
+  icon: "assets/icon.png"

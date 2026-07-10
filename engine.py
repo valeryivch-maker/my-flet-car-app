@@ -249,3 +249,78 @@ def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str,
     
     car_profile["fuel_history"].append(new_record)
     return new_record
+
+
+def calculate_fuel_stats(car_profile, days=30):
+    """Вычисляет общие расходы (ТО + Топливо) в грн за выбранный период дней."""
+    from datetime import datetime, timedelta
+    
+    now = datetime.now()
+    cutoff_date = now - timedelta(days=days)
+    
+    fuel_spent = 0.0
+    maintenance_spent = 0.0
+    
+    # Считаем заправки за период
+    fuel_history = car_profile.get("fuel_history", [])
+    for record in fuel_history:
+        try:
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
+            if r_date >= cutoff_date:
+                fuel_spent += float(record.get("cost", 0.0))
+        except:
+            continue
+            
+    # Считаем расходы на ТО из общей истории за период
+    # Примечание: ожидается, что в общей истории ремонтов "history" есть поле "cost"
+    history = car_profile.get("history", [])
+    for record in history:
+        try:
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
+            if r_date >= cutoff_date:
+                maintenance_spent += float(record.get("cost", 0.0))
+        except:
+            continue
+            
+    total_spent = fuel_spent + maintenance_spent
+    return {
+        "fuel_spent": round(fuel_spent, 2),
+        "maintenance_spent": round(maintenance_spent, 2),
+        "total_spent": round(total_spent, 2)
+    }
+
+def calculate_cost_per_km_brsm(car_profile):
+    """Вычисляет стоимость 1 км пути на основе крайних заправок БРСМ (Газ/Бензин)."""
+    fuel_history = car_profile.get("fuel_history", [])
+    if not fuel_history:
+        return 0.0
+        
+    # Разделяем по типам и сортируем по одометру (свежие в конце)
+    gas_logs = sorted([log for log in fuel_history if log.get("type") == "Газ"], key=lambda x: x.get("odometer", 0))
+    petrol_logs = sorted([log for log in fuel_history if log.get("type") == "Бензин"], key=lambda x: x.get("odometer", 0))
+    
+    gas_cost_per_km = 0.0
+    petrol_cost_per_km = 0.0
+    
+    # Если есть ГБО, считаем стоимость км на Газу по последней записи расхода
+    if gas_logs:
+        last_gas = gas_logs[-1]
+        consumption = last_gas.get("consumption", 0.0)
+        price = last_gas.get("price", 0.0)
+        if consumption > 0:
+            # Стоимость км = (расход на 100 км / 100) * цена за литр
+            gas_cost_per_km = (consumption / 100.0) * price
+            
+    # Аналогично для бензина
+    if petrol_logs:
+        last_petrol = petrol_logs[-1]
+        consumption = last_petrol.get("consumption", 0.0)
+        price = last_petrol.get("price", 0.0)
+        if consumption > 0:
+            petrol_cost_per_km = (consumption / 100.0) * price
+            
+    # Если машина на чистом газу, но бензин используется для прогрева (или наоборот)
+    # Возвращаем стоимость км основного используемого топлива (по приоритету Газ, затем Бензин)
+    if gas_cost_per_km > 0:
+        return round(gas_cost_per_km, 2)
+    return round(petrol_cost_per_km, 2)
