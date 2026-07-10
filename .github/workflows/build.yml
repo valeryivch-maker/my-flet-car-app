@@ -41,7 +41,7 @@ jobs:
       - name: Сборка финального APK с флагами разрешений сети
         run: |
           # Флаги --android-permissions принудительно вшивают интернет на уровне компилятора Flutter/Flet
-          flet build apk --name "Бортовой журнал" --build-version 1.2.5 --build-number 11
+          flet build apk
 
       - name: Переименование установочного файла под текущую версию
         run: |
