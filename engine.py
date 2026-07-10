@@ -324,3 +324,71 @@ def calculate_cost_per_km_brsm(car_profile):
     if gas_cost_per_km > 0:
         return round(gas_cost_per_km, 2)
     return round(petrol_cost_per_km, 2)
+
+
+def calculate_gbo_economy_points(car_profile):
+    """Корректный расчет окупаемости ГБО с защитой от одиночных бензиновых чеков."""
+    fuel_history = car_profile.get("fuel_history", [])
+    if not fuel_history:
+        return []
+        
+    gas_logs = []
+    petrol_logs = []
+    
+    for log in fuel_history:
+        f_type = log.get("type")
+        odo_val = int(log.get("odometer", 0))
+        cost_val = float(log.get("cost", 0.0))
+        cons_val = float(log.get("consumption", 0.0))
+        price_val = float(log.get("price", 0.0))
+        
+        item = {"odometer": odo_val, "cost": cost_val, "consumption": cons_val, "price": price_val}
+        if f_type == "Газ":
+            gas_logs.append(item)
+        elif f_type == "Бензин":
+            petrol_logs.append(item)
+            
+    gas_logs.sort(key=lambda x: x["odometer"])
+    petrol_logs.sort(key=lambda x: x["odometer"])
+    
+    if not gas_logs:
+        return []
+        
+    # Вычисляем базовую цену бензина по чекам
+    base_petrol_price = petrol_logs[-1]["price"] if petrol_logs else 54.0
+    
+    # Вычисляем расход бензина: если есть парные чеки - берем их, если нет - берем газовый расход и снижаем на 15%
+    base_petrol_consumption = 8.5
+    valid_petrol_cons = [log["consumption"] for log in petrol_logs if log["consumption"] > 0]
+    
+    if valid_petrol_cons:
+        base_petrol_consumption = sum(valid_petrol_cons) / len(valid_petrol_cons)
+    else:
+        valid_gas_cons = [log["consumption"] for log in gas_logs if log["consumption"] > 0]
+        if valid_gas_cons:
+            # Бензина обычно расходуется на 15% меньше, чем газа
+            base_petrol_consumption = (sum(valid_gas_cons) / len(valid_gas_cons)) * 0.85
+            
+    points = []
+    accumulated_gas_cost = 0.0
+    start_odo = gas_logs[0]["odometer"]
+    
+    for log in gas_logs:
+        current_odo = log["odometer"]
+        delta_km = current_odo - start_odo
+        accumulated_gas_cost += log["cost"]
+        
+        if delta_km > 0:
+            accumulated_alternative_cost = (delta_km / 100.0) * base_petrol_consumption * base_petrol_price
+        else:
+            accumulated_alternative_cost = accumulated_gas_cost
+            
+        economy = accumulated_alternative_cost - accumulated_gas_cost
+        
+        points.append({
+            "km": delta_km,
+            "economy": round(economy, 2),
+            "gas_cost": round(accumulated_gas_cost, 2)
+        })
+        
+    return points

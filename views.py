@@ -48,7 +48,45 @@ def generate_analytics_view(page, car_profile):
     )
     view_column.controls.append(fin_card)
     
-    # --- БЛОК 2: АНАЛИТИКА ИЗНОСА РЕГЛАМЕНТОВ ТО ---
+    # --- БЛОК 2: ТЕКСТОВЫЙ БАЛАНС ОКУПАЕМОСТИ ГБО ---
+    gbo_points = engine.calculate_gbo_economy_points(car_profile)
+    last_econ = gbo_points[-1]["economy"] if gbo_points else 0.0
+    gas_cost = gbo_points[-1]["gas_cost"] if gbo_points else 0.0
+    
+    # Расчет условного прогресса окупаемости оборудования (например, до 15 000 грн за установку)
+    gbo_target = 15000.0
+    progress_val = max(0.0, min(1.0, last_econ / gbo_target)) if last_econ > 0 else 0.0
+    
+    gbo_card = ft.Card(
+        content=ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.ENERGY_SAVINGS_LEAF, color=ft.Colors.GREEN_700, size=22),
+                    ft.Text("Эффективность и окупаемость ГБО", size=14, weight=ft.FontWeight.BOLD)
+                ]),
+                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Row([
+                    ft.Text("🔥 Реальный расход на Газ:", size=13),
+                    ft.Text(f"{gas_cost} грн", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.ORANGE_900)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Row([
+                    ft.Text("📈 Чистая экономия бюджета:", size=13),
+                    ft.Text(f"{last_econ} грн" if last_econ < 0 else f"+{last_econ} грн", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700 if last_econ >= 0 else ft.Colors.RED_600)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Column([
+                    ft.Row([
+                        ft.Text("Прогресс окупаемости оборудования:", size=11, color=ft.Colors.GREY_600),
+                        ft.Text(f"{int(progress_val * 100)}%", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.ProgressBar(value=progress_val, color=ft.Colors.GREEN_700, bgcolor=ft.Colors.GREY_200, height=6)
+                ], spacing=4)
+            ], spacing=8),
+            padding=14
+        )
+    )
+    view_column.controls.append(gbo_card)
+    
+    # --- БЛОК 3: АНАЛИТИКА ИЗНОСА РЕГЛАМЕНТОВ ТО ---
     view_column.controls.append(ft.Text("Аналитика износа регламентов", size=18, weight=ft.FontWeight.BOLD))
     
     if not tasks:
