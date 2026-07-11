@@ -1,11 +1,9 @@
-﻿name: Сборка Flet APK
+name: build
 
 on:
   push:
     branches:
       - main
-      - master
-  workflow_dispatch:
 
 jobs:
   build:
@@ -15,39 +13,27 @@ jobs:
       - name: Проверка кода проекта
         uses: actions/checkout@v4
 
-      - name: Восстановление сетевого шлюза из шаблона и Secrets
-        # Извлекаем скрытый токен из сейфа GitHub и собираем network.py на лету
-        env:
-          SECRET_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: |
-          sed "s/СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН/$SECRET_BOT_TOKEN/g" network_template.py > network.py
-          echo "[УСПЕХ] Модуль network.py успешно сгенерирован для компиляции!"
+      - name: Настройка точной версии Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
 
       - name: Настройка Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-
-      - name: Настройка точной версии Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.7'
+          python-version: '3.13'
 
       - name: Установка зависимостей Python
         run: |
-          python -m pip install --upgrade pip
-          pip install flet requests
+          pip install flet
 
-      - name: Сборка финального APK с флагами разрешений сети
+      - name: Сборка финального APK
         run: |
-          # Флаги --android-permissions принудительно вшивают интернет на уровне компилятора Flutter/Flet
-
-      - name: Переименование установочного файла под текущую версию
-        run: |
-          # Вшиваем версию программы под текущий Build №12
+          # Запуск нативной компиляции Flet. Имя и версия считаются автоматически из flet.yaml
+          flet build apk
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
         with:
-          name: flet-car-app-release
-          path: "**/*.apk"
+          name: carjournal-release-apk
+          path: build/apk/*.apk
