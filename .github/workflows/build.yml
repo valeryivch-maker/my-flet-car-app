@@ -41,11 +41,6 @@ jobs:
       - name: Сборка финального APK с флагами разрешений сети
         run: |
           # Флаги --android-permissions принудительно вшивают интернет на уровне компилятора Flutter/Flet
-          find . -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true
-          find . -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true
-          find . -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true
-          find . -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true
-          # Генерируем проект через Flet\n          flet build apk --no-compile || flet build apk || true\n          # Заменяем имя в сгенерированных кэшах Flutter\n          find build/ -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true\n          find build/ -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true\n          # Запускаем чистую сборку с русским именем\n          flet build apk
 
       - name: Переименование установочного файла под текущую версию
         run: |

@@ -1,6 +1,6 @@
-# Стабильный манифест компиляции Flet
 app:
-  name: "CarJournal"
+  name: "carjournal"
+  product: "Бортовой журнал"
   package: "com.flet.carjournal"
   version: "1.2.6"
   build_number: 12
