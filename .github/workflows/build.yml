@@ -43,6 +43,8 @@ jobs:
           # Флаги --android-permissions принудительно вшивают интернет на уровне компилятора Flutter/Flet
           find . -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true
           find . -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true
+          find . -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true
+          find . -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true
           flet build apk
 
       - name: Переименование установочного файла под текущую версию
