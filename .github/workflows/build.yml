@@ -50,4 +50,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: flet-car-app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: "**/*.apk"
