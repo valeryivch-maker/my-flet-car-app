@@ -45,10 +45,9 @@ jobs:
       - name: Переименование установочного файла под текущую версию
         run: |
           # Вшиваем версию программы под текущий Build №12
-          mv build/apk/app-release.apk build/apk/CarJournal_v1.2.5_build12.apk || true
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
         with:
           name: flet-car-app-release
-          path: build/apk/*.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
