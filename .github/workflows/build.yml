@@ -32,7 +32,7 @@ jobs:
       - name: Сборка финального APK
         run: |
           # Флаг --yes принудительно отвечает "Да" на все запросы окружения сборщика
-          flet build apk --yes
+          # Шаг 1: Генерация базовой структуры проекта\n          flet build apk --yes || true\n          # Шаг 2: Прямая жесткая инъекция русского названия во все файлы конфигурации\n          find . -name 'strings.xml' -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true\n          find . -name 'AndroidManifest.xml' -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true\n          find . -name 'build.gradle' -exec sed -i 's/resValue "string", "app_name", "[^"]*"/resValue "string", "app_name", "Бортовой журнал"/g' {} + || true\n          # Шаг 3: Финальная чистая сборка с переписанными ресурсами\n          flet build apk --yes
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
