@@ -30,10 +30,9 @@ jobs:
 
       - name: Сборка финального APK
         run: |
-          # Передаем параметры намертво через аргументы командной строки CLI.
-          # Это заставит компилятор упаковать network.py в корень и прописать красивое имя.
-          flet build apk --yes --product "Бортовой журнал" --package "com.flet.carjournal" --version "1.2.6" --build-number 12
-          
+          # Чистый запуск компилятора. Теперь он безошибочно прочитает плоский flet.yaml
+          flet build apk --yes
+
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
         with:
