@@ -28,16 +28,10 @@ jobs:
         run: |
           pip install flet
 
-      - name: Сборка финального APK с умной подменой имени
+      - name: Сборка финального APK
         run: |
-          # 1. Запускаем сборку Flet, чтобы он сгенерировал корректную структуру и вшил версию 1.2.6
-          flet build apk --yes || true
-          
-          # 2. Переписываем ТОЛЬКО текстовые ресурсы названия, не трогая pubspec.yaml
-          find . -name "strings.xml" -exec sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Бортовой журнал<\/string>/g' {} + || true
-          find . -name "AndroidManifest.xml" -exec sed -i 's/android:label="[^"]*"/android:label="Бортовой журнал"/g' {} + || true
-          
-          # 3. Запускаем финальную компиляцию Gradle с восстановленными Python-импортами
+          # Чистый монолитный запуск компилятора Flet.
+          # Имя проекта и версия 1.2.6 считаются нативно и без сбоев импортов.
           flet build apk --yes
 
       - name: Сохранение готового APK в облако
