@@ -30,10 +30,10 @@ jobs:
 
       - name: Сборка финального APK
         run: |
-          # Чистый монолитный запуск компилятора Flet.
-          # Имя проекта и версия 1.2.6 считаются нативно и без сбоев импортов.
-          flet build apk --yes
-
+          # Передаем параметры намертво через аргументы командной строки CLI.
+          # Это заставит компилятор упаковать network.py в корень и прописать красивое имя.
+          flet build apk --yes --product "Бортовой журнал" --package "com.flet.carjournal" --version "1.2.6" --build-number 12
+          
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
         with:
