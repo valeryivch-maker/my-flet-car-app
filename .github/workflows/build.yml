@@ -34,7 +34,7 @@ jobs:
 
       - name: Сборка финального APK
         run: |
-          flet build apk \
+          flet build apk . \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
