@@ -28,10 +28,9 @@ jobs:
         run: |
           pip install flet
 
-      - name: Глубокая очистка кэша компилятора
+      - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
-          flutter clean
 
       - name: Сборка финального APK
         run: |
