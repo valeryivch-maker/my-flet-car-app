@@ -32,21 +32,63 @@ jobs:
         run: |
           rm -rf ~/.cookiecutters
 
-      - name: Автоматическое создание структуры проекта в облаке
+      - name: Роботизированная сборка монолитного ядра в облаке
         run: |
-          # Создаем изолированную папку src_build и копируем туда все Python-файлы и базу
-          mkdir -p src_build
-          cp *.py src_build/ 2>/dev/null || true
-          if [ -f "database.txt" ]; then cp database.txt src_build/; fi
-          if [ -f "app_config.txt" ]; then cp app_config.txt src_build/; fi
+          # Создаем временный чистый скрипт автосклейки на стороне сервера
+          cat << 'EOF' > cloud_compiler.py
+          import os
+
+          # Читаем исходный код и очищаем от скрытых Windows BOM маркеров
+          with open("engine.py", "r", encoding="utf-8") as f: engine_code = f.read().replace("\ufeff", "")
+          with open("network.py", "r", encoding="utf-8") as f: network_code = f.read().replace("\ufeff", "")
+          with open("views.py", "r", encoding="utf-8") as f: views_code = f.read().replace("\ufeff", "")
+          with open("main.py", "r", encoding="utf-8") as f: main_code = f.read().replace("\ufeff", "")
+
+          # Вырезаем конфликтующие строки импортов
+          for mod in ["import network", "import engine", "import views", "from datetime import datetime, timedelta", "import flet as ft"]:
+              engine_code = engine_code.replace(mod, f"# Склеено: {mod}")
+              network_code = network_code.replace(mod, f"# Склеено: {mod}")
+              views_code = views_code.replace(mod, f"# Склеено: {mod}")
+              main_code = main_code.replace(mod, f"# Склеено: {mod}")
+
+          # Собираем эталонную монолитную структуру
+          monolith = f"""import sys
+          import os
+          import json
+          import io
+          import time
+          import traceback
+          import requests
+          import urllib3
+          import glob
+          import shutil
+          from datetime import datetime, timedelta
+          from concurrent.futures import ThreadPoolExecutor
+          import flet as ft
+
+          # --- ENGINE ---
+          {engine_code}
+
+          # --- NETWORK ---
+          {network_code}
+
+          # --- VIEWS ---
+          {views_code}
+
+          # --- MAIN ---
+          {main_code}
+          """
+          with open("main.py", "w", encoding="utf-8") as f:
+              f.write(monolith)
+          print("[ОБЛАКО] Автоматическая склейка ядра успешно завершена!")
+          EOF
           
-          # Бронебойная инъекция путей: заставляем Android искать модули там, куда их прячет Flet CLI
-          sed -i '1s/^/import sys\nimport os\nandroid_dir = "\/data\/user\/0\/com.flet.carjournal\/files\/flet\/app\/src_build"\nif os.path.exists(android_dir): sys.path.insert(0, android_dir)\nif os.path.exists(os.path.join(os.getcwd(), "src_build")): sys.path.insert(0, os.path.join(os.getcwd(), "src_build"))\n/' src_build/main.py
+          # Запускаем сборщик монолита прямо на сервере
+          python cloud_compiler.py
 
       - name: Сборка финального APK
         run: |
-          # Запускаем компиляцию из автоматически созданной папки src_build
-          flet build apk src_build \
+          flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
