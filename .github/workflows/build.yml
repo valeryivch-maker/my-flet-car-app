@@ -1,4 +1,4 @@
-name: build
+﻿name: build
 
 on:
   push:
@@ -27,13 +27,13 @@ jobs:
       - name: Установка зависимостей Python
         run: |
           pip install flet
+
       - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
 
       - name: Подготовка монолитного ядра для сборщика
         run: |
-          # Переименовываем сгенерированный монолит в main.py для обхода ограничений CLI
           mv main_monolith.py main.py
 
       - name: Сборка финального APK
@@ -45,3 +45,10 @@ jobs:
             --build-version "1.2.6" \
             --build-number 12 \
             --yes
+
+      - name: Сохранение готового APK в облако
+        uses: actions/upload-artifact@v4
+        with:
+          name: carjournal-release-apk
+          path: build/**/*.apk
+          if-no-files-found: error
