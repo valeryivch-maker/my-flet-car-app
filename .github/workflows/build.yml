@@ -26,19 +26,16 @@ jobs:
 
       - name: Установка зависимостей Python
         run: |
-          pip install flet
+          pip install flet requests urllib3
 
       - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
 
-      - name: Подготовка монолитного ядра для сборщика
-        run: |
-          mv main_monolith.py main.py
-
       - name: Сборка финального APK
         run: |
-          flet build apk \
+          # Вызываем сборщик напрямую через Python, чтобы обойти старый глобальный flet-cli
+          python -m flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
