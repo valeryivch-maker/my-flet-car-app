@@ -28,10 +28,20 @@ jobs:
         run: |
           pip install flet
 
+      - name: Глубокая очистка кэша компилятора
+        run: |
+          rm -rf ~/.cookiecutters
+          flutter clean
+
       - name: Сборка финального APK
         run: |
-          # Чистый запуск компилятора. Теперь он безошибочно прочитает плоский flet.yaml
-          flet build apk --yes
+          flet build apk \
+            --project "carjournal" \
+            --product "Бортовой журнал" \
+            --org "com.flet" \
+            --build-version "1.2.6" \
+            --build-number 12 \
+            --yes
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
