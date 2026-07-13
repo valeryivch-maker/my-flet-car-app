@@ -35,7 +35,7 @@ jobs:
       - name: Сборка финального APK
         run: |
           # Вызываем сборщик напрямую через Python, чтобы обойти старый глобальный flet-cli
-          python -m flet build apk \
+          ~/.local/bin/flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
