@@ -15,10 +15,10 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import flet as ft
 
-# [ЯДРО] ENGINE
-﻿import json
+# --- КОД МОДУЛЯ ENGINE ---
+import json
 import os
-# Заменено монолитом: from datetime import datetime, timedelta
+# [Склеено монолитом]: from datetime import datetime, timedelta
 
 DB_FILE = "database.txt"
 DB_PATH = DB_FILE
@@ -204,7 +204,7 @@ def load_data():
                 if "date" not in task_info:
                     task_info["date"] = datetime.now().strftime("%d.%m.%Y")
             car_profile["predictions"] = get_maintenance_predictions(car_profile)
-            # Заменено монолитом: import network
+            # [Склеено монолитом]: import network
             network.check_and_send_alerts(car_profile, car_name=car_name)
         return data
     except Exception:
@@ -271,7 +271,7 @@ def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str,
 
 def calculate_fuel_stats(car_profile, days=30):
     """Вычисляет общие расходы (ТО + Топливо) в грн за выбранный период дней."""
-    # Заменено монолитом: from datetime import datetime, timedelta
+    # [Склеено монолитом]: from datetime import datetime, timedelta
     
     now = datetime.now()
     cutoff_date = now - timedelta(days=days)
@@ -412,13 +412,13 @@ def calculate_gbo_economy_points(car_profile):
     return points
 
 
-# [ЯДРО] NETWORK
-﻿import os
-# Заменено монолитом: import engine
+# --- КОД МОДУЛЯ NETWORK ---
+import os
+# [Склеено монолитом]: import engine
 # Берем точное имя файла базы данных, которое использует само приложение
 DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
 LAST_SENT_ALERTS = {}
-# Заменено монолитом: import flet as ft
+# [Склеено монолитом]: import flet as ft
 import json
 import io
 import time
@@ -426,7 +426,7 @@ import traceback
 import requests
 import urllib3
 from concurrent.futures import ThreadPoolExecutor
-# Заменено монолитом: import engine
+# [Склеено монолитом]: import engine
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 network_executor = ThreadPoolExecutor(max_workers=2)
@@ -452,7 +452,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         def async_export_worker():
             try:
                 print("\n[DEBUG] Воркер экспорта запущен!")
-                # Заменено монолитом: import engine
+                # [Склеено монолитом]: import engine
                 current_db_data = engine.load_data()
                 
                 
@@ -720,7 +720,7 @@ def auto_import_last_file(show_message_callback):
                 f.write(db_resp.text)
             show_message_callback("✅ База данных успешно импортирована из чата!")
             # Триггерим обновление интерфейса приложения
-            # Заменено монолитом: import engine
+            # [Склеено монолитом]: import engine
             engine.load_data()
                 
                 
@@ -773,8 +773,8 @@ def auto_export_file_to_telegram(page, show_message_callback):
 def auto_import_last_file(page, show_message_callback):
     """Импорт базы данных на основе проверенной логики скрипта smart_cloud_sync."""
     import requests
-    # Заменено монолитом: import engine
-    # Заменено монолитом: import flet as ft
+    # [Склеено монолитом]: import engine
+    # [Склеено монолитом]: import flet as ft
     import json
     
     def show_alert(msg_text):
@@ -857,10 +857,10 @@ def auto_import_last_file(page, show_message_callback):
         show_alert(f"Ошибка шлюза импорта: {str(ex)}")
 
 
-# [ЯДРО] VIEWS
-# Заменено монолитом: import flet as ft
-# Заменено монолитом: from datetime import datetime, timedelta
-# Заменено монолитом: import engine
+# --- КОД МОДУЛЯ VIEWS ---
+# [Склеено монолитом]: import flet as ft
+# [Склеено монолитом]: from datetime import datetime, timedelta
+# [Склеено монолитом]: import engine
 
 def generate_analytics_view(page, car_profile):
     view_column = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=15)
@@ -1373,7 +1373,7 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     dlg.open = True
     page.update()
 
-# [ЯДРО] MAIN
+# --- КОРНЕВОЙ ИСПОЛНЯЕМЫЙ КОД MAIN ---
 import sys
 import os
 # Принудительное связывание путей для среды Android
@@ -1382,11 +1382,11 @@ if base_dir not in sys.path: sys.path.insert(0, base_dir)
 cwd_dir = os.getcwd()
 if cwd_dir not in sys.path: sys.path.insert(0, cwd_dir)
 if "" not in sys.path: sys.path.insert(0, "")
-# Заменено монолитом: import flet as ft
+# [Склеено монолитом]: import flet as ft
 from datetime import datetime
-# Заменено монолитом: import engine
-# Заменено монолитом: import views
-# Заменено монолитом: import network
+# [Склеено монолитом]: import engine
+# [Склеено монолитом]: import views
+# [Склеено монолитом]: import network
 
 APP_VERSION = "1.2.5"
 BUILD_NUMBER = "11"
