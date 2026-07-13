@@ -34,14 +34,14 @@ jobs:
 
       - name: Автоматическое создание структуры проекта в облаке
         run: |
-          # Создаем изолированную папку src и копируем туда все Python-файлы и базу
+          # Создаем изолированную папку src_build и копируем туда все Python-файлы и базу
           mkdir -p src_build
           cp *.py src_build/ 2>/dev/null || true
           if [ -f "database.txt" ]; then cp database.txt src_build/; fi
           if [ -f "app_config.txt" ]; then cp app_config.txt src_build/; fi
           
-          # Настраиваем относительные импорты для Android внутри main.py
-          sed -i '1s/^/import sys\nimport os\nif os.getcwd() not in sys.path: sys.path.insert(0, os.getcwd())\n/' src_build/main.py
+          # Бронебойная инъекция путей: заставляем Android искать модули там, куда их прячет Flet CLI
+          sed -i '1s/^/import sys\nimport os\nandroid_dir = "\/data\/user\/0\/com.flet.carjournal\/files\/flet\/app\/src_build"\nif os.path.exists(android_dir): sys.path.insert(0, android_dir)\nif os.path.exists(os.path.join(os.getcwd(), "src_build")): sys.path.insert(0, os.path.join(os.getcwd(), "src_build"))\n/' src_build/main.py
 
       - name: Сборка финального APK
         run: |
