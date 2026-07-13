@@ -24,37 +24,19 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Установка зависимостей Python
+      - name: Установка современного компилятора Flet через pipx
         run: |
-          pip install flet requests urllib3
+          # Устанавливаем изолированную актуальную утилиту сборщика
+          pipx install flet-cli
 
       - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
 
-      - name: Роботизированная сборка упорядоченного монолита в облаке
-        run: |
-          # Собираем монолит с правильной иерархией слоев выполнения Python
-          python -c '
-          import os
-          m = open("main.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          e = open("engine.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          n = open("network.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          v = open("views.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          
-          # Очищаем перекрестные директивы импорта во всех модулях
-          for k in ["import network", "import engine", "import views", "from datetime import datetime, timedelta", "import flet as ft"]:
-              m, e, n, v = m.replace(k, f"# {k}"), e.replace(k, f"# {k}"), n.replace(k, f"# {k}"), v.replace(k, f"# {k}")
-              
-          # Собираем строго по цепочке: База -> Интерфейс -> Сетевые триггеры -> Точка запуска main
-          with open("main.py", "w", encoding="utf-8") as f:
-              f.write(f"import sys, os, json, io, time, traceback, requests, urllib3, glob, shutil\nfrom datetime import datetime, timedelta\nfrom concurrent.futures import ThreadPoolExecutor\nimport flet as ft\n\n# --- СЛОЙ 1: БАЗОВЫЙ ДВИЖОК И ДАННЫЕ ---\n{e}\n\n# --- СЛОЙ 2: ГРАФИЧЕСКИЕ ОКНА И UI ---\n{v}\n\n# --- СЛОЙ 3: СЕТЕВАЯ СИНХРОНИЗАЦИЯ ---\n{n}\n\n# --- СЛОЙ 4: ТОЧКА ВХОДА ПРИЛОЖЕНИЯ ---\n{m}")
-          print("[ОБЛАКО] Иерархический монолит успешно сформирован!")
-          '
-
       - name: Сборка финального APK
         run: |
-          flet build apk \
+          # Запускаем свежий компилятор через pipx, который нативно упаковывает многофайловые проекты
+          pipx run flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
