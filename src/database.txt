@@ -1,0 +1,242 @@
+{
+    "cars": {
+        "Chevrolet lacetti": {
+            "odometer": {
+                "value": 200227,
+                "date": "10.07.2026"
+            },
+            "daily_mileage": 74,
+            "odometer_history": [
+                {
+                    "value": 183503,
+                    "date": "02.06.2024"
+                },
+                {
+                    "value": 185675,
+                    "date": "30.09.2024"
+                },
+                {
+                    "value": 188430,
+                    "date": "04.03.2025"
+                },
+                {
+                    "value": 189079,
+                    "date": "06.05.2025"
+                },
+                {
+                    "value": 190140,
+                    "date": "18.05.2025"
+                },
+                {
+                    "value": 190871,
+                    "date": "13.06.2025"
+                },
+                {
+                    "value": 195789,
+                    "date": "26.01.2026"
+                },
+                {
+                    "value": 199105,
+                    "date": "23.05.2026"
+                },
+                {
+                    "value": 200227,
+                    "date": "10.07.2026"
+                }
+            ],
+            "maintenance_data": {
+                "Замена масла + фильтры": {
+                    "last_service": 199104,
+                    "interval": 9000,
+                    "date": "09.05.2026"
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "last_service": 165090,
+                    "interval": 60000,
+                    "date": "04.06.2020"
+                },
+                "Замена антифриза": {
+                    "last_service": 185700,
+                    "interval": 50000,
+                    "date": "04.10.2024"
+                },
+                "Тормозная жидкость": {
+                    "last_service": 190870,
+                    "interval": 40000,
+                    "date": "01.06.2025"
+                },
+                "Обслуживание кондиционера": {
+                    "last_service": 110000,
+                    "interval": 30000,
+                    "date": "04.06.2026"
+                }
+            },
+            "history": [
+                {
+                    "task": "Замена антифриза",
+                    "odometer": 185700,
+                    "date": "04.10.2024"
+                },
+                {
+                    "task": "Тормозная жидкость",
+                    "odometer": 190870,
+                    "date": "01.06.2025"
+                },
+                {
+                    "task": "Замена ГРМ (ремень, помпа)",
+                    "odometer": 165090,
+                    "date": "04.06.2020"
+                },
+                {
+                    "task": "Замена масла + фильтры",
+                    "odometer": 182454,
+                    "date": "01.04.2024",
+                    "comment": "проба"
+                },
+                {
+                    "task": "Замена масла + фильтры",
+                    "odometer": 190871,
+                    "date": "13.06.2025"
+                },
+                {
+                    "task": "Замена масла + фильтры",
+                    "odometer": 199104,
+                    "date": "23.05.2026",
+                    "comment": ""
+                }
+            ],
+            "predictions": {
+                "Замена масла + фильтры": {
+                    "rem_km": 8104,
+                    "rem_days": 337,
+                    "is_overdue": false
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "rem_km": 25090,
+                    "rem_days": 1045,
+                    "is_overdue": false
+                },
+                "Замена антифриза": {
+                    "rem_km": 35700,
+                    "rem_days": 1487,
+                    "is_overdue": false
+                },
+                "Тормозная жидкость": {
+                    "rem_km": 30870,
+                    "rem_days": 1286,
+                    "is_overdue": false
+                },
+                "Обслуживание кондиционера": {
+                    "rem_km": -60000,
+                    "rem_days": -2500,
+                    "is_overdue": true
+                }
+            },
+            "fuel_history": [
+                {
+                    "date": "09.06.2026",
+                    "type": "Газ",
+                    "liters": 35.09,
+                    "price": 43.94,
+                    "cost": 1541.85,
+                    "odometer": 199514,
+                    "consumption": 0.0,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "12.06.2026",
+                    "type": "Бензин",
+                    "liters": 14.27,
+                    "price": 70.09,
+                    "cost": 1000.19,
+                    "odometer": 199583,
+                    "consumption": 0.0,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "22.06.2026",
+                    "type": "Газ",
+                    "liters": 34.54,
+                    "price": 40.49,
+                    "cost": 1398.52,
+                    "odometer": 199813,
+                    "consumption": 11.55,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "07.07.2026",
+                    "type": "Газ",
+                    "liters": 34.09,
+                    "price": 37.99,
+                    "cost": 1295.08,
+                    "odometer": 200181,
+                    "consumption": 9.26,
+                    "comment": "БРСМ"
+                }
+            ]
+        },
+        "ВАЗ 2103": {
+            "odometer": {
+                "value": 125000,
+                "date": "04.06.2026"
+            },
+            "daily_mileage": 45,
+            "odometer_history": [
+                {
+                    "value": 123650,
+                    "date": "05.05.2026"
+                },
+                {
+                    "value": 125000,
+                    "date": "04.06.2026"
+                }
+            ],
+            "maintenance_data": {
+                "Замена масла + фильтры": {
+                    "last_service": 120000,
+                    "interval": 10000,
+                    "date": "04.06.2026"
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "last_service": 90000,
+                    "interval": 60000,
+                    "date": "04.06.2026"
+                },
+                "Замена антифриза": {
+                    "last_service": 100000,
+                    "interval": 50000,
+                    "date": "04.06.2026"
+                },
+                "Тормозная жидкость": {
+                    "last_service": 100000,
+                    "interval": 40000,
+                    "date": "04.06.2026"
+                }
+            },
+            "history": [],
+            "predictions": {
+                "Замена масла + фильтры": {
+                    "rem_km": 5000,
+                    "rem_days": 111,
+                    "is_overdue": false
+                },
+                "Замена ГРМ (ремень, помпа)": {
+                    "rem_km": 25000,
+                    "rem_days": 555,
+                    "is_overdue": false
+                },
+                "Замена антифриза": {
+                    "rem_km": 25000,
+                    "rem_days": 555,
+                    "is_overdue": false
+                },
+                "Тормозная жидкость": {
+                    "rem_km": 15000,
+                    "rem_days": 333,
+                    "is_overdue": false
+                }
+            },
+            "fuel_history": []
+        }
+    }
+}
