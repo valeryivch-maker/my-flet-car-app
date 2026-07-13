@@ -32,9 +32,14 @@ jobs:
         run: |
           rm -rf ~/.cookiecutters
 
+      - name: Принудительное выравнивание структуры модулей
+        run: |
+          # Если файлы лежат в src, копируем их обратно в корень перед сборкой для надежности
+          if [ -d "src" ]; then cp -r src/* .; fi
+
       - name: Сборка финального APK
         run: |
-          flet build apk src \
+          flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
