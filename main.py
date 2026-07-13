@@ -1,6 +1,11 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+# Принудительное связывание путей для среды Android
+base_dir = os.path.abspath(os.path.dirname(__file__))
+if base_dir not in sys.path: sys.path.insert(0, base_dir)
+cwd_dir = os.getcwd()
+if cwd_dir not in sys.path: sys.path.insert(0, cwd_dir)
+if "" not in sys.path: sys.path.insert(0, "")
 import flet as ft
 from datetime import datetime
 import engine
