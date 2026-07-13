@@ -111,39 +111,36 @@ def generate_analytics_view(page, car_profile):
 
 def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, show_msg): 
     h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=220, spacing=8) 
- 
     def refresh(): 
         h_col.controls.clear() 
         if "history" not in car_profile: 
             car_profile["history"] = [] 
         t_hist = [h for h in car_profile.get("history", []) if h.get("task") == task_name] 
- 
         if not t_hist: 
             h_col.controls.append(ft.Text("Пусто", italic=True)) 
         else: 
             for rec in sorted(t_hist, key=lambda x: int(x.get('odometer', 0)), reverse=True): 
-                # Функция-замыкание для удаления 
                 def make_del(r=rec): 
                     return lambda _: [car_profile["history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Удалено")] 
- 
-                # Функция-замыкание для вызова окна редактирования записи 
                 def make_edit(r=rec): 
                     def open_edit_dialog(_): 
                         edit_odo = ft.TextField(label="Пробег", value=str(r.get("odometer", ""))) 
                         edit_date = ft.TextField(label="Дата", value=str(r.get("date", ""))) 
+                        edit_pname = ft.TextField(label="Название детали", value=str(r.get("part_name", "")))
+                        edit_pcode = ft.TextField(label="Артикул / Код", value=str(r.get("part_code", "")))
+                        edit_cost = ft.TextField(label="Стоимость (грн)", value=str(r.get("cost", "0")))
                         edit_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", ""))) 
- 
                         def save_edited_rec(_): 
                             try: 
                                 km = int(edit_odo.value) 
                                 dt_str = edit_date.value.strip() 
                                 datetime.strptime(dt_str, "%d.%m.%Y") 
- 
-                                # Обновляем данные в оригинальной записи внутри списка 
                                 r["odometer"] = km 
                                 r["date"] = dt_str 
+                                r["part_name"] = edit_pname.value.strip()
+                                r["part_code"] = edit_pcode.value.strip()
+                                r["cost"] = float(edit_cost.value.strip() if edit_cost.value else 0)
                                 r["comment"] = edit_comm.value.strip() 
- 
                                 engine.save_data(db_data) 
                                 edit_dlg.open = False 
                                 page.update() 
@@ -152,23 +149,22 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                                 show_msg("Запись изменена!") 
                             except: 
                                 show_msg("Ошибка формата!") 
- 
                         edit_dlg = ft.AlertDialog( 
                             title=ft.Text("Правка записи ТО"), 
-                            content=ft.Column([edit_odo, edit_date, edit_comm], tight=True), 
+                            content=ft.Column([edit_odo, edit_date, edit_pname, edit_pcode, edit_cost, edit_comm], tight=True), 
                             actions=[ft.TextButton("Сохранить", on_click=save_edited_rec)] 
                         ) 
                         page.overlay.append(edit_dlg) 
                         edit_dlg.open = True 
                         page.update() 
-                    return open_edit_dialog  # ТУТ ИСПРАВЛЕНО: возвращаем правильное имя!
- 
-                # Отрисовка строки истории с двумя кнопками: Редактировать и Удалить 
+                    return open_edit_dialog
+                
                 h_col.controls.append(ft.Container( 
                     content=ft.Row([ 
                         ft.Column([ 
-                            ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км")]), 
-                            ft.Text(rec.get('comment', ""), size=12, color=ft.Colors.GREY_600, italic=True) 
+                            ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км"), ft.Text(f"💰 {rec.get('cost', 0)} грн", weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)]), 
+                            ft.Text(f"⚙️ {rec.get('part_name','')} [Арт: {rec.get('part_code','')}]" if rec.get('part_code') else "", size=12, color=ft.Colors.GREEN_800, weight=ft.FontWeight.W_500),
+                            ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_600, italic=True) 
                         ]), 
                         ft.Row([ 
                             ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()), 
@@ -178,7 +174,6 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                     padding=6, bgcolor=ft.Colors.GREY_50, border_radius=6 
                 )) 
         page.update() 
- 
     dlg = ft.AlertDialog( 
         title=ft.Text(f"История: {task_name}"), 
         content=ft.Container(content=h_col, adaptive=True), 
@@ -187,26 +182,37 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
     page.overlay.append(dlg) 
     dlg.open = True 
     refresh() 
- 
+
 def show_add_task_history_dialog(page, db_data, t_name, p_profile, rebuild, show_msg):
     h_odo = ft.TextField(label="Пробег")
     h_date = ft.TextField(label="Дата", value=datetime.now().strftime("%d.%m.%Y"))
-    
+    h_part_name = ft.TextField(label="Название запчасти (опционально)")
+    h_part_code = ft.TextField(label="Артикул / Код детали (опционально)")
+    h_cost = ft.TextField(label="Стоимость работы + деталей (грн)", value="0")
+ 
     def save(_):
         try:
             km = int(h_odo.value)
             dt_str = h_date.value.strip()
             datetime.strptime(dt_str, "%d.%m.%Y")
-            
-            # Наша главная броня от багов сохранения:
+            cost_val = float(h_cost.value.strip() if h_cost.value else 0)
+ 
             if "history" not in p_profile:
                 p_profile["history"] = []
-                
-            p_profile["history"].append({"task": t_name, "odometer": km, "date": dt_str})
-            
+ 
+            p_profile["history"].append({
+                "task": t_name, 
+                "odometer": km, 
+                "date": dt_str,
+                "part_name": h_part_name.value.strip(),
+                "part_code": h_part_code.value.strip(),
+                "cost": cost_val,
+                "comment": f"Деталь: {h_part_name.value.strip()} [Арт: {h_part_code.value.strip()}]" if h_part_code.value.strip() else ""
+            })
+ 
             if km > p_profile["maintenance_data"][t_name].get("last_service", 0):
                 p_profile["maintenance_data"][t_name].update({"last_service": km, "date": dt_str})
-                
+ 
             engine.save_data(db_data)
             dlg.open = False
             page.update()
@@ -214,9 +220,12 @@ def show_add_task_history_dialog(page, db_data, t_name, p_profile, rebuild, show
             show_msg("Добавлено!")
         except Exception as ex:
             show_msg("Ошибка формата!")
-            
-    dlg = ft.AlertDialog(title=ft.Text("Ввод истории"), content=ft.Column([h_odo, h_date], tight=True), 
-                         actions=[ft.TextButton("Сохранить", on_click=save)])
+ 
+    dlg = ft.AlertDialog(
+        title=ft.Text("Ввод истории ремонта и запчастей"), 
+        content=ft.Column([h_odo, h_date, h_part_name, h_part_code, h_cost], tight=True, spacing=10), 
+        actions=[ft.TextButton("Сохранить", on_click=save)]
+    )
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
@@ -512,3 +521,164 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
+
+
+def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=300, spacing=8)
+    dlg = None
+    
+    def refresh():
+        h_col.controls.clear()
+        if "repair_history" not in car_profile:
+            car_profile["repair_history"] = []
+            
+        rep_hist = car_profile["repair_history"]
+        if not rep_hist:
+            h_col.controls.append(ft.Text("История ремонтов пуста", italic=True))
+        else:
+            for rec in sorted(rep_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
+                def make_del(r=rec):
+                    return lambda _: [car_profile["repair_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Ремонт удален")]
+                
+                def make_copy(code_to_copy=rec.get('part_code', '')):
+                    return lambda _: [page.set_clipboard(code_to_copy), show_msg(f"📋 Артикул {code_to_copy} скопирован!")]
+
+                def make_edit(r=rec):
+                    def open_edit_repair_dialog(_):
+                        edit_name = ft.TextField(label="Что отремонтировано", value=str(r.get("repair_name", "")))
+                        edit_odo = ft.TextField(label="Пробег (км)", value=str(r.get("odometer", "")))
+                        edit_date = ft.TextField(label="Дата", value=str(r.get("date", "")))
+                        edit_pname = ft.TextField(label="Название запчасти", value=str(r.get("part_name", "")))
+                        edit_pcode = ft.TextField(label="Артикул / Код", value=str(r.get("part_code", "")))
+                        edit_cost = ft.TextField(label="Стоимость (грн)", value=str(r.get("cost", "0")))
+                        edit_comm = ft.TextField(label="Комментарий", value=str(r.get("comment", "")))
+
+                        def save_edited_repair(_):
+                            try:
+                                odo = int(edit_odo.value)
+                                cost = float(edit_cost.value.strip() if edit_cost.value else 0)
+                                dt_str = edit_date.value.strip()
+                                datetime.strptime(dt_str, "%d.%m.%Y")
+                                if not edit_name.value.strip(): raise ValueError
+                                
+                                r["repair_name"] = edit_name.value.strip()
+                                r["odometer"] = odo
+                                r["date"] = dt_str
+                                r["part_name"] = edit_pname.value.strip()
+                                r["part_code"] = edit_pcode.value.strip()
+                                r["cost"] = cost
+                                r["comment"] = edit_comm.value.strip()
+                                
+                                engine.save_data(db_data)
+                                edit_rep_dlg.open = False
+                                page.update()
+                                refresh()
+                                rebuild()
+                                show_msg("Запись о ремонте успешно изменена!")
+                            except:
+                                show_msg("Ошибка! Проверьте формат полей.")
+
+                        edit_rep_dlg = ft.AlertDialog(
+                            title=ft.Text("Правка записи ремонта"),
+                            content=ft.Column([edit_name, edit_odo, edit_date, edit_pname, edit_pcode, edit_cost, edit_comm], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO, height=300),
+                            actions=[ft.TextButton("Сохранить", on_click=save_edited_repair)]
+                        )
+                        page.overlay.append(edit_rep_dlg)
+                        edit_rep_dlg.open = True
+                        page.update()
+                    return open_edit_repair_dialog
+
+                info_line = f"🔧 {rec.get('repair_name')} | 📍 {rec.get('odometer')} км"
+                cost_line = f"💰 Стоимость: {rec.get('cost', 0)} грн"
+                
+                parts_row = ft.Row([
+                    ft.Text(f"⚙️ {rec.get('part_name')} [Арт: {rec.get('part_code')}]", size=13, color=ft.Colors.GREEN_800, expand=True),
+                    ft.IconButton(ft.Icons.COPY, icon_size=16, tooltip="Копировать артикул", on_click=make_copy())
+                ], spacing=5, alignment=ft.MainAxisAlignment.START) if rec.get('part_code') else ft.Text("Без запчастей", size=13, color=ft.Colors.GREY_500)
+
+                card_layout = ft.Column([
+                    ft.Row([ft.Text(f"📅 {rec.get('date')}", weight=ft.FontWeight.W_500), ft.Text(info_line, weight=ft.FontWeight.BOLD)]),
+                    parts_row,
+                    ft.Text(cost_line, size=13, color=ft.Colors.BLUE_900, weight=ft.FontWeight.BOLD),
+                    ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_500, italic=True) if rec.get('comment') else ft.Container()
+                ], spacing=2, expand=True)
+                
+                h_col.controls.append(ft.Container(
+                    content=ft.Row([
+                        card_layout,
+                        ft.Row([
+                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, tooltip="Редактировать запись", on_click=make_edit()),
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, tooltip="Удалить запись", on_click=make_del())
+                        ], spacing=0)
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
+                ))
+        if dlg: dlg.update()
+        else: page.update()
+
+    def add_repair_click(_):
+        in_name = ft.TextField(label="Что отремонтировано / заменено")
+        in_odo = ft.TextField(label="Пробег (км)", value=str(car_profile.get("odometer", {}).get("value", "")))
+        in_date = ft.TextField(label="Дата", value=datetime.now().strftime("%d.%m.%Y"))
+        in_pname = ft.TextField(label="Название запчасти (опционально)")
+        in_pcode = ft.TextField(label="Артикул / Код детали (опционально)")
+        in_cost = ft.TextField(label="Стоимость работы + деталей (грн)", value="0")
+        in_comm = ft.TextField(label="Комментарий")
+
+        def save_repair(_):
+            try:
+                odo = int(in_odo.value)
+                cost = float(in_cost.value.strip() if in_cost.value else 0)
+                dt_str = in_date.value.strip()
+                datetime.strptime(dt_str, "%d.%m.%Y")
+                if not in_name.value.strip(): raise ValueError
+                
+                if "repair_history" not in car_profile:
+                    car_profile["repair_history"] = []
+                
+                car_profile["repair_history"].append({
+                    "repair_name": in_name.value.strip(),
+                    "odometer": odo,
+                    "date": dt_str,
+                    "part_name": in_pname.value.strip(),
+                    "part_code": in_pcode.value.strip(),
+                    "cost": cost,
+                    "comment": in_comm.value.strip()
+                })
+                
+                if odo >= car_profile["odometer"].get("value", 0):
+                    car_profile["odometer"] = {"value": odo, "date": dt_str}
+                
+                engine.save_data(db_data)
+                adlg.open = False
+                page.update()
+                refresh()
+                rebuild()
+                show_msg("Ремонт успешно внесен в журнал!")
+            except:
+                show_msg("Ошибка заполнения! Проверьте имя, пробег и дату.")
+
+        adlg = ft.AlertDialog(
+            title=ft.Text("Внести внеплановый ремонт"),
+            content=ft.Column([in_name, in_odo, in_date, in_pname, in_pcode, in_cost, in_comm], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO, height=300),
+            actions=[ft.TextButton("Отмена", on_click=lambda _: [setattr(adlg, "open", False), page.update()]),
+                     ft.ElevatedButton("Сохранить", bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=save_repair)]
+        )
+        page.overlay.append(adlg)
+        adlg.open = True
+        page.update()
+
+    dlg = ft.AlertDialog(
+        bgcolor=ft.Colors.WHITE,
+        title=ft.Text("Журнал внеплановых ремонтов автомобиля"),
+        content=ft.Column([
+            ft.Button("Добавить ремонтную работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100),
+            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            h_col
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=420),
+        actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
+    )
+    page.overlay.append(dlg)
+    dlg.open = True
+    page.update()
+    refresh()

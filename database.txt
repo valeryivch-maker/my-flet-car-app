@@ -2,10 +2,10 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 200227,
-                "date": "10.07.2026"
+                "value": 200307,
+                "date": "13.07.2026"
             },
-            "daily_mileage": 74,
+            "daily_mileage": 25,
             "odometer_history": [
                 {
                     "value": 183503,
@@ -42,6 +42,10 @@
                 {
                     "value": 200227,
                     "date": "10.07.2026"
+                },
+                {
+                    "value": 200307,
+                    "date": "13.07.2026"
                 }
             ],
             "maintenance_data": {
@@ -107,28 +111,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 8104,
-                    "rem_days": 337,
+                    "rem_km": 7797,
+                    "rem_days": 311,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 25090,
-                    "rem_days": 1045,
+                    "rem_km": 24783,
+                    "rem_days": 991,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 35700,
-                    "rem_days": 1487,
+                    "rem_km": 35393,
+                    "rem_days": 1415,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 30870,
-                    "rem_days": 1286,
+                    "rem_km": 30563,
+                    "rem_days": 1222,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -60000,
-                    "rem_days": -2500,
+                    "rem_km": -60307,
+                    "rem_days": -2412,
                     "is_overdue": true
                 }
             },
@@ -172,6 +176,17 @@
                     "odometer": 200181,
                     "consumption": 9.26,
                     "comment": "БРСМ"
+                }
+            ],
+            "repair_history": [
+                {
+                    "repair_name": "замена колодок",
+                    "odometer": 200307,
+                    "date": "13.07.2026",
+                    "part_name": "колодки тормозные",
+                    "part_code": "34566545",
+                    "cost": 200.0,
+                    "comment": "норма"
                 }
             ]
         },
