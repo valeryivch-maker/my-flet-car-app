@@ -35,15 +35,13 @@ jobs:
       - name: Сборка финального APK
         run: |
           # Принудительно линкуем файлы, чтобы Flet CLI включил их в сборку site-packages
-          flet build apk \
+          flet build apk app.py \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \
-            --include-modules network,engine,views \
             --yes
-
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
         with:
