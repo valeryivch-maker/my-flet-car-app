@@ -1,11 +1,5 @@
 import sys
 import os
-# Принудительное связывание путей для среды Android из директории src
-current_src_dir = os.path.dirname(os.path.abspath(__file__))
-if current_src_dir not in sys.path:
-    sys.path.insert(0, current_src_dir)
-import sys
-import os
 # Принудительное связывание путей для среды Android
 base_dir = os.path.abspath(os.path.dirname(__file__))
 if base_dir not in sys.path: sys.path.insert(0, base_dir)
