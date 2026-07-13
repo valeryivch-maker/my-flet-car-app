@@ -32,9 +32,21 @@ jobs:
         run: |
           rm -rf ~/.cookiecutters
 
+      - name: Автоматическое создание структуры проекта в облаке
+        run: |
+          # Создаем изолированную папку src и копируем туда все Python-файлы и базу
+          mkdir -p src_build
+          cp *.py src_build/ 2>/dev/null || true
+          if [ -f "database.txt" ]; then cp database.txt src_build/; fi
+          if [ -f "app_config.txt" ]; then cp app_config.txt src_build/; fi
+          
+          # Настраиваем относительные импорты для Android внутри main.py
+          sed -i '1s/^/import sys\nimport os\nif os.getcwd() not in sys.path: sys.path.insert(0, os.getcwd())\n/' src_build/main.py
+
       - name: Сборка финального APK
         run: |
-          flet build apk \
+          # Запускаем компиляцию из автоматически созданной папки src_build
+          flet build apk src_build \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
