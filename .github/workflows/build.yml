@@ -34,15 +34,21 @@ jobs:
 
       - name: Роботизированная сборка монолитного ядра в облаке
         run: |
-          # Создаем временный чистый скрипт автосклейки на стороне сервера
+          # Создаем временный скрипт автосклейки, который читает файлы из папки src/
           cat << 'EOF' > cloud_compiler.py
           import os
 
-          # Читаем исходный код и очищаем от скрытых Windows BOM маркеров
-          with open("engine.py", "r", encoding="utf-8") as f: engine_code = f.read().replace("\ufeff", "")
-          with open("network.py", "r", encoding="utf-8") as f: network_code = f.read().replace("\ufeff", "")
-          with open("views.py", "r", encoding="utf-8") as f: views_code = f.read().replace("\ufeff", "")
-          with open("main.py", "r", encoding="utf-8") as f: main_code = f.read().replace("\ufeff", "")
+          # Определяем пути к файлам разработки, лежащим в папке src
+          engine_path = os.path.join("src", "engine.py") if os.path.exists(os.path.join("src", "engine.py")) else "engine.py"
+          network_path = os.path.join("src", "network.py") if os.path.exists(os.path.join("src", "network.py")) else "network.py"
+          views_path = os.path.join("src", "views.py") if os.path.exists(os.path.join("src", "views.py")) else "views.py"
+          main_path = os.path.join("src", "main.py") if os.path.exists(os.path.join("src", "main.py")) else "main.py"
+
+          # Читаем исходный код и очищаем от Windows BOM маркеров
+          with open(engine_path, "r", encoding="utf-8") as f: engine_code = f.read().replace("\ufeff", "")
+          with open(network_path, "r", encoding="utf-8") as f: network_code = f.read().replace("\ufeff", "")
+          with open(views_path, "r", encoding="utf-8") as f: views_code = f.read().replace("\ufeff", "")
+          with open(main_path, "r", encoding="utf-8") as f: main_code = f.read().replace("\ufeff", "")
 
           # Вырезаем конфликтующие строки импортов
           for mod in ["import network", "import engine", "import views", "from datetime import datetime, timedelta", "import flet as ft"]:
@@ -51,7 +57,7 @@ jobs:
               views_code = views_code.replace(mod, f"# Склеено: {mod}")
               main_code = main_code.replace(mod, f"# Склеено: {mod}")
 
-          # Собираем эталонную монолитную структуру
+          # Собираем эталонную монолитную структуру во флэт-директорию сервера
           monolith = f"""import sys
           import os
           import json
@@ -78,12 +84,14 @@ jobs:
           # --- MAIN ---
           {main_code}
           """
+          
+          # Записываем монолит строго в корень, где его ждет Flet CLI
           with open("main.py", "w", encoding="utf-8") as f:
               f.write(monolith)
-          print("[ОБЛАКО] Автоматическая склейка ядра успешно завершена!")
+          print("[УСПЕХ] Облачная сборка монолитного ядра выполнена из папки src!")
           EOF
           
-          # Запускаем сборщик монолита прямо на сервере
+          # Запускаем сборщик монолита
           python cloud_compiler.py
 
       - name: Сборка финального APK
