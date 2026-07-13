@@ -32,29 +32,16 @@ jobs:
         run: |
           rm -rf ~/.cookiecutters
 
-      - name: Автоматическая сборка монолита в облаке
-        run: |
-          # Собираем только целевые модули приложения в один файл прямо перед компиляцией
-          python -c '
-          import os
-          m = open("main.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          e = open("engine.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          n = open("network.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          v = open("views.py", "r", encoding="utf-8").read().replace("\ufeff", "")
-          for k in ["import network", "import engine", "import views", "from datetime import datetime, timedelta", "import flet as ft"]:
-              m, e, n, v = m.replace(k, f"# {k}"), e.replace(k, f"# {k}"), n.replace(k, f"# {k}"), v.replace(k, f"# {k}")
-          with open("main.py", "w", encoding="utf-8") as f:
-              f.write(f"import sys, os, json, io, time, traceback, requests, urllib3, glob, shutil\nfrom datetime import datetime, timedelta\nfrom concurrent.futures import ThreadPoolExecutor\nimport flet as ft\n\n# ENGINE\n{e}\n\n# NETWORK\n{n}\n\n# VIEWS\n{v}\n\n# MAIN\n{m}")
-          '
-
       - name: Сборка финального APK
         run: |
+          # Собираем приложение из корня, принудительно зашивая все модули через assets
           flet build apk \
             --project "carjournal" \
             --product "Бортовой журнал" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \
+            --assets . \
             --yes
 
       - name: Сохранение готового APK в облако
