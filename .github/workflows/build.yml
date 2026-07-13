@@ -34,7 +34,6 @@ jobs:
 
       - name: Сборка финального APK
         run: |
-          # Вызываем сборщик напрямую через Python, чтобы обойти старый глобальный flet-cli
           flet build apk src \
             --project "carjournal" \
             --product "Бортовой журнал" \
@@ -47,5 +46,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: carjournal-release-apk
-          path: **/build/apk/*.apk
+          path: "**/build/apk/*.apk"
           if-no-files-found: error
