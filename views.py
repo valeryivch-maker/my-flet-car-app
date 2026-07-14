@@ -523,8 +523,16 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     page.update()
 
 
+
 def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=300, spacing=8)
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=260, spacing=8)
+    search_field = ft.TextField(
+        label="Поиск по названию, детали или артикулу...", 
+        prefix_icon=ft.Icons.SEARCH,
+        text_size=13,
+        height=40,
+        content_padding=ft.Padding(10, 0, 10, 0)
+    )
     dlg = None
     
     def refresh():
@@ -533,10 +541,21 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
             car_profile["repair_history"] = []
             
         rep_hist = car_profile["repair_history"]
-        if not rep_hist:
-            h_col.controls.append(ft.Text("История ремонтов пуста", italic=True))
+        search_query = search_field.value.strip().lower() if search_field.value else ""
+        
+        # Фильтруем историю на лету по трем ключевым полям
+        filtered_hist = []
+        for r in rep_hist:
+            name_match = search_query in r.get("repair_name", "").lower()
+            part_match = search_query in r.get("part_name", "").lower()
+            code_match = search_query in r.get("part_code", "").lower()
+            if not search_query or name_match or part_match or code_match:
+                filtered_hist.append(r)
+
+        if not filtered_hist:
+            h_col.controls.append(ft.Text("Ничего не найдено" if search_query else "История ремонтов пуста", italic=True))
         else:
-            for rec in sorted(rep_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
+            for rec in sorted(filtered_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
                 def make_del(r=rec):
                     return lambda _: [car_profile["repair_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Ремонт удален")]
                 
@@ -615,6 +634,9 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 ))
         if dlg: dlg.update()
         else: page.update()
+        
+    # Привязываем событие изменения текста к функции динамического обновления списка
+    search_field.on_change = lambda _: refresh()
 
     def add_repair_click(_):
         in_name = ft.TextField(label="Что отремонтировано / заменено")
@@ -674,6 +696,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         content=ft.Column([
             ft.Button("Добавить ремонтную работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100),
             ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            search_field,
             h_col
         ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=420),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
