@@ -1,4 +1,3 @@
-import tkinter as tk
 import flet as ft
 from datetime import datetime, timedelta
 import engine
@@ -565,15 +564,26 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 
                 def make_copy(code_to_copy=rec.get('part_code', '')):
                     def do_copy(_):
-                        import subprocess
-                        try:
-                            # Нативный системный вызов Windows, минуя ограничения Flet
-                            subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
-                        except:
-                            pass
+                        import os
+                        if os.name == "nt":
+                            try:
+                                import subprocess
+                                subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
+                            except:
+                                try:
+                                    import tkinter as tk
+                                    root = tk.Tk()
+                                    root.withdraw()
+                                    root.clipboard_clear()
+                                    root.clipboard_append(str(code_to_copy))
+                                    root.destroy()
+                                except:
+                                    pass
+                        else:
+                            page.clipboard = str(code_to_copy)
                         show_msg(f"📋 Артикул {code_to_copy} скопирован!")
                     return do_copy
-
+                
                 def make_edit(r=rec):
                     def open_edit_repair_dialog(_):
                         edit_name = ft.TextField(label="Что отремонтировано", value=str(r.get("repair_name", "")))
