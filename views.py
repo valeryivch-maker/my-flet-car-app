@@ -526,13 +526,14 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
 
 
 
+
 def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=260, spacing=8)
+    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=280, spacing=10)
     search_field = ft.TextField(
-        label="Поиск по названию, детали, артикулу или категории...", 
+        label="Поиск по журналу...", 
         prefix_icon=ft.Icons.SEARCH,
-        text_size=13,
-        height=40,
+        text_size=12,
+        height=48,
         content_padding=ft.Padding(10, 0, 10, 0)
     )
     dlg = None
@@ -556,7 +557,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 filtered_hist.append(r)
 
         if not filtered_hist:
-            h_col.controls.append(ft.Text("Ничего не найдено" if search_query else "История ремонтов пуста", italic=True))
+            h_col.controls.append(ft.Container(content=ft.Text("Ничего не найдено" if search_query else "История ремонтов пуста", italic=True, size=13), padding=10))
         else:
             for rec in sorted(filtered_hist, key=lambda x: int(x.get("odometer", 0)), reverse=True):
                 def make_del(r=rec):
@@ -570,20 +571,15 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 import subprocess
                                 subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
                             except:
-                                try:
-                                    import tkinter as tk
-                                    root = tk.Tk()
-                                    root.withdraw()
-                                    root.clipboard_clear()
-                                    root.clipboard_append(str(code_to_copy))
-                                    root.destroy()
-                                except:
-                                    pass
+                                pass
                         else:
-                            page.clipboard = str(code_to_copy)
+                            try:
+                                page.set_clipboard(str(code_to_copy))
+                            except:
+                                page.clipboard = str(code_to_copy)
                         show_msg(f"📋 Артикул {code_to_copy} скопирован!")
                     return do_copy
-                
+
                 def make_edit(r=rec):
                     def open_edit_repair_dialog(_):
                         edit_name = ft.TextField(label="Что отремонтировано", value=str(r.get("repair_name", "")))
@@ -654,36 +650,38 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 tag_color = cat_colors.get(current_cat, ft.Colors.BLUE_GREY_600)
 
                 category_tag = ft.Container(
-                    content=ft.Text(current_cat, size=10, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                    content=ft.Text(current_cat, size=9, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
                     bgcolor=tag_color,
-                    padding=ft.Padding(5, 2, 5, 2),
+                    padding=ft.Padding(4, 2, 4, 2),
                     border_radius=4
                 )
 
-                info_line = f"🔧 {rec.get('repair_name')} | 📍 {rec.get('odometer')} км"
-                cost_line = f"💰 Стоимость: {rec.get('cost', 0)} грн"
+                info_line = f"🔧 {rec.get('repair_name')}"
+                odo_line = f"📍 {rec.get('odometer')} км"
+                cost_line = f"💰 {rec.get('cost', 0)} грн"
                 
                 parts_row = ft.Row([
-                    ft.Text(f"⚙️ {rec.get('part_name')} [Арт: {rec.get('part_code')}]", size=13, color=ft.Colors.GREEN_800, expand=True),
-                    ft.IconButton(ft.Icons.COPY, icon_size=16, tooltip="Копировать артикул", on_click=make_copy())
-                ], spacing=5, alignment=ft.MainAxisAlignment.START) if rec.get('part_code') else ft.Text("Без запчастей", size=13, color=ft.Colors.GREY_500)
+                    ft.Text(f"⚙️ {rec.get('part_name')} [Арт: {rec.get('part_code')}]", size=12, color=ft.Colors.GREEN_800, expand=True),
+                    ft.IconButton(ft.Icons.COPY, icon_size=14, tooltip="Копировать артикул", on_click=make_copy(), padding=2)
+                ], spacing=3, alignment=ft.MainAxisAlignment.START) if rec.get('part_code') else ft.Text("Без запчастей", size=11, color=ft.Colors.GREY_500)
 
                 card_layout = ft.Column([
-                    ft.Row([ft.Text(f"📅 {rec.get('date')}", weight=ft.FontWeight.W_500), ft.Text(info_line, weight=ft.FontWeight.BOLD), category_tag], alignment=ft.MainAxisAlignment.START, spacing=8),
+                    ft.Row([ft.Text(f"📅 {rec.get('date')}", size=11, color=ft.Colors.BLUE_GREY_500), category_tag], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Text(info_line, weight=ft.FontWeight.BOLD, size=13, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
                     parts_row,
-                    ft.Text(cost_line, size=13, color=ft.Colors.BLUE_900, weight=ft.FontWeight.BOLD),
+                    ft.Row([ft.Text(odo_line, size=12, weight=ft.FontWeight.W_500), ft.Text(cost_line, size=12, color=ft.Colors.BLUE_900, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_500, italic=True) if rec.get('comment') else ft.Container()
-                ], spacing=2, expand=True)
+                ], spacing=4, expand=True)
                 
                 h_col.controls.append(ft.Container(
                     content=ft.Row([
                         card_layout,
-                        ft.Row([
-                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, tooltip="Редактировать запись", on_click=make_edit()),
-                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, tooltip="Удалить запись", on_click=make_del())
-                        ], spacing=0)
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
+                        ft.Column([
+                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=16, on_click=make_edit(), padding=2),
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=16, on_click=make_del(), padding=2)
+                        ], alignment=ft.MainAxisAlignment.CENTER, spacing=5)
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=10, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST, border_radius=8, margin=ft.Margin(0, 2, 0, 2)
                 ))
         if dlg: dlg.update()
         else: page.update()
@@ -754,14 +752,14 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         page.update()
 
     dlg = ft.AlertDialog(
-        bgcolor=ft.Colors.WHITE,
-        title=ft.Text("Журнал внеплановых ремонтов автомобиля"),
+        content_padding=ft.Padding(15, 10, 15, 10),
+        title=ft.Text("Журнал ремонтов", size=16, weight=ft.FontWeight.BOLD),
         content=ft.Column([
-            ft.Button("Добавить ремонтную работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100),
-            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            ft.Button("Добавить работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100, height=38),
             search_field,
+            ft.Divider(height=1, color=ft.Colors.BLACK_12),
             h_col
-        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=420),
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=350),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
     page.overlay.append(dlg)
