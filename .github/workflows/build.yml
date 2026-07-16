@@ -21,32 +21,24 @@ jobs:
          python-version: '3.13'
      - name: Автоматический фикс синтаксиса на сервере
        run: |
-         cat << 'EOF' > server_hotfix.py
-         import os
+         # 1. Тотальное удаление BOM (U+FEFF) из app.py на любой строке через sed
+         if [ -f "app.py" ]; then
+           sed -i 's/\xEF\xBB\xBF//g' app.py
+           echo "✅ BOM удален из app.py"
+         fi
          
-         # 1. Принудительное вырезание BOM из app.py на любой строке
-         if os.path.exists("app.py"):
-             with open("app.py", "r", encoding="utf-8-sig") as f:
-                 code = f.read()
-             with open("app.py", "w", encoding="utf-8") as f:
-                 f.write(code)
-             print("BOM из app.py удален.")
-             
-         # 2. Склеивание разорванной строки во views.py
-         if os.path.exists("views.py"):
-             with open("views.py", "r", encoding="utf-8") as f:
-                 code = f.read()
-             # Исправляем разорванный текстовый литерал, из-за которого падал compileall
-             code = code.replace('"Быстрый\nсброс"', '"Быстрый сброс"')
-             code = code.replace('"Быстрый\n сброс"', '"Быстрый сброс"')
-             with open("views.py", "w", encoding="utf-8") as f:
-                 f.write(code)
-             print("Разорванная строка во views.py исправлена.")
-         EOF
-         
-         # Запускаем созданный скрипт и удаляем его, чтобы не мешал
-         python3 server_hotfix.py
-         rm server_hotfix.py
+         # 2. Исправление разорванных строк во views.py (удаляем переносы внутри кавычек)
+         if [ -f "views.py" ]; then
+           # Склеиваем разорванную строку со словами Быстрый сброс
+           sed -i 'N;s/"Быстрый\n[[:space:]]*сброс"/"Быстрый сброс"/g;P;D' views.py
+           sed -i 's/"Быстрый\n/"Быстрый сброс"/g' views.py
+           
+           # Склеиваем разорванную строку с тултипом История ТО (Просмотр и удаление)
+           sed -i 's/tooltip="Просмотр и/tooltip="Просмотр и удаление истории записей"/g' views.py
+           sed -i '/удаление истории записей",/d' views.py
+           
+           echo "✅ Все разорванные строки во views.py склеены!"
+         fi
      - name: Локальный тест компиляции (Контрольная проверка)
        run: |
          python3 -m compileall .
