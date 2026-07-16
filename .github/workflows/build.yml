@@ -21,22 +21,32 @@ jobs:
          python-version: '3.13'
      - name: Автоматический фикс синтаксиса на сервере
        run: |
-         # 1. Принудительное вырезание BOM из app.py на любой строке
-         if [ -f "app.py" ]; then
-           python3 -c "with open('app.py', 'r', encoding='utf-8-sig') as f: code = f.read()
-with open('app.py', 'w', encoding='utf-8') as f: f.write(code)"
-           echo "✅ BOM из app.py успешно удален!"
-         fi
+         cat << 'EOF' > server_hotfix.py
+         import os
          
+         # 1. Принудительное вырезание BOM из app.py на любой строке
+         if os.path.exists("app.py"):
+             with open("app.py", "r", encoding="utf-8-sig") as f:
+                 code = f.read()
+             with open("app.py", "w", encoding="utf-8") as f:
+                 f.write(code)
+             print("BOM из app.py удален.")
+             
          # 2. Склеивание разорванной строки во views.py
-         if [ -f "views.py" ]; then
-           python3 -c "with open('views.py', 'r', encoding='utf-8') as f: code = f.read()
-# Находим разорванный кусок и склеиваем в одну строку
-code = code.replace('"Быстрый\nсброс"', '"Быстрый сброс"')
-code = code.replace('"Быстрый\n сброс"', '"Быстрый сброс"')
-with open('views.py', 'w', encoding='utf-8') as f: f.write(code)"
-           echo "✅ Разорванная строка во views.py исправлена!"
-         fi
+         if os.path.exists("views.py"):
+             with open("views.py", "r", encoding="utf-8") as f:
+                 code = f.read()
+             # Исправляем разорванный текстовый литерал, из-за которого падал compileall
+             code = code.replace('"Быстрый\nсброс"', '"Быстрый сброс"')
+             code = code.replace('"Быстрый\n сброс"', '"Быстрый сброс"')
+             with open("views.py", "w", encoding="utf-8") as f:
+                 f.write(code)
+             print("Разорванная строка во views.py исправлена.")
+         EOF
+         
+         # Запускаем созданный скрипт и удаляем его, чтобы не мешал
+         python3 server_hotfix.py
+         rm server_hotfix.py
      - name: Локальный тест компиляции (Контрольная проверка)
        run: |
          python3 -m compileall .
