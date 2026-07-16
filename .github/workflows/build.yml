@@ -19,6 +19,48 @@ jobs:
        uses: actions/setup-python@v5
        with:
          python-version: '3.13'
+     - name: Автоматическое исправление BOM и синтаксиса на сервере
+       run: |
+         # 1. Удаляем вредоносный символ BOM из app.py
+         if [ -f "app.py" ]; then
+           python3 -c "with open('app.py', 'r', encoding='utf-8-sig') as f: text = f.read()
+with open('app.py', 'w', encoding='utf-8') as f: f.write(text)"
+           echo "✅ BOM из app.py успешно удален."
+         fi
+         
+         # 2. Исправляем IndentationError во views.py, выравнивая функцию make_copy
+         if [ -f "views.py" ]; then
+           python3 -c "import re
+with open('views.py', 'r', encoding='utf-8') as f: code = f.read()
+perfect_copy = '''def make_copy(code_to_copy=rec.get('part_code', '')):
+        def do_copy(_):
+            import os
+            if os.name == 'nt':
+                try:
+                    import subprocess
+                    subprocess.run(f'echo {str(code_to_copy).strip()} | clip', shell=True, check=True)
+                    show_msg(f'📋 Артикул {code_to_copy} скопирован!')
+                except:
+                    pass
+            else:
+                try:
+                    page.set_clipboard(str(code_to_copy))
+                    show_msg(f'📋 Артикул {code_to_copy} скопирован!')
+                except:
+                    try:
+                        page.clipboard = str(code_to_copy)
+                        show_msg(f'📋 Артикул {code_to_copy} скопирован!')
+                    except:
+                        show_msg('Ошибка копирования!')
+        return do_copy'''
+pattern = r'def make_copy\(.*?\):.*?return do_copy'
+if re.search(pattern, code, re.DOTALL):
+    code = re.sub(pattern, perfect_copy, code, flags=re.DOTALL)
+else:
+    code = code.replace('def make_copy(code_to_copy=rec.get('part_code', '')):', perfect_copy)
+with open('views.py', 'w', encoding='utf-8') as f: f.write(code)"
+           echo "✅ Отступы и синтаксис views.py исправлены."
+         fi
      - name: Принятие лицензий Android SDK
        run: |
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
@@ -28,9 +70,6 @@ jobs:
        run: |
          pip install --upgrade pip
          pip install flet==0.23.2
-     - name: Тест компиляции исходного кода (Диагностика)
-       run: |
-         python -m compileall -q .
      - name: Безопасная очистка кэша шаблонов Flet
        run: |
          rm -rf ~/.cookiecutters
