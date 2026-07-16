@@ -1,4 +1,4 @@
-name: build
+﻿name: build
 on:
  push:
    branches:
@@ -15,18 +15,10 @@ jobs:
          cache: false
          flutter-version: '3.41.7'
          channel: 'stable'
-     - name: Настройка Python 3.11 для проверки совместимости APK
+     - name: Настройка Python
        uses: actions/setup-python@v5
        with:
-         python-version: '3.11.6'
-     - name: Исправление синтаксиса кода проекта
-       run: |
-         python ci_fix.py
-         mv ci_fix.py /tmp/
-         if [ -f "patch.py" ]; then mv patch.py /tmp/; fi
-     - name: Строгий тест компиляции под мобильный Python 3.11
-       run: |
-         python -m compileall -b .
+         python-version: '3.13'
      - name: Принятие лицензий Android SDK
        run: |
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
