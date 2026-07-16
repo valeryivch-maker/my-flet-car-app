@@ -28,6 +28,9 @@ jobs:
        run: |
          pip install --upgrade pip
          pip install flet==0.23.2
+     - name: Тест компиляции исходного кода (Диагностика)
+       run: |
+         python -m compileall -q .
      - name: Безопасная очистка кэша шаблонов Flet
        run: |
          rm -rf ~/.cookiecutters
