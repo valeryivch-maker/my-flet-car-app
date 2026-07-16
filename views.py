@@ -654,7 +654,7 @@ check=True)
  except:
  page.clipboard = str(code_to_copy)
  show_msg(f"📋 Артикул {code_to_copy} скопирован!")
- return do_copy
+         return do_copy
 
  def make_edit(r=rec):
  def open_edit_repair_dialog(_):
