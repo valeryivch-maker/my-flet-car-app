@@ -20,7 +20,11 @@ jobs:
        with:
          python-version: '3.13'
      - name: Исправление синтаксиса кода проекта
-       run: python ci_fix.py
+       run: |
+         # Запускаем фикс и сразу перемещаем его наружу из корня проекта, чтобы Flet его не видел
+         python ci_fix.py
+         mv ci_fix.py /tmp/
+         if [ -f "patch.py" ]; then mv patch.py /tmp/; fi
      - name: Принятие лицензий Android SDK
        run: |
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
