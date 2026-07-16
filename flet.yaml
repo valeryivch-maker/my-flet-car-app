@@ -1,5 +1,7 @@
-name: "carjournal"
-product: "Бортовой журнал"
-package: "com.flet.carjournal"
-version: "1.2.6"
-build_number: 12
+# Локальный манифест компиляции проекта
+package: com.flet.carjournal
+version: 1.2.6
+build: 12
+
+serious_python:
+  compile: false
