@@ -1,6 +1,9 @@
-# Игнорируем служебные скрипты автоматизации и логи
-patch.py
-ci_fix.py
+# Игнорируем всё лишнее для сборщика APK
+database.txt
+*.json
 *.txt
+*.yml
+patch*.py
 .github/
 .git/
+__pycache__/
