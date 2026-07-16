@@ -1,4 +1,4 @@
-﻿name: build
+name: build
 on:
  push:
    branches:
@@ -19,6 +19,11 @@ jobs:
        uses: actions/setup-python@v5
        with:
          python-version: '3.13'
+     - name: Фикс BOM символов
+       run: |
+         if [ -f "app.py" ]; then
+           sed -i '1s/^\xEF\xBB\xBF//' app.py
+         fi
      - name: Принятие лицензий Android SDK
        run: |
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
