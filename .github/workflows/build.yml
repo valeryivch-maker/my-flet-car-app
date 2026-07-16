@@ -19,15 +19,11 @@ jobs:
        uses: actions/setup-python@v5
        with:
          python-version: '3.13'
-     - name: Маскировка импортов и фикс BOM
+     - name: Фикс BOM символов
        run: |
-         # 1. Удаляем BOM из app.py
-         if [ -f "app.py" ]; then sed -i '1s/^\xEF\xBB\xBF//' app.py; fi
-         
-         # 2. Маскируем явные импорты flet во всех файлах, чтобы обмануть pip-сканер
-         # Заменяем 'import flet as ft' на динамический безопасный импорт
-         find . -name "*.py" -type f -exec sed -i "s/import flet as ft/ft = __import__('flet')/g" {} +
-         echo "Импорты успешно замаскированы под динамические!"
+         if [ -f "app.py" ]; then
+           sed -i '1s/^\xEF\xBB\xBF//' app.py
+         fi
      - name: Принятие лицензий Android SDK
        run: |
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
@@ -42,6 +38,9 @@ jobs:
          rm -rf ~/.cookiecutters
          rm -rf ~/.flet
      - name: Сборка финального APK
+       env:
+         PIP_NO_INDEX: "true"
+         PIP_FIND_LINKS: "/dev/null"
        run: |
          flet build apk \
            --project "carjournal" \
