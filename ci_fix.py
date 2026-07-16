@@ -26,7 +26,8 @@ if os.path.exists("views.py"):
     
     new_fixed_tooltip = 'tooltip="Просмотр и удаление истории записей",'
     
-    code = code.replace(old_broken_tooltip, new_fixed_tooltip)
+    code = code.replace(old_broken_tooltip, new_fixed_tooltip)\n    code = code.replace("""tooltip="Внести запись в историю
+вручную (кастомная дата/пробег)",""", '"""tooltip="Внести запись в историю вручную (кастомная дата/пробег)","""')
     
     with open("views.py", "w", encoding="utf-8") as f:
         f.write(code)
