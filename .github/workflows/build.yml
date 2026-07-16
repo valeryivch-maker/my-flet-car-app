@@ -19,12 +19,23 @@ jobs:
        uses: actions/setup-python@v5
        with:
          python-version: '3.13'
-     - name: Принудительное удаление BOM символов на сервере
+     - name: Автоматический фикс синтаксиса на сервере
        run: |
+         # 1. Принудительное вырезание BOM из app.py на любой строке
          if [ -f "app.py" ]; then
-           # Срезаем первые 3 байта BOM (EF BB BF) из первой строки файла
-           sed -i '1s/^\xEF\xBB\xBF//' app.py
-           echo "✅ Скрытый символ BOM из app.py успешно вырезан на сервере!"
+           python3 -c "with open('app.py', 'r', encoding='utf-8-sig') as f: code = f.read()
+with open('app.py', 'w', encoding='utf-8') as f: f.write(code)"
+           echo "✅ BOM из app.py успешно удален!"
+         fi
+         
+         # 2. Склеивание разорванной строки во views.py
+         if [ -f "views.py" ]; then
+           python3 -c "with open('views.py', 'r', encoding='utf-8') as f: code = f.read()
+# Находим разорванный кусок и склеиваем в одну строку
+code = code.replace('"Быстрый\nсброс"', '"Быстрый сброс"')
+code = code.replace('"Быстрый\n сброс"', '"Быстрый сброс"')
+with open('views.py', 'w', encoding='utf-8') as f: f.write(code)"
+           echo "✅ Разорванная строка во views.py исправлена!"
          fi
      - name: Локальный тест компиляции (Контрольная проверка)
        run: |
