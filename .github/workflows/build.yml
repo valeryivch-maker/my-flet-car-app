@@ -39,9 +39,7 @@ jobs:
            --product "Бортовой журнал" \
            --org "com.flet" \
            --build-version "1.2.6" \
-           --build-number 12 \
-           --yes \
-           --verbose
+           --build-number 12
      - name: Сохранение готового APK в облако
        uses: actions/upload-artifact@v4
        with:
