@@ -57,7 +57,7 @@ color=ft.Colors.WHITE),
  gas_cost = gbo_points[-1]["gas_cost"] if gbo_points else 0.0
 
  # Расчет условного прогресса окупаемости оборудования (например, до 15 000 грн за
-установку)
+# установку)
  gbo_target = 15000.0
  progress_val = max(0.0, min(1.0, last_econ / gbo_target)) if last_econ > 0 else 0.0
 

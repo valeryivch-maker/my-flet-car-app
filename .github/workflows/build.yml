@@ -19,7 +19,14 @@ jobs:
        uses: actions/setup-python@v5
        with:
          python-version: '3.13'
-     - name: Локальный тест компиляции (Поиск бага)
+     - name: Принудительное удаление BOM символов на сервере
+       run: |
+         if [ -f "app.py" ]; then
+           # Срезаем первые 3 байта BOM (EF BB BF) из первой строки файла
+           sed -i '1s/^\xEF\xBB\xBF//' app.py
+           echo "✅ Скрытый символ BOM из app.py успешно вырезан на сервере!"
+         fi
+     - name: Локальный тест компиляции (Контрольная проверка)
        run: |
          python3 -m compileall .
      - name: Принятие лицензий Android SDK
