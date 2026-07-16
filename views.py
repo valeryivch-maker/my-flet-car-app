@@ -574,16 +574,15 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 except:
                     pass
             else:
-                async def copy_async(e):
-                    try:
-                        await page.set_clipboard_async(str(code_to_copy))
-                    except:
-                        try:
-                            page.set_clipboard(str(code_to_copy))
-                        except:
-                            page.clipboard = str(code_to_copy)
+                try:
+                    page.set_clipboard(str(code_to_copy))
                     show_msg(f"📋 Артикул {code_to_copy} скопирован!")
-                page.run_task(copy_async, None)
+                except:
+                    try:
+                        page.clipboard = str(code_to_copy)
+                        show_msg(f"📋 Артикул {code_to_copy} скопирован!")
+                    except:
+                        show_msg("Ошибка копирования!")
         return do_copy
 
                 def make_edit(r=rec):
