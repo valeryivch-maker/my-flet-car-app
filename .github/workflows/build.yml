@@ -24,22 +24,24 @@ jobs:
          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
          if [ ! -f "$ssdk" ]; then ssdk=$(find $ANDROID_HOME -name "sdkmanager" | head -n 1); fi
          yes | $ssdk --licenses || true
-     - name: Установка современного компилятора Flet через pipx
+     - name: Установка стабильного компилятора Flet
        run: |
-         pipx install flet --include-deps
+         pip install --upgrade pip
+         pip install flet==0.23.2
      - name: Безопасная очистка кэша шаблонов Flet
        run: |
          rm -rf ~/.cookiecutters
          rm -rf ~/.flet
      - name: Сборка финального APK
        run: |
-         pipx run flet build apk \
+         flet build apk \
            --project "carjournal" \
            --product "Бортовой журнал" \
            --org "com.flet" \
            --build-version "1.2.6" \
            --build-number 12 \
-           --yes
+           --yes \
+           --verbose
      - name: Сохранение готового APK в облако
        uses: actions/upload-artifact@v4
        with:
