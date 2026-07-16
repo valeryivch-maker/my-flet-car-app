@@ -564,21 +564,27 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                     return lambda _: [car_profile["repair_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Ремонт удален")]
                 
                 def make_copy(code_to_copy=rec.get('part_code', '')):
-                    def do_copy(_):
-                        import os
-                        if os.name == "nt":
-                            try:
-                                import subprocess
-                                subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
-                            except:
-                                pass
-                        else:
-                            try:
-                                page.set_clipboard(str(code_to_copy))
-                            except:
-                                page.clipboard = str(code_to_copy)
-                        show_msg(f"📋 Артикул {code_to_copy} скопирован!")
-                    return do_copy
+        def do_copy(_):
+            import os
+            if os.name == "nt":
+                try:
+                    import subprocess
+                    subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
+                    show_msg(f"📋 Артикул {code_to_copy} скопирован!")
+                except:
+                    pass
+            else:
+                async def copy_async(e):
+                    try:
+                        await page.set_clipboard_async(str(code_to_copy))
+                    except:
+                        try:
+                            page.set_clipboard(str(code_to_copy))
+                        except:
+                            page.clipboard = str(code_to_copy)
+                    show_msg(f"📋 Артикул {code_to_copy} скопирован!")
+                page.run_task(copy_async, None)
+        return do_copy
 
                 def make_edit(r=rec):
                     def open_edit_repair_dialog(_):
@@ -629,6 +635,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 show_msg("Ошибка! Проверьте формат полей.")
 
                         edit_rep_dlg = ft.AlertDialog(
+        adaptive=True,
                             title=ft.Text("Правка записи ремонта"),
                             content=ft.Column([edit_name, edit_cat, edit_odo, edit_date, edit_pname, edit_pcode, edit_cost, edit_comm], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO, height=300),
                             actions=[ft.TextButton("Сохранить", on_click=save_edited_repair)]
