@@ -37,13 +37,14 @@ jobs:
        run: |
          rm -rf ~/.cookiecutters
          rm -rf ~/.flet
-     - name: Сборка финального APK
+     - name: Сборка финального APK (Без компиляции исходников)
        run: |
          flet build apk \
            --project "carjournal" \
            --org "com.flet" \
            --build-version "1.2.6" \
-           --build-number 12
+           --build-number 12 \
+           --no-compile
      - name: Сохранение готового APK в облако
        uses: actions/upload-artifact@v4
        with:
