@@ -5,7 +5,7 @@ on:
      - main
 jobs:
  build:
-   runs-ok: ubuntu-latest
+   runs-on: ubuntu-latest
    steps:
      - name: Проверка кода проекта
        uses: actions/checkout@v4
