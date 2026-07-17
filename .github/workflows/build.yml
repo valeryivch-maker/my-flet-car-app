@@ -39,7 +39,7 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Предварительная очистка репозитория от мусора перед компиляцией
+      - name: Предварительная очистка репозитория от мусора
         run: |
           rm -f database.txt
           rm -f local_folder_sync.py
@@ -48,16 +48,11 @@ jobs:
           rm -f ci_fix.py patch_part1.py
 
       - name: Сборка финального APK
+        env:
+          SERIOUS_PYTHON_COMPILE_OPTS: "-O0"
         run: |
           flet build apk \
             --project "carjournal" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12
-
-      - name: Сохранение готового APK в облако
-        uses: actions/upload-artifact@v4
-        with:
-          name: carjournal-release-apk
-          path: "**/build/apk/*.apk"
-          if-no-files-found: error
