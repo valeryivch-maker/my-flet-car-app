@@ -46,13 +46,13 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Безопасная фильтрация репозитория перед упаковкой
+      - name: Безопасная фильтразия репозитория перед упаковкой
         run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
 
-      - name: Сборка финального APK (Эталонные латинские параметры без риска падения Dart)
+      - name: Сборка финального APK (Твоя версия 1.2.6, сборка 12, пакет com.flet.carjournal)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |

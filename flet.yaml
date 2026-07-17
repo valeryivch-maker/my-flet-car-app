@@ -1,3 +1,5 @@
-package: com.flet.carjournal
-version: 1.2.6
-build: 12
+app:
+  name: "Бортовой Журнал"
+  package: "com.flet.carjournal"
+  version: "1.2.6"
+  build: 12
