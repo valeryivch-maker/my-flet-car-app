@@ -23,8 +23,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Создание глобального файла ограничений pip
+      - name: Создание и защита файла зависимостей для Android рантайма
         run: |
+          # Создаем чистый requirements.txt, который serious_python зашьет внутрь APK
+          echo "requests" > requirements.txt
+          echo "urllib3" >> requirements.txt
+          echo "flet-embed==0.23.2" >> requirements.txt
+          
+          # Создаем глобальный файл ограничений для самого pip сборщика
           echo "flet==0.23.2" > constraints.txt
           echo "flet-core==0.23.2" >> constraints.txt
           echo "flet-runtime==0.23.2" >> constraints.txt
@@ -42,18 +48,19 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Глубокая очистка репозитория перед упаковкой
+      - name: Безопасная фильтрация репозитория (Сохраняем requirements.txt)
         run: |
+          # Удаляем мусорные txt, но аккуратно игнорируем requirements.txt и constraints.txt
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
 
-      - name: Сборка финального APK в совместимом окружении
+      - name: Сборка финального APK (С оригинальным названием "Бортовой Журнал")
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           flet build apk \
-            --project "carjournal" \
+            --project "Бортовой Журнал" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \
