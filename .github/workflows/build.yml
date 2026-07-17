@@ -25,12 +25,10 @@ jobs:
 
       - name: Создание и защита файла зависимостей для Android рантайма
         run: |
-          # Создаем чистый requirements.txt, который serious_python зашьет внутрь APK
           echo "requests" > requirements.txt
           echo "urllib3" >> requirements.txt
           echo "flet-embed==0.23.2" >> requirements.txt
           
-          # Создаем глобальный файл ограничений для самого pip сборщика
           echo "flet==0.23.2" > constraints.txt
           echo "flet-core==0.23.2" >> constraints.txt
           echo "flet-runtime==0.23.2" >> constraints.txt
@@ -48,19 +46,40 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Безопасная фильтрация репозитория (Сохраняем requirements.txt)
+      - name: Принудительный инжект русского названия Бортовой Журнал
         run: |
-          # Удаляем мусорные txt, но аккуратно игнорируем requirements.txt и constraints.txt
+          # Если flet.yaml существует, жестко прописываем имя туда через Python
+          python3 -c "
+          import os
+          yaml_path = 'flet.yaml'
+          if os.path.exists(yaml_path):
+              lines = open(yaml_path).readlines()
+              new_lines = []
+              for line in lines:
+                  if line.strip().startswith('name:'):
+                      new_lines.append('name: "Бортовой Журнал"\n')
+                  else:
+                      new_lines.append(line)
+              open(yaml_path, 'w').writelines(new_lines)
+          else:
+              # Если конфигурационного файла нет, создаем дефолтный с правильным именем
+              with open(yaml_path, 'w') as f:
+                  f.write('app:\n  name: "Бортовой Журнал"\n')
+          print('[CONFIG] Русское название успешно интегрировано в flet.yaml!')
+          "
+
+      - name: Безопасная фильтрация репозитория
+        run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
 
-      - name: Сборка финального APK (С оригинальным названием "Бортовой Журнал")
+      - name: Сборка финального APK (Безопасное имя для файловой системы)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           flet build apk \
-            --project "Бортовой Журнал" \
+            --project "carjournal" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \
