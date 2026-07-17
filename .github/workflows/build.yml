@@ -59,11 +59,9 @@ jobs:
             --build-number 12 \
             -vv
 
-      - name: Гарантированное сохранение готового APK (Прямые пути Flutter)
+      - name: Сохранение готового APK (Прямой путь Flet CLI 0.23.2)
         uses: actions/upload-artifact@v4
         with:
           name: carjournal-release-apk
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/apk/release/app-release.apk
+          path: build/apk/carjournal.apk
           if-no-files-found: error
