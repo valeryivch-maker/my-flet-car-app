@@ -58,3 +58,12 @@ jobs:
             --build-version "1.2.6" \
             --build-number 12 \
             -vv
+
+      - name: Гарантированное сохранение готового APK (Прямые пути Flutter)
+        uses: actions/upload-artifact@v4
+        with:
+          name: carjournal-release-apk
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/apk/release/app-release.apk
+          if-no-files-found: error
