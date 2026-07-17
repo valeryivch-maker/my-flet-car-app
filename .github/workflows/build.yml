@@ -52,34 +52,14 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
 
-      - name: Фоновое исправление ресурсов Android (Инжект Бортовой Журнал)
-        run: |
-          # Запускаем фоновый демон-мониторинг, который дождется создания strings.xml сборщиком Flet 
-          # и мгновенно подменит имя приложения на русское до начала Gradle компиляции
-          bash -c "
-          echo '[MONITOR] Запуск демона перехвата ресурсов Android...'
-          for i in {1..300}; do
-            # Ищем strings.xml во временных директориях сборщика Flet
-            STRINGS_FILES=\$(find /tmp/flet_flutter_build_* -name 'strings.xml' 2>/dev/null || true)
-            if [ ! -z "\$STRINGS_FILES" ]; then
-              for f in \$STRINGS_FILES; do
-                if grep -q 'carjournal' "\$f"; then
-                  sed -i 's/carjournal/Бортовой Журнал/g' "\$f"
-                  echo '[MONITOR SUCCESS] Имя приложения успешно заменено на русский язык в '\$f'!'
-                fi
-              done
-            fi
-            sleep 0.5
-          done &
-          "
-
-      - name: Сборка финального APK (Кристально чистые латинские идентификаторы)
+      - name: Сборка финального APK (Прямой инжект русского названия через --title)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           flet build apk \
             --project "carjournal" \
             --product "carjournal" \
+            --title "Бортовой Журнал" \
             --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \

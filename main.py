@@ -213,4 +213,4 @@ def main(page: ft.Page):
     rebuild_ui()
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.app(main)
