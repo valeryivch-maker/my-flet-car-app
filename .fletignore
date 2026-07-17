@@ -1,9 +1,6 @@
-# Игнорируем всё лишнее для сборщика APK
-database.txt
-*.json
-*.txt
-*.yml
-patch*.py
-.github/
-.git/
+# Игнорируем только мусор для сборщика APK
+build/
 __pycache__/
+.git/
+.github/
+patch*.py
