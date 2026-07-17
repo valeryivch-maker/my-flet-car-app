@@ -147,7 +147,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                                 refresh() 
                                 rebuild() 
                                 show_msg("Запись изменена!") 
-                            except: 
+                            except Exception: 
                                 show_msg("Ошибка формата!") 
                         edit_dlg = ft.AlertDialog( 
                             title=ft.Text("Правка записи ТО"), 
@@ -251,7 +251,7 @@ def create_task_actions(page, db_data, p, t, current_km, rebuild, show_msg):
                     for h in p.get("history", []):
                         if h["task"] == t: h["task"] = nn
                 engine.save_data(db_data); dlg.open = False; page.update(); rebuild(); show_msg("Регламент изменен")
-            except: show_msg("Ошибка заполнения")
+            except Exception: show_msg("Ошибка заполнения")
         dlg = ft.AlertDialog(title=ft.Text("Правка регламента"), content=ft.Column([n_in, i_in], tight=True), actions=[ft.TextButton("OK", on_click=save)])
         page.overlay.append(dlg); dlg.open = True; page.update()
         
@@ -357,7 +357,7 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
                     car_profile["odometer"] = {"value": v, "date": d}
                 car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
                 engine.save_data(db_data); adlg.open = False; render(); rebuild(); show_msg("Добавлено!")
-            except:
+            except Exception:
                 show_msg("Ошибка формата!")
  
         adlg = ft.AlertDialog(title=ft.Text("Добавить пробег"), content=ft.Column([a_km, a_dt], tight=True), actions=[ft.TextButton("OK", on_click=save)])
@@ -427,7 +427,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                         log["consumption"] = round((float(log["liters"]) / delta) * 100, 2) if delta > 0 else 0.0
  
                                 engine.save_data(db_data); edit_fuel_dlg.open = False; page.update(); refresh(); rebuild(); show_msg("Заправка успешно изменена!")
-                            except:
+                            except Exception:
                                 show_msg("Ошибка формата!")
  
                         edit_fuel_dlg = ft.AlertDialog(title=ft.Text("Правка записи заправки"), content=ft.Column([e_liters, e_cost, e_odo, e_date, e_comm], tight=True, spacing=10), actions=[ft.TextButton("Сохранить", on_click=save_edited_fuel)])
@@ -504,7 +504,7 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
             page.update()
             rebuild()
             show_msg("Заправка успешно учтена!")
-        except:
+        except Exception:
             show_msg("Ошибка! Проверьте формат полей.")
 
     dlg = ft.AlertDialog(
@@ -571,16 +571,16 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                     import subprocess
                     subprocess.run(f"echo {str(code_to_copy).strip()} | clip", shell=True, check=True)
                     show_msg(f"📋 Артикул {code_to_copy} скопирован!")
-                except:
+                except Exception:
                     pass
             else:
                 async def copy_async(e):
                     try:
                         await page.set_clipboard_async(str(code_to_copy))
-                    except:
+                    except Exception:
                         try:
                             page.set_clipboard(str(code_to_copy))
-                        except:
+                        except Exception:
                             page.clipboard = str(code_to_copy)
                     show_msg(f"📋 Артикул {code_to_copy} скопирован!")
                 page.run_task(copy_async, None)
@@ -631,7 +631,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 refresh()
                                 rebuild()
                                 show_msg("Запись успешно изменена!")
-                            except:
+                            except Exception:
                                 show_msg("Ошибка! Проверьте формат полей.")
 
                         edit_rep_dlg = ft.AlertDialog(
@@ -745,7 +745,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 refresh()
                 rebuild()
                 show_msg("Ремонт успешно внесен в журнал!")
-            except:
+            except Exception:
                 show_msg("Ошибка заполнения! Проверьте имя, пробег и дату.")
 
         adlg = ft.AlertDialog(
