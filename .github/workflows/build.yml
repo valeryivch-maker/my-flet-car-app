@@ -33,42 +33,6 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Тотальное посимвольное исправление всех файлов проекта
-        run: |
-          python3 -c "
-          import os, glob
-          
-          # Находим абсолютно все скрипты в корне
-          for py_file in glob.glob('*.py'):
-              try:
-                  with open(py_file, 'rb') as f:
-                      raw = f.read()
-                  
-                  # 1. Удаляем BOM-байты и декодируем
-                  text = raw.decode('utf-8-sig', errors='ignore').replace('\ufeff', '')
-                  
-                  # 2. Лечим IndentationError: ищем дефекты блоков try-except
-                  lines = text.splitlines()
-                  fixed_lines = []
-                  for i, line in enumerate(lines):
-                      fixed_lines.append(line)
-                      # Если строка содержит 'except:' или 'except Exception:' и это конец блока/функции
-                      if line.strip().startswith('except:') or line.strip().startswith('except '):
-                          # Проверяем, есть ли тело у except. Если следующая строка не имеет отступа больше текущего:
-                          if i + 1 < len(lines):
-                              next_line = lines[i+1]
-                              if next_line.strip() and len(next_line) - len(next_line.lstrip()) <= len(line) - len(line.lstrip()):
-                                  indent = ' ' * (len(line) - len(line.lstrip()) + 4)
-                                  fixed_lines.append(f'{indent}pass')
-                  
-                  # Пересохраняем файл в чистом виде
-                  with open(py_file, 'w', encoding='utf-8') as f:
-                      f.write('\n'.join(fixed_lines) + '\n')
-                  print(f'[CI-FIX] Файл {py_file} успешно вылечен!')
-              except Exception as e:
-                  print(f'[CI-ERROR] Не удалось обработать {py_file}: {e}')
-          "
-
       - name: Глубокая очистка репозитория от мусорных скриптов
         run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -delete
@@ -76,7 +40,7 @@ jobs:
           rm -f cron_weekly_check.py network_template.py
           rm -f patch.py ci_fix.py patch_part1.py
 
-      - name: Сборка финального APK с подробной диагностикой
+      - name: Сборка финального APK
         run: |
           flet build apk \
             --project "carjournal" \
