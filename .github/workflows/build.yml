@@ -52,26 +52,38 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
-      - name: Фоновое исправление ресурсов Android (Инжект Бортовой Журнал)
+      - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
         run: |
-          # Фоновый процесс, который дождется генерации strings.xml и заменит carjournal на кириллицу
+          # Фоновый демон сканируетstrings.xml и AndroidManifest.xml, меняя ярлыки на кириллицу перед Gradle
           bash -c '
-          echo "[MONITOR] Запуск демона перехвата ресурсов Android..."
-          for i in {1..300}; do
+          echo "[MONITOR] Запуск демона тотального перехвата ресурсов..."
+          for i in {1..400}; do
+            # 1. Перехватstrings.xml
             STRINGS_FILES=$(find /tmp/flet_flutter_build_* -name "strings.xml" 2>/dev/null || true)
             if [ ! -z "$STRINGS_FILES" ]; then
               for f in $STRINGS_FILES; do
                 if grep -q "carjournal" "$f"; then
                   sed -i "s/carjournal/Бортовой Журнал/g" "$f"
-                  echo "[MONITOR SUCCESS] Имя приложения заменено на русский язык в $f!"
+                  echo "[SUCCESS XML] Имя заменено в $f!"
                 fi
               done
             fi
-            sleep 0.5
+            
+            # 2. Перехват AndroidManifest.xml
+            MANIFEST_FILES=$(find /tmp/flet_flutter_build_* -name "AndroidManifest.xml" 2>/dev/null || true)
+            if [ ! -z "$MANIFEST_FILES" ]; then
+              for m in $MANIFEST_FILES; do
+                if grep -q "android:label=\"carjournal\"" "$m"; then
+                  sed -i "s/android:label=\"carjournal\"/android:label=\"Бортовой Журнал\"/g" "$m"
+                  echo "[SUCCESS MANIFEST] Имя заменено в $m!"
+                fi
+              done
+            fi
+            sleep 0.4
           done &
           '
 
-      - name: Сборка финального APK (Безопасная латиница для CLI)
+      - name: Сборка финального APK (Безопасная латиница для обхода ошибки 255)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
