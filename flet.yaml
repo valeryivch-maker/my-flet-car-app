@@ -1,5 +1,4 @@
-app:
-  name: "Бортовой Журнал"
-  package: "com.flet.carjournal"
-  version: "1.2.6"
-  build: 12
+name: "Р‘РѕСЂС‚РѕРІРѕР№ Р–СѓСЂРЅР°Р»"
+package: com.flet.carjournal
+version: 1.2.6
+build: 12

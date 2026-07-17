@@ -50,19 +50,13 @@ jobs:
         run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
-          rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
+          rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
-      - name: Сборка финального APK (Твоя версия 1.2.6, сборка 12, пакет com.flet.carjournal)
+      - name: Сборка финального APK (Чистый запуск, чтение метаданных из flet.yaml)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
-          flet build apk \
-            --project "carjournal" \
-            --product "carjournal" \
-            --org "com.flet" \
-            --build-version "1.2.6" \
-            --build-number 12 \
-            -vv
+          flet build apk -vv
 
       - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
