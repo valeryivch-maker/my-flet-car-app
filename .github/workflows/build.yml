@@ -1,5 +1,4 @@
-﻿name: build
-
+name: build
 on:
   push:
     branches:
@@ -8,7 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Проверка кода проекта
         uses: actions/checkout@v4
@@ -16,34 +14,38 @@ jobs:
       - name: Настройка точной версии Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          cache: true
+          cache: false
           flutter-version: '3.41.7'
           channel: 'stable'
 
       - name: Настройка Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.11'
 
-      - name: Установка современного компилятора Flet через pipx
+      - name: Принятие лицензий Android SDK
         run: |
-          # Устанавливаем базовый пакет flet, содержащий актуальное консольное приложение
-          pipx install flet --include-deps
+          yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$ssdk" ]; then ssdk=$(find $ANDROID_HOME -name "sdkmanager" | head -n 1); fi
+          yes | $ssdk --licenses || true
+
+      - name: Установка строго фиксированной версии Flet
+        run: |
+          pip install --upgrade pip
+          pip install flet==0.23.2
 
       - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
+          rm -rf ~/.flet
 
       - name: Сборка финального APK
         run: |
-          # Запускаем актуальный компилятор через изолированное окружение pipx
-          pipx run flet build apk \
+          flet build apk \
             --project "carjournal" \
-            --product "Бортовой журнал" \
             --org "com.flet" \
             --build-version "1.2.6" \
-            --build-number 12 \
-            --yes
+            --build-number 12
 
       - name: Сохранение готового APK в облако
         uses: actions/upload-artifact@v4
