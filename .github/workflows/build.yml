@@ -1,52 +1,53 @@
-name: build
+﻿name: build
+
 on:
- push:
-   branches:
-     - main
+  push:
+    branches:
+      - main
+
 jobs:
- build:
-   runs-on: ubuntu-latest
-   steps:
-     - name: Проверка кода проекта
-       uses: actions/checkout@v4
-     - name: Настройка точной версии Flutter SDK
-       uses: subosito/flutter-action@v2
-       with:
-         cache: false
-         flutter-version: '3.41.7'
-         channel: 'stable'
-     - name: Настройка Python
-       uses: actions/setup-python@v5
-       with:
-         python-version: '3.13'
-     - name: Фикс BOM символов
-       run: |
-         if [ -f "app.py" ]; then
-           sed -i 's/\xEF\xBB\xBF//g' app.py
-         fi
-     - name: Принятие лицензий Android SDK
-       run: |
-         yes | ssdk="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-         if [ ! -f "$ssdk" ]; then ssdk=$(find $ANDROID_HOME -name "sdkmanager" | head -n 1); fi
-         yes | $ssdk --licenses || true
-     - name: Установка стабильного компилятора Flet
-       run: |
-         pip install --upgrade pip
-         pip install flet==0.23.2
-     - name: Безопасная очистка кэша шаблонов Flet
-       run: |
-         rm -rf ~/.cookiecutters
-         rm -rf ~/.flet
-     - name: Сборка финального APK
-       run: |
-         flet build apk \
-           --project "carjournal" \
-           --org "com.flet" \
-           --build-version "1.2.6" \
-           --build-number 12
-     - name: Сохранение готового APK в облако
-       uses: actions/upload-artifact@v4
-       with:
-         name: carjournal-release-apk
-         path: "**/build/apk/*.apk"
-         if-no-files-found: error
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Проверка кода проекта
+        uses: actions/checkout@v4
+
+      - name: Настройка точной версии Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          cache: true
+          flutter-version: '3.41.7'
+          channel: 'stable'
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Установка современного компилятора Flet через pipx
+        run: |
+          # Устанавливаем базовый пакет flet, содержащий актуальное консольное приложение
+          pipx install flet --include-deps
+
+      - name: Безопасная очистка кэша шаблонов Flet
+        run: |
+          rm -rf ~/.cookiecutters
+
+      - name: Сборка финального APK
+        run: |
+          # Запускаем актуальный компилятор через изолированное окружение pipx
+          pipx run flet build apk \
+            --project "carjournal" \
+            --product "Бортовой журнал" \
+            --org "com.flet" \
+            --build-version "1.2.6" \
+            --build-number 12 \
+            --yes
+
+      - name: Сохранение готового APK в облако
+        uses: actions/upload-artifact@v4
+        with:
+          name: carjournal-release-apk
+          path: "**/build/apk/*.apk"
+          if-no-files-found: error
