@@ -147,7 +147,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                                 refresh() 
                                 rebuild() 
                                 show_msg("Запись изменена!") 
-                            except Exception: 
+                except Exception:
                                 show_msg("Ошибка формата!") 
                         edit_dlg = ft.AlertDialog( 
                             title=ft.Text("Правка записи ТО"), 
