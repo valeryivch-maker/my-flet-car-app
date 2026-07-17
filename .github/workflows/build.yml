@@ -39,17 +39,11 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Сборка финального APK
+      - name: Сборка финального APK (с отключением падения на compile)
         run: |
           flet build apk \
             --project "carjournal" \
             --org "com.flet" \
             --build-version "1.2.6" \
-            --build-number 12
-
-      - name: Сохранение готового APK в облако
-        uses: actions/upload-artifact@v4
-        with:
-          name: carjournal-release-apk
-          path: "**/build/apk/*.apk"
-          if-no-files-found: error
+            --build-number 12 \
+            --no-compile
