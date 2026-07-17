@@ -52,11 +52,17 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
-      - name: Сборка финального APK (Релизный запуск 14 июля)
+      - name: Сборка финального APK (Истинные флаги релиза 14 июля)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
-          flet build apk -vv
+          flet build apk \
+            --project "carjournal" \
+            --product "Бортовой Журнал" \
+            --org "com.flet" \
+            --build-version "1.2.6" \
+            --build-number 12 \
+            -vv
 
       - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
