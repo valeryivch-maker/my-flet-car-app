@@ -18,7 +18,7 @@ jobs:
           flutter-version: '3.41.7'
           channel: 'stable'
 
-      - name: Настройка Python
+      - name: Настройка Python 3.11 (Максимальная совместимость)
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -39,20 +39,17 @@ jobs:
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
-      - name: Предварительная очистка репозитория от мусора
+      - name: Глубокая очистка репозитория перед упаковкой
         run: |
-          rm -f database.txt
-          rm -f local_folder_sync.py
-          rm -f smart_cloud_sync.py
-          rm -f patch.py
-          rm -f ci_fix.py patch_part1.py
+          find . -type f -name "*.txt" -not -name "requirements.txt" -delete
+          find . -type f -name "*_sync.py" -delete
+          rm -f patch.py ci_fix.py patch_part1.py
 
-      - name: Сборка финального APK
-        env:
-          SERIOUS_PYTHON_COMPILE_OPTS: "-O0"
+      - name: Сборка финального APK с выводом подробного лога
         run: |
           flet build apk \
             --project "carjournal" \
             --org "com.flet" \
             --build-version "1.2.6" \
-            --build-number 12
+            --build-number 12 \
+            -vv
