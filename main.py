@@ -41,6 +41,7 @@ def run_local_telegram_sync():
         return False
 
 def main(page: ft.Page):
+    page.title = "Бортовой Журнал"
     page.scroll = ft.ScrollMode.AUTO
     global db_data
     page.theme_mode = ft.ThemeMode.LIGHT

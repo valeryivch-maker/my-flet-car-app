@@ -52,26 +52,7 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py
 
-      - name: Фоновое исправление ресурсов Android (Инжект Бортовой Журнал)
-        run: |
-          # Фоновый процесс, который дождется генерации strings.xml и безопасно заменит имя на кириллицу
-          bash -c '
-          echo "[MONITOR] Запуск демона перехвата ресурсов Android..."
-          for i in {1..300}; do
-            STRINGS_FILES=$(find /tmp/flet_flutter_build_* -name "strings.xml" 2>/dev/null || true)
-            if [ ! -z "$STRINGS_FILES" ]; then
-              for f in $STRINGS_FILES; do
-                if grep -q "carjournal" "$f"; then
-                  sed -i "s/carjournal/Бортовой Журнал/g" "$f"
-                  echo "[MONITOR SUCCESS] Имя приложения заменено на русский язык!"
-                fi
-              done
-            fi
-            sleep 0.5
-          done &
-          '
-
-      - name: Сборка финального APK (Безопасные латинские идентификаторы для CLI)
+      - name: Сборка финального APK (Эталонные латинские параметры без риска падения Dart)
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
