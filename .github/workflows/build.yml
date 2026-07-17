@@ -26,19 +26,34 @@ jobs:
       - name: Установка строго фиксированной версии Flet
         run: |
           pip install --upgrade pip
-          pip install flet==0.23.2
+          pip install flet==0.23.2 flet-core==0.23.2 flet-runtime==0.23.2
 
       - name: Безопасная очистка кэша шаблонов Flet
         run: |
           rm -rf ~/.cookiecutters
           rm -rf ~/.flet
 
+      - name: Жесткий хак нативных зависимостей (Запрет версий 0.24+)
+        run: |
+          # Перехватываем внутренний установщик flet и подменяем требования сборки
+          python3 -c "
+          import site, os, glob
+          for p in site.getsitepackages():
+              target = os.path.join(p, 'flet', 'cli', 'commands', 'build.py')
+              if os.path.exists(target):
+                  content = open(target).read()
+                  # Принудительно заменяем автоматическую установку на фиксированные версии
+                  content = content.replace('flet-embed', 'flet-embed==0.23.2')
+                  open(target, 'w').write(content)
+                  print('[HACK] Нативный установщик Flet успешно зафиксирован!')
+          "
+
       - name: Глубокая очистка репозитория от мусорных скриптов
         run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -delete
           find . -type f -name "*_sync.py" -delete
           rm -f cron_weekly_check.py network_template.py
-          rm -f patch.py ci_fix.py patch_part1.py
+          rm -f patch.py ci_fix.py patch_part1.py fix_app.py
 
       - name: Сборка финального APK
         run: |
