@@ -50,7 +50,7 @@ jobs:
         run: |
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
-          rm -f cron_weekly_check.py network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
+          rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
       - name: Сборка финального APK (Релизный запуск 14 июля)
         env:
