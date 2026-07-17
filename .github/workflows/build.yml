@@ -59,9 +59,9 @@ jobs:
             --build-number 12 \
             -vv
 
-      - name: Сохранение готового APK (Прямой путь Flet CLI 0.23.2)
+      - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
         with:
           name: carjournal-release-apk
-          path: build/apk/carjournal.apk
+          path: "**/build/**/*.apk"
           if-no-files-found: error
