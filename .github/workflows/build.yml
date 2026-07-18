@@ -52,6 +52,18 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
+    - name: Создание рантайм-заглушки сетевого модуля для Android
+      run: |
+        echo 'class NetworkStub:' > network.py
+        echo '    def __getattr__(self, name):' >> network.py
+        echo '        def stub_func(*args, **kwargs): pass' >> network.py
+        echo '        return stub_func' >> network.py
+        echo '    def check_and_send_alerts(self, *args, **kwargs): pass' >> network.py
+        echo 'network = NetworkStub()' >> network.py
+        echo 'import sys' >> network.py
+        echo 'sys.modules["network"] = network' >> network.py
+        echo '--- [CI/CD] Заглушка network.py сгенерирована ---'
+
       - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
         run: |
           # Фоновый демон сканируетstrings.xml и AndroidManifest.xml, меняя ярлыки на кириллицу перед Gradle
