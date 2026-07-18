@@ -26,18 +26,16 @@ def save_config_to_disk(file_id):
         print(f"[DEBUG CONFIG] Ошибка записи конфига: {e}")
 
 def load_config_from_disk():
-    """Читает file_id с диска."""
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 config_data = json.load(f)
                 if isinstance(config_data, dict):
-                    return config_data.get("last_file_id")
-        except Exception as e:
-            print(f"[DEBUG CONFIG] Ошибка чтения конфига: {e}")
-    return None
+                    return config_data.get('last_file_id', '')
+    except:
+        pass
+    return ''
 
-# Умный класс-обертка для app_state, перехватывающий запись ключей
 class SmartAppState(dict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -63,11 +61,11 @@ class SmartAppState(dict):
 saved_id = load_config_from_disk()
 
 app_state = SmartAppState({
-    "active_tab": 0,
-    "newly_added_cars": [],
-    "view_mode": "list",
-    "selected_car": None,
-    "last_file_id": saved_id  # Теперь ID готов к выдаче сразу после перезапуска приложения
+    'active_tab': 0,
+    'newly_added_cars': [],
+    'view_mode': 'list',
+    'selected_car': 'Мой Автомобиль',
+    'last_file_id': saved_id if saved_id else ''
 })
 
 def get_default_car_data():
