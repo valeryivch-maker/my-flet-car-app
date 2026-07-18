@@ -1,4 +1,4 @@
-﻿import flet as ft
+import flet as ft
 from datetime import datetime, timedelta
 import engine
 

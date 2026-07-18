@@ -1,10 +1,21 @@
-﻿import json
+import json
 import os
 from datetime import datetime, timedelta
 
-DB_FILE = "database.txt"
+
+
+import os
+import sys
+if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
+    # Внутри Android пишем файлы строго в приватную песочницу документов HOME
+    base_data_dir = os.environ.get('HOME', os.path.expanduser('~'))
+    DB_FILE = os.path.join(base_data_dir, 'database.txt')
+    CONFIG_FILE = os.path.join(base_data_dir, 'app_config.txt')
+else:
+    DB_FILE = 'database.txt'
+    CONFIG_FILE = 'app_config.txt'
 DB_PATH = DB_FILE
-CONFIG_FILE = "app_config.txt"
+
 
 def save_config_to_disk(file_id):
     """Принудительно записывает file_id на диск."""

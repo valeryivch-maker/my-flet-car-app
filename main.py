@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 
 # Принудительное связывание путей для среды Android
