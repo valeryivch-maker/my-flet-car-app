@@ -52,6 +52,11 @@ jobs:
           find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -delete
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
+          
+          # Потоковое комментирование фиксированных размеров окон для мобильного графического движка
+          sed -i 's/page.window_width = 1200/# page.window_width = 1200/g' main.py
+          sed -i 's/page.window_height = 800/# page.window_height = 800/g' main.py
+          echo "SUCCESS: Фиксированные размеры окон успешно закомментированы"
 
       - name: Создание рантайм-заглушки сетевого модуля для Android
         run: |
