@@ -187,7 +187,7 @@ def load_data():
                     task_info["date"] = datetime.now().strftime("%d.%m.%Y")
             car_profile["predictions"] = get_maintenance_predictions(car_profile)
             import network
-            network.check_and_send_alerts(car_profile, car_name=car_name)
+            if network and hasattr(network, 'check_and_send_alerts'): network.check_and_send_alerts(car_profile, car_name=car_name)
         return data
     except Exception:
         return {"cars": {}}

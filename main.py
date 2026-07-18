@@ -12,7 +12,19 @@ import flet as ft
 from datetime import datetime
 import engine
 import views
-import network
+try:
+    import network
+except ImportError:
+    print('[RUNTIME] Модуль network отсутствует. Активация автономного режима.')
+    class NetworkStub:
+        def __getattr__(self, name):
+            def stub_func(*args, **kwargs): pass
+            return stub_func
+        def auto_export_file_to_telegram(self, *args, **kwargs): pass
+        def auto_import_last_file(self, *args, **kwargs): pass
+    import sys
+    network = NetworkStub()
+    sys.modules['network'] = network
 
 APP_VERSION = "1.2.6"
 BUILD_NUMBER = "12"

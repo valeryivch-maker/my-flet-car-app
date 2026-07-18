@@ -2,8 +2,8 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 200307,
-                "date": "13.07.2026"
+                "value": 200458,
+                "date": "18.07.2026"
             },
             "daily_mileage": 25,
             "odometer_history": [
@@ -175,6 +175,16 @@
                     "cost": 1295.08,
                     "odometer": 200181,
                     "consumption": 9.26,
+                    "comment": "БРСМ"
+                },
+                {
+                    "date": "18.07.2026",
+                    "type": "Газ",
+                    "liters": 32.83,
+                    "price": 37.14,
+                    "cost": 1219.3,
+                    "odometer": 200458,
+                    "consumption": 11.85,
                     "comment": "БРСМ"
                 }
             ],
