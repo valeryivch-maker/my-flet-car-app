@@ -53,9 +53,12 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
           
-          # ХИРУРГИЯ В CI/CD: Полностью удаляем строки с 60 по 70 в main.py, где застрял пустой 'if' и старые размеры окон
+          # ХИРУРГИЯ: Вырезаем пустой 'if'
           sed -i '60,70d' main.py
-          echo "SUCCESS: Поврежденный мобильный графический блок полностью удален из main.py перед компиляцией"
+          
+          # СИНХРОНИЗАЦИЯ: Меняем ft.run на мобильный ft.app для обхода AttributeError
+          sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
+          echo "SUCCESS: Код main.py полностью адаптирован под рантайм flet 0.23.2"
 
       - name: Создание рантайм-заглушки сетевого модуля для Android
         run: |
