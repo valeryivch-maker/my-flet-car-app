@@ -1,4 +1,4 @@
-name: build
+﻿name: build
 
 on:
   push:
@@ -75,7 +75,7 @@ jobs:
               for f in $STRINGS_FILES; do
                 if grep -q "carjournal" "$f"; then
                   sed -i "s/carjournal/Бортовой Журнал/g" "$f"
-                  echo "[SUCCESS XML] Имя заменено in $f!"
+                  echo "[SUCCESS XML] Имя заменено в $f!"
                 fi
               done
             fi
@@ -85,7 +85,7 @@ jobs:
               for m in $MANIFEST_FILES; do
                 if grep -q "android:label=\"carjournal\"" "$m"; then
                   sed -i "s/android:label=\"carjournal\"/android:label=\"Бортовой Журнал\"/g" "$m"
-                  echo "[SUCCESS MANIFEST] Имя заменено in $m!"
+                  echo "[SUCCESS MANIFEST] Имя заменено в $m!"
                 fi
               done
             fi
@@ -98,9 +98,9 @@ jobs:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           flet build apk \
-            --project "carjournal" \
-            --product "carjournal" \
-            --org "com.flet" \
+            --project "carjournalapp" \
+            --product "BortovoyZhurnal" \
+            --org "com.valery" \
             --build-version "1.2.6" \
             --build-number 12 \
             -vv
