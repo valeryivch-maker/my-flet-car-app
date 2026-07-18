@@ -62,7 +62,7 @@ jobs:
         echo 'network = NetworkStub()' >> network.py
         echo 'import sys' >> network.py
         echo 'sys.modules["network"] = network' >> network.py
-        echo '--- [CI/CD] Заглушка network.py сгенерирована ---'
+        echo 'SUCCESS: Network stub generated successfully'
 
       - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
         run: |
