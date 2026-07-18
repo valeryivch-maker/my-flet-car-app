@@ -53,27 +53,29 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
           
-          # ХИРУРГИЯ СИНТАКСИСА: Полностью вырезаем ломаный оконный блок
+          # Вырезаем сломанный оконный блок
           sed -i '60,70d' main.py
           
-          # АДАПТАЦИЯ ХОЛСТА FLUTTER: Инжектируем принудительную начальную отрисовку для предотвращения Canvas Freeze
+          # Инжектируем начальную графическую отрисовку для предотвращения Canvas Freeze
           sed -i '/def main(page: ft.Page):/a \    page.add(ft.Text("Загрузка...", size=14))\n    page.update()' main.py
           
-          # СИНХРОНИЗАЦИЯ РАНТАЙМА: Меняем устаревший run на рабочий мобильный app
+          # Меняем run на рабочий мобильный app
           sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
           echo "SUCCESS: Код main.py полностью выпрямлен и защищен от графического зависания"
 
       - name: Создание рантайм-заглушки сетевого модуля для Android
         run: |
-          echo 'class NetworkStub:' > network.py
-          echo '    def __getattr__(self, name):' >> network.py
-          echo '        def stub_func(*args, **kwargs): pass' >> network.py
-          echo '        return stub_func' >> network.py
-          echo '    def check_and_send_alerts(self, *args, **kwargs): pass' >> network.py
-          echo 'network = NetworkStub()' >> network.py
-          echo 'import sys' >> network.py
-          sys.modules["network"] = network' >> network.py
-          echo "SUCCESS: Network stub generated successfully"
+          cat << 'EOF' > network.py
+          class NetworkStub:
+              def __getattr__(self, name):
+                  def stub_func(*args, **kwargs): pass
+                  return stub_func
+              def check_and_send_alerts(self, *args, **kwargs): pass
+          network = NetworkStub()
+          import sys
+          sys.modules["network"] = network
+          EOF
+          echo "SUCCESS: Network stub generated successfully via bulletproof EOF block"
 
       - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
         run: |
