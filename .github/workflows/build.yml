@@ -1,4 +1,4 @@
-﻿name: build
+name: build
 
 on:
   push:
@@ -75,7 +75,7 @@ jobs:
               for f in $STRINGS_FILES; do
                 if grep -q "carjournal" "$f"; then
                   sed -i "s/carjournal/Бортовой Журнал/g" "$f"
-                  echo "[SUCCESS XML] Имя заменено в $f!"
+                  echo "[SUCCESS XML] Имя заменено in $f!"
                 fi
               done
             fi
@@ -85,7 +85,7 @@ jobs:
               for m in $MANIFEST_FILES; do
                 if grep -q "android:label=\"carjournal\"" "$m"; then
                   sed -i "s/android:label=\"carjournal\"/android:label=\"Бортовой Журнал\"/g" "$m"
-                  echo "[SUCCESS MANIFEST] Имя заменено в $m!"
+                  echo "[SUCCESS MANIFEST] Имя заменено in $m!"
                 fi
               done
             fi
@@ -111,11 +111,17 @@ jobs:
           export TZ="Europe/Kiev"
           TS=$(date +'%H%M%d%m%Y')
           echo "CURRENT_TS=$TS" >> $GITHUB_OUTPUT
-          echo "Generated Timestamp: $TS"
+          
+          ORIGINAL_APK=$(find . -type f -name "*.apk" | head -n 1)
+          if [ ! -z "$ORIGINAL_APK" ]; then
+            mkdir -p final_output
+            mv "$ORIGINAL_APK" "final_output/carjournal_build_12_${TS}.apk"
+            echo "SUCCESS: APK renamed with timestamp"
+          fi
 
       - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
         with:
-          name: carjournal-build-12-${{ steps.timestamp.outputs.CURRENT_TS }}
-          path: "**/build/**/*.apk"
+          name: carjournal-release-package
+          path: "final_output/*.apk"
           if-no-files-found: error
