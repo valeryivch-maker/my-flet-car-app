@@ -58,8 +58,8 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
     page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
-    page.window_width = 1200
-    page.window_height = 800
+    if os.name == 'nt': page.window_width = 1200
+    if os.name == 'nt': page.window_height = 800
     db_data = engine.load_data()
  
     def show_message(text: str):
