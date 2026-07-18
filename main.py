@@ -60,7 +60,22 @@ def main(page: ft.Page):
     page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
     if os.name == 'nt': page.window_width = 1200
     if os.name == 'nt': page.window_height = 800
+    # ХОЛОДНЫЙ ПЕРЕНОС БАЗЫ ДАННЫХ ИЗ APK В ПЕСОЧНИЦУ
+    import shutil
+    if os.name != 'nt' or 'ANDROID_BOOTLOGO' in os.environ:
+        base_dir = os.environ.get('HOME', os.path.expanduser('~'))
+        target_db = os.path.join(base_dir, 'database.txt')
+        target_cfg = os.path.join(base_dir, 'app_config.txt')
+        os.makedirs(base_dir, exist_ok=True)
+        # Если в редактируемой памяти файла еще нет, копируем встроенный
+        if not os.path.exists(target_db) and os.path.exists('database.txt'):
+            try: shutil.copy2('database.txt', target_db)
+            except: pass
+        if not os.path.exists(target_cfg) and os.path.exists('app_config.txt'):
+            try: shutil.copy2('app_config.txt', target_cfg)
+            except: pass
     db_data = engine.load_data()
+
  
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
