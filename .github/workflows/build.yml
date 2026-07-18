@@ -53,11 +53,11 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
           
-          # Вырезаем сломанный оконный блок
+          # Вырезаем сломанный оконный блок Windows
           sed -i '60,70d' main.py
           
-          # Инжектируем начальную графическую отрисовку для предотвращения Canvas Freeze
-          sed -i '/def main(page: ft.Page):/a \    page.add(ft.Text("Загрузка...", size=14))\n    page.update()' main.py
+          # Инжектируем принудительное создание приватных папок Android на уровне ядра перед чтением базы данных
+          sed -i '/def main(page: ft.Page):/a \    import os\n    if os.name != "nt":\n        os.makedirs(os.environ.get("HOME", "/data/data"), exist_ok=True)\n    page.add(ft.Text("Загрузка...", size=14))\n    page.update()' main.py
           
           # Меняем run на рабочий мобильный app
           sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
