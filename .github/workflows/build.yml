@@ -1,4 +1,5 @@
-name: build
+﻿name: build
+
 on:
   push:
     branches:
@@ -52,18 +53,23 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
 
-    - name: Создание рантайм-заглушки сетевого модуля для Android
-      run: |
-        echo 'Y2xhc3MgTmV0d29ya1N0dWI6CiAgICBkZWYgX19nZXRhdHRyX18oc2VsZiwgbmFtZSk6CiAgICAgICAgZGVmIHN0dWJfZnVuYygqYXJncywgKmt3YXJncyk6IHBhc3MKICAgICAgICByZXR1cm4gc3R1Yl9mdW5jCiAgICBkZWYgY2hlY2tfYW5kX3NlbmRfYWxlcnRzKHNlbGYsICphcmdzLCAqa3dhcmdzKTogcGFzcwpuZXR3b3JrID0gTmV0d29ya1N0dWIoKQppbXBvcnQgc3lzCnN5cy5tb2R1bGVzWyduZXR3b3JrJ10gPSBuZXR3b3JrCg==' | base64 -d > network.py
-        echo 'SUCCESS: Network stub unpacked via Base64'
+      - name: Создание рантайм-заглушки сетевого модуля для Android
+        run: |
+          echo 'class NetworkStub:' > network.py
+          echo '    def __getattr__(self, name):' >> network.py
+          echo '        def stub_func(*args, **kwargs): pass' >> network.py
+          echo '        return stub_func' >> network.py
+          echo '    def check_and_send_alerts(self, *args, **kwargs): pass' >> network.py
+          echo 'network = NetworkStub()' >> network.py
+          echo 'import sys' >> network.py
+          echo 'sys.modules["network"] = network' >> network.py
+          echo "SUCCESS: Network stub generated successfully"
 
       - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
         run: |
-          # Фоновый демон сканируетstrings.xml и AndroidManifest.xml, меняя ярлыки на кириллицу перед Gradle
           bash -c '
           echo "[MONITOR] Запуск демона тотального перехвата ресурсов..."
           for i in {1..400}; do
-            # 1. Перехватstrings.xml
             STRINGS_FILES=$(find /tmp/flet_flutter_build_* -name "strings.xml" 2>/dev/null || true)
             if [ ! -z "$STRINGS_FILES" ]; then
               for f in $STRINGS_FILES; do
@@ -74,7 +80,6 @@ jobs:
               done
             fi
             
-            # 2. Перехват AndroidManifest.xml
             MANIFEST_FILES=$(find /tmp/flet_flutter_build_* -name "AndroidManifest.xml" 2>/dev/null || true)
             if [ ! -z "$MANIFEST_FILES" ]; then
               for m in $MANIFEST_FILES; do
