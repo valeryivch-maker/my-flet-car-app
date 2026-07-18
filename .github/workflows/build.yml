@@ -105,9 +105,17 @@ jobs:
             --build-number 12 \
             -vv
 
+      - name: Генерация зашифрованной временной метки сборки
+        id: timestamp
+        run: |
+          export TZ="Europe/Kiev"
+          TS=$(date +'%H%M%d%m%Y')
+          echo "CURRENT_TS=$TS" >> $GITHUB_OUTPUT
+          echo "Generated Timestamp: $TS"
+
       - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
         with:
-          name: carjournal-release-apk
+          name: carjournal-build-12-${{ steps.timestamp.outputs.CURRENT_TS }}
           path: "**/build/**/*.apk"
           if-no-files-found: error
