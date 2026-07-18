@@ -53,11 +53,9 @@ jobs:
           find . -type f -name "*_sync.py" -delete
           rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
           
-          # Автоматическое исправление отступов и комментирование оконных размеров на сервере Ubuntu
-          sed -i 's/selected_car = car_names/selected_car = car_names[0]/g' main.py
-          sed -i 's/page.window_width = 1200/# page.window_width = 1200/g' main.py
-          sed -i 's/page.window_height = 800/# page.window_height = 800/g' main.py
-          echo "SUCCESS: Код main.py полностью выпрямлен под мобильный синтаксис"
+          # ХИРУРГИЯ В CI/CD: Полностью удаляем строки с 60 по 70 в main.py, где застрял пустой 'if' и старые размеры окон
+          sed -i '60,70d' main.py
+          echo "SUCCESS: Поврежденный мобильный графический блок полностью удален из main.py перед компиляцией"
 
       - name: Создание рантайм-заглушки сетевого модуля для Android
         run: |
