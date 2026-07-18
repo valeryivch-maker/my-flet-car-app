@@ -98,9 +98,9 @@ jobs:
           PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
         run: |
           flet build apk \
-            --project "carjournalapp" \
-            --product "BortovoyZhurnal" \
-            --org "com.valery" \
+            --project "carjournal" \
+            --product "carjournal" \
+            --org "com.flet" \
             --build-version "1.2.6" \
             --build-number 12 \
             -vv
