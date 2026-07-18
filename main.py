@@ -53,6 +53,12 @@ def run_local_telegram_sync():
         return False
 def main(page: ft.Page):
     page.title = "Бортовой Журнал"
+    # Оптимизация графического контекста под Android
+    if os.name != 'nt' or 'ANDROID_BOOTLOGO' in os.environ:
+        page.window_width = None
+        page.window_height = None
+        page.window_resizable = False
+
     page.scroll = ft.ScrollMode.AUTO
     global db_data
     page.theme_mode = ft.ThemeMode.LIGHT
