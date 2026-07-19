@@ -7,10 +7,8 @@ from datetime import datetime, timedelta
 import os
 import sys
 if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
-    # Внутри Android пишем файлы строго в приватную песочницу документов HOME
-    base_data_dir = os.environ.get('HOME', os.path.expanduser('~'))
-    DB_FILE = os.path.join(base_data_dir, 'database.txt')
-    CONFIG_FILE = os.path.join(base_data_dir, 'app_config.txt')
+    DB_FILE = 'database.txt'
+    CONFIG_FILE = 'app_config.txt'
 else:
     DB_FILE = 'database.txt'
     CONFIG_FILE = 'app_config.txt'
