@@ -53,7 +53,7 @@ def run_local_telegram_sync():
 
 def main(page: ft.Page):
     page.title = "Бортовой Журнал"
-    page.scroll = ft.ScrollMode.AUTO
+    page.scroll = None # Отключаем скролл страницы, скроллиться будут только списки
     global db_data
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
@@ -254,7 +254,7 @@ def main(page: ft.Page):
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
 
-        page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
+        page.add(ft.SafeArea(content=ft.Column(expand=True, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 10)), ft.Container(content=main_layout, expand=True)])))
         page.update()
 
     rebuild_ui()
