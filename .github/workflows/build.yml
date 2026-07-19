@@ -1,165 +1,33 @@
-﻿name: build
+name: build
 on:
- push:
-  branches:
-   - main
+  push:
+    branches:
+      - main
 jobs:
- build:
-  runs-on: ubuntu-latest
-  steps:
-   - name: Проверка кода проекта
-     uses: actions/checkout@v4
-   - name: Настройка совместимой версии Flutter SDK (Ветка 3.22)
-     uses: subosito/flutter-action@v2
-     with:
-      cache: false
-      flutter-version: '3.22.2'
-      channel: 'stable'
-   - name: Настройка Python
-     uses: actions/setup-python@v5
-     with:
-      python-version: '3.11'
-   - name: Создание и защита файла зависимостей для Android рантайма
-     run: |
-      echo "requests" > requirements.txt
-      echo "urllib3" >> requirements.txt
-      echo "flet-embed==0.23.2" >> requirements.txt
-      
-      echo "flet==0.23.2" > constraints.txt
-      echo "flet-core==0.23.2" >> constraints.txt
-      echo "flet-runtime==0.23.2" >> constraints.txt
-      echo "flet-embed==0.23.2" >> constraints.txt
-   - name: Установка строго фиксированной версии Flet
-     env:
-      PIP_CONSTRAINT: constraints.txt
-     run: |
-      pip install --upgrade pip
-      pip install flet==0.23.2
-   - name: Безопасная очистка кэша шаблонов Flet
-     run: |
-      rm -rf ~/.cookiecutters
-      rm -rf ~/.flet
-   - name: Безопасная фильтразия репозитория перед упаковкой
-     run: |
-      # Защищаем базу данных и конфигурационные файлы от удаления на сервере сборки
-      find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -not -name "database.txt" -not -name "app_config.txt" -delete
-      find . -type f -name "*_sync.py" -delete
-      rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
-   - name: Создание пуленепробиваемой рантайм-заглушки сетевого модуля
-     run: |
-      cat << 'EOF' > network.py
-      # Статическая заглушка, устойчивая к любым вызовам из main.py и engine.py
-      def check_and_send_alerts(*args, **kwargs):
-          pass
-
-      def auto_export_file_to_telegram(*args, **kwargs):
-          pass
-
-      def auto_import_last_file(*args, **kwargs):
-          pass
-
-      class NetworkStub:
-          def __getattr__(self, name):
-              def stub_func(*args, **kwargs): pass
-              return stub_func
-              
-      check_and_send_alerts = check_and_send_alerts
-      auto_export_file_to_telegram = auto_export_file_to_telegram
-      auto_import_last_file = auto_import_last_file
-      
-      import sys
-      sys.modules["network"] = sys.modules[__name__]
-      EOF
-      echo "SUCCESS: Bulletproof network stub generated successfully"
-   - name: Глубокая очистка дефектных импортов и инжект ядра в main.py
-     run: |
-      python -c '
-      with open("main.py", "r", encoding="utf-8") as f:
-          content = f.read()
-      
-      # Полностью удаляем дефектный блок ловушки NetworkStub из верхней части файла
-      bad_block_start = "try:\n import network"
-      bad_block_end = "sys.modules[\x27network\x27] = network"
-      
-      if bad_block_start in content and bad_block_end in content:
-          before = content.split(bad_block_start)[0]
-          after = content.split(bad_block_end)[1]
-          # Заменяем на чистый, безопасный импорт нашей готовой заглушки network.py
-          content = before + "import network" + after
-          print("SUCCESS: Дефектный блок NetworkStub вырезан из кодовой базы.")
-      
-      # Инжектируем создание папок во внутрь функции main
-      lines = content.splitlines()
-      output = []
-      injected = False
-      for line in lines:
-          output.append(line)
-          if "def main(page: ft.Page):" in line and not injected:
-              output.append("    import os")
-              output.append("    if os.name != \"nt\":")
-              output.append("        os.makedirs(os.environ.get(\"HOME\", \"/data/data\"), exist_ok=True)")
-              injected = True
-              
-      with open("main.py", "w", encoding="utf-8") as f:
-          f.write("\n".join(output) + "\n")
-      '
-      # Переводим локальный запуск на рабочий мобильный контекст приложения
-      sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
-      echo "SUCCESS: main.py полностью очищен от ловушек и подготовлен к компиляции."
-   - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
-     run: |
-      bash -c '
-      echo "[MONITOR] Запуск демона тотального перехвата ресурсов..."
-      for i in {1..400}; do
-        STRINGS_FILES=$(find /tmp/flet_flutter_build_* -name "strings.xml" 2>/dev/null || true)
-        if [ ! -z "$STRINGS_FILES" ]; then
-          for f in $STRINGS_FILES; do
-            if grep -q "carjournal" "$f"; then
-              sed -i "s/carjournal/Бортовой Журнал/g" "$f"
-              echo "[SUCCESS XML] Имя заменено в $f!"
-            fi
-          done
-        fi
-        
-        MANIFEST_FILES=$(find /tmp/flet_flutter_build_* -name "AndroidManifest.xml" 2>/dev/null || true)
-        if [ ! -z "$MANIFEST_FILES" ]; then
-          for m in $MANIFEST_FILES; do
-            if grep -q "android:label=\"carjournal\"" "$m"; then
-              sed -i "s/android:label=\"carjournal\"/android:label=\"Бортовой Журнал\"/g" "$m"
-              echo "[SUCCESS MANIFEST] Имя заменено в $m!"
-            fi
-          done
-        fi
-        sleep 0.4
-      done &
-      '
-   - name: Сборка финального APK (Безопасная латиница для обхода ошибки 255)
-     env:
-      PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
-     run: |
-      flet build apk \
-        --project "carjournal" \
-        --product "carjournal" \
-        --org "com.flet" \
-        --build-version "1.2.6" \
-        --build-number 12 \
-        -vv
-   - name: Генерация зашифрованной временной метки сборки
-     id: timestamp
-     run: |
-      export TZ="Europe/Kiev"
-      TS=$(date +'%H%M%d%m%Y')
-      echo "CURRENT_TS=$TS" >> $GITHUB_OUTPUT
-      
-      ORIGINAL_APK=$(find . -type f -name "*.apk" | head -n 1)
-      if [ ! -z "$ORIGINAL_APK" ]; then
-        mkdir -p final_output
-        mv "$ORIGINAL_APK" "final_output/carjournal_build_12_${TS}.apk"
-        echo "SUCCESS: APK renamed with timestamp"
-      fi
-   - name: Динамическое сохранение готового APK (Поиск по маске)
-     uses: actions/upload-artifact@v4
-     with:
-      name: carjournal-release-package
-      path: "final_output/*.apk"
-      if-no-files-found: error
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Проверка кода проекта
+        uses: actions/checkout@v4
+      - name: Настройка Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          cache: false
+          flutter-version: '3.22.2'
+          channel: 'stable'
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Установка Flet и зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install flet==0.23.2 requests urllib3
+      - name: Сборка отладочного APK
+        run: |
+          flet build apk
+      - name: Сохранение готового APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: carjournal-release-package
+          path: build/apk/*.apk
