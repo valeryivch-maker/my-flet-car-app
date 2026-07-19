@@ -68,19 +68,33 @@ jobs:
       '
       # Переводим локальный запуск на рабочий мобильный контекст приложения
       sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
-   - name: Создание рантайм-заглушки сетевого модуля для Android
+   - name: Создание пуленепробиваемой рантайм-заглушки сетевого модуля (Фикс Crash/Черного экрана)
      run: |
       cat << 'EOF' > network.py
+      # Статическая заглушка, устойчивая к любым вызовам из engine.py
+      def check_and_send_alerts(*args, **kwargs):
+          pass
+
+      def auto_export_file_to_telegram(*args, **kwargs):
+          pass
+
+      def auto_import_last_file(*args, **kwargs):
+          pass
+
       class NetworkStub:
           def __getattr__(self, name):
               def stub_func(*args, **kwargs): pass
               return stub_func
-          def check_and_send_alerts(self, *args, **kwargs): pass
-      network = NetworkStub()
+              
+      # Поддержка вызовов как функций модуля, так и методов объекта
+      check_and_send_alerts = check_and_send_alerts
+      auto_export_file_to_telegram = auto_export_file_to_telegram
+      auto_import_last_file = auto_import_last_file
+      
       import sys
-      sys.modules["network"] = network
+      sys.modules["network"] = sys.modules[__name__]
       EOF
-      echo "SUCCESS: Network stub generated successfully via bulletproof EOF block"
+      echo "SUCCESS: Bulletproof network stub generated successfully"
    - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
      run: |
       bash -c '
