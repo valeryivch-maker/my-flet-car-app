@@ -117,13 +117,20 @@ def main(page: ft.Page):
         car_profile = cars_dict[selected_car]
         
         # Безопасный вызов алертов ТО после инициализации профиля
-        try:
-            import sys
-            net_mod = sys.modules.get('network', __import__('network'))
-            if hasattr(net_mod, 'check_and_send_alerts'):
-                net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
-        except:
-            pass
+        def run_delayed_alerts():
+            import time
+            try:
+                time.sleep(1.5) # Даем графическому движку Android 1.5 секунды на полную отрисовку
+                import sys
+                net_mod = sys.modules.get('network', __import__('network'))
+                if hasattr(net_mod, 'check_and_send_alerts'):
+                    net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
+            except:
+                pass
+        
+        # Запускаем сетевой скрининг в изолированном фоновом потоке, не мешающем UI
+        import threading
+        threading.Thread(target=run_delayed_alerts, daemon=True).start()
 
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
