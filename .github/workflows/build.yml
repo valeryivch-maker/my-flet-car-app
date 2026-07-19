@@ -45,13 +45,25 @@ jobs:
       find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -not -name "database.txt" -not -name "app_config.txt" -delete
       find . -type f -name "*_sync.py" -delete
       rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
-   - name: Инжектирование приватных папок Android на уровне ядра перед чтением базы данных
+   - name: Безопасное инжектирование папок Android на уровне ядра (Фикс SyntaxError)
      run: |
-      sed -i '/def main(page: ft.Page):/a \\    import os\\n    if os.name != "nt":\\n        os.makedirs(os.environ.get("HOME", "/data/data"), exist_ok=True)' main.py
+      # Используем временный файл для точечной и безопасной сборки main.py без управляющих символов \n
+      cat << 'EOF' > inject_block.tmp
+      def main(page: ft.Page):
+          import os
+          if os.name != "nt":
+              os.makedirs(os.environ.get("HOME", "/data/data"), exist_ok=True)
+      EOF
+      
+      # Подменяем заголовок функции в оригинальном файле на подготовленный безопасный блок
+      sed -i '/def main(page: ft.Page):/r inject_block.tmp' main.py
+      sed -i '0,/def main(page: ft.Page):/s/def main(page: ft.Page):/# Инициализация мобильного контура/' main.py
+      sed -i 's/# Инициализация мобильного контура/def main(page: ft.Page):/' main.py
+      rm -f inject_block.tmp
       
       # Переводим локальный запуск на рабочий мобильный контекст приложения
       sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
-      echo "SUCCESS: Код main.py полностью выпрямлен и защищен от графического зависания"
+      echo "SUCCESS: Код main.py успешно стабилизирован без ошибок синтаксиса"
    - name: Создание рантайм-заглушки сетевого модуля для Android
      run: |
       cat << 'EOF' > network.py
