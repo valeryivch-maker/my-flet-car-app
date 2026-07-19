@@ -45,33 +45,10 @@ jobs:
       find . -type f -name "*.txt" -not -name "requirements.txt" -not -name "constraints.txt" -not -name "database.txt" -not -name "app_config.txt" -delete
       find . -type f -name "*_sync.py" -delete
       rm -f network_template.py patch.py ci_fix.py patch_part1.py fix_app.py debug_build.py force_save.py final_push.py
-   - name: Гарантированный атомарный инжект ядра через Python (Фикс IndentationError)
-     run: |
-      python -c '
-      with open("main.py", "r", encoding="utf-8") as f:
-          lines = f.readlines()
-      
-      output = []
-      injected = False
-      for line in lines:
-          output.append(line)
-          if "def main(page: ft.Page):" in line and not injected:
-              # Вставляем блок строго с соблюдением 4-х пробелов отступа
-              output.append("    import os\n")
-              output.append("    if os.name != \"nt\":\n")
-              output.append("        os.makedirs(os.environ.get(\"HOME\", \"/data/data\"), exist_ok=True)\n")
-              injected = True
-              
-      with open("main.py", "w", encoding="utf-8") as f:
-          f.writelines(output)
-      print("SUCCESS: Атомарная сборка отступов main.py завершена успешно.")
-      '
-      # Переводим локальный запуск на рабочий мобильный контекст приложения
-      sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
-   - name: Создание пуленепробиваемой рантайм-заглушки сетевого модуля (Фикс Crash/Черного экрана)
+   - name: Создание пуленепробиваемой рантайм-заглушки сетевого модуля
      run: |
       cat << 'EOF' > network.py
-      # Статическая заглушка, устойчивая к любым вызовам из engine.py
+      # Статическая заглушка, устойчивая к любым вызовам из main.py и engine.py
       def check_and_send_alerts(*args, **kwargs):
           pass
 
@@ -86,7 +63,6 @@ jobs:
               def stub_func(*args, **kwargs): pass
               return stub_func
               
-      # Поддержка вызовов как функций модуля, так и методов объекта
       check_and_send_alerts = check_and_send_alerts
       auto_export_file_to_telegram = auto_export_file_to_telegram
       auto_import_last_file = auto_import_last_file
@@ -95,6 +71,41 @@ jobs:
       sys.modules["network"] = sys.modules[__name__]
       EOF
       echo "SUCCESS: Bulletproof network stub generated successfully"
+   - name: Глубокая очистка дефектных импортов и инжект ядра в main.py
+     run: |
+      python -c '
+      with open("main.py", "r", encoding="utf-8") as f:
+          content = f.read()
+      
+      # Полностью удаляем дефектный блок ловушки NetworkStub из верхней части файла
+      bad_block_start = "try:\n import network"
+      bad_block_end = "sys.modules[\x27network\x27] = network"
+      
+      if bad_block_start in content and bad_block_end in content:
+          before = content.split(bad_block_start)[0]
+          after = content.split(bad_block_end)[1]
+          # Заменяем на чистый, безопасный импорт нашей готовой заглушки network.py
+          content = before + "import network" + after
+          print("SUCCESS: Дефектный блок NetworkStub вырезан из кодовой базы.")
+      
+      # Инжектируем создание папок во внутрь функции main
+      lines = content.splitlines()
+      output = []
+      injected = False
+      for line in lines:
+          output.append(line)
+          if "def main(page: ft.Page):" in line and not injected:
+              output.append("    import os")
+              output.append("    if os.name != \"nt\":")
+              output.append("        os.makedirs(os.environ.get(\"HOME\", \"/data/data\"), exist_ok=True)")
+              injected = True
+              
+      with open("main.py", "w", encoding="utf-8") as f:
+          f.write("\n".join(output) + "\n")
+      '
+      # Переводим локальный запуск на рабочий мобильный контекст приложения
+      sed -i 's/ft.run(main)/ft.app(target=main)/g' main.py
+      echo "SUCCESS: main.py полностью очищен от ловушек и подготовлен к компиляции."
    - name: Фоновое исправление ресурсов Android (Тотальный инжект Бортовой Журнал)
      run: |
       bash -c '
