@@ -137,7 +137,7 @@ jobs:
      env:
       PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
      run: |
-      flet build apk \
+      flet build apk --debug \
         --project "carjournal" \
         --product "carjournal" \
         --org "com.flet" \
