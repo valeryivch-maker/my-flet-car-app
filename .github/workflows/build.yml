@@ -82,8 +82,10 @@ jobs:
      - name: Сборка финального APK (Форсирование легкого отладочного контура Flutter)
        env:
          PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
+         FLUTTER_BUILD_MODE: debug
+         FLET_BUILD_MODE: debug
        run: |
-         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 --flutter-flag="--debug" -vv
+         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 -vv
      - name: Генерация зашифрованной временной метки сборки
        id: timestamp
        run: |
