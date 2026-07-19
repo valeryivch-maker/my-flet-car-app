@@ -80,7 +80,11 @@ def main(page: ft.Page):
             try: shutil.copy2("app_config.txt", target_cfg)
             except: pass
 
-    db_data = engine.load_data()
+    try:
+        db_data = engine.load_data()
+    except Exception:
+        # Аварийный обход Scoped Storage: генерируем чистую структуру прямо в оперативной памяти
+        db_data = {"cars": {"Мой Автомобиль": engine.get_default_car_data()}}
 
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
@@ -95,7 +99,10 @@ def main(page: ft.Page):
 
     def rebuild_ui():
         page.clean()
-        current_db = engine.load_data()
+        try:
+            current_db = engine.load_data()
+        except Exception:
+            current_db = page.data.get("db_data", {"cars": {"Мой Автомобиль": engine.get_default_car_data()}})
         if page.data and "db_data" in page.data:
             current_db = page.data["db_data"]
         else:
