@@ -83,6 +83,13 @@ def main(page: ft.Page):
     try:
         db_data = engine.load_data()
     except Exception:
+        db_data = {"cars": {"Мой Автомобиль": {"odometer": {"value": 0, "date": "19.07.2026"}, "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []}}}
+        db_data = engine.load_data()
+    except Exception:
+        db_data = {"cars": {"Мой Автомобиль": {"odometer": {"value": 0, "date": "19.07.2026"}, "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []}}}
+    except Exception:
+        db_data = {"cars": {"Мой Автомобиль": {"odometer": {"value": 0, "date": "19.07.2026"}, "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []}}}
+    except Exception:
         # Аварийный обход Scoped Storage: генерируем чистую структуру прямо в оперативной памяти
         db_data = {"cars": {"Мой Автомобиль": engine.get_default_car_data()}}
 
