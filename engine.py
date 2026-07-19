@@ -196,7 +196,10 @@ def load_data():
                     car_profile["fuel_history"] = []
                 
                 try:
-                    car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
+                                try:
+                                    car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
+                                except Exception:
+                                    car_profile["daily_mileage"] = 45
                 except Exception:
                     car_profile["daily_mileage"] = 45
                     
