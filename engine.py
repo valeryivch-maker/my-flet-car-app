@@ -167,16 +167,21 @@ def get_maintenance_predictions(car_profile):
 def load_data():
     """Загружает базу из файла и адаптирует под обновления."""
     if not os.path.exists(DB_FILE):
-        initial_data = {"cars": {"Мой Автомобиль": get_default_car_data()}}
-        save_data(initial_data)
-        return initial_data
+        try:
+            initial_data = {"cars": {"Мой Автомобиль": get_default_car_data()}}
+            # Сразу генерируем базовые прогнозы для предотвращения KeyError/AttributeError
+            initial_data["cars"]["Мой Автомобиль"]["predictions"] = get_maintenance_predictions(initial_data["cars"]["Мой Автомобиль"])
+            save_data(initial_data)
+            return initial_data
+        except Exception:
+            return {"cars": {"Мой Автомобиль": {}}}
+            
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not data or "cars" not in data:
             data = {"cars": {}}
-        
-        # Защищенная обработка каждого профиля автомобиля
+            
         for car_name, car_profile in list(data["cars"].items()):
             try:
                 if "odometer" not in car_profile:
@@ -192,7 +197,6 @@ def load_data():
                 if "fuel_history" not in car_profile:
                     car_profile["fuel_history"] = []
                 
-                # Защита вычисления суточного пробега
                 try:
                     car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
                 except Exception:
@@ -206,26 +210,16 @@ def load_data():
                     if "date" not in task_info:
                         task_info["date"] = datetime.now().strftime("%d.%m.%Y")
                         
-                car_profile["predictions"] = get_maintenance_predictions(car_profile)
-                
-                # Тотальная изоляция сетевого контура уведомлений от падения импорта
+                # Жестко изолируем расчет прогнозов
                 try:
-                    import sys
-                    if 'network' in sys.modules:
-                        net_mod = sys.modules['network']
-                        if hasattr(net_mod, 'check_and_send_alerts'):
-                            net_mod.check_and_send_alerts(car_profile, car_name=car_name)
-                    else:
-                        import network
-                        if network and hasattr(network, 'check_and_send_alerts'): 
-                            network.check_and_send_alerts(car_profile, car_name=car_name)
+                    car_profile["predictions"] = get_maintenance_predictions(car_profile)
                 except Exception:
-                    pass
+                    car_profile["predictions"] = {}
+                    
             except Exception:
                 pass
         return data
     except Exception:
-        # В случае критической поломки JSON возвращаем рабочий аварийный каркас структуры
         return {"cars": {"Мой Автомобиль": get_default_car_data()}}
 
 def save_data(data):

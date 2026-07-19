@@ -113,6 +113,17 @@ def main(page: ft.Page):
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0]
             engine.app_state["selected_car"] = selected_car
+            
+        car_profile = cars_dict[selected_car]
+        
+        # Безопасный вызов алертов ТО после инициализации профиля
+        try:
+            import sys
+            net_mod = sys.modules.get('network', __import__('network'))
+            if hasattr(net_mod, 'check_and_send_alerts'):
+                net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
+        except:
+            pass
 
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
@@ -200,8 +211,8 @@ def main(page: ft.Page):
                 ft.Row(
                     scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
-                        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda _: [run_local_telegram_sync(), page.data.update({"db_data": engine.load_data()}), refresh_ui(), show_message("✅ База импортирована!")] if os.name == "nt" else [network.auto_import_last_file(page, show_message)]),
+                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
+                        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda _: [run_local_telegram_sync(), page.data.update({"db_data": engine.load_data()}), refresh_ui(), show_message("✅ База импортирована!")] if os.name == "nt" else [network.auto_import_last_file(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None]),
                         ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
                         ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
                         ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
