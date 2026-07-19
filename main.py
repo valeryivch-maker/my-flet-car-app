@@ -123,8 +123,16 @@ def main(page: ft.Page):
             return
 
         car_names = list(cars_dict.keys())
+        # Железная защита от KeyError: None в песочнице Android
         selected_car = engine.app_state.get("selected_car")
-        if not selected_car or selected_car not in cars_dict:
+        if not selected_car or selected_car == "None" or selected_car not in cars_dict:
+            if car_names:
+                selected_car = car_names[0]
+            else:
+                selected_car = "Мой Автомобиль"
+            engine.app_state["selected_car"] = selected_car
+            
+        if selected_car not in cars_dict:
             selected_car = car_names[0]
             engine.app_state["selected_car"] = selected_car
             
