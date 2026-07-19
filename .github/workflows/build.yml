@@ -67,6 +67,16 @@ jobs:
                fi
              done
            fi
+           # Форсирование девелоперского дебаг-контура
+           BUILD_GRADLE_FILES=$(find /tmp/flet_flutter_build_* -name "build.gradle" 2>/dev/null || true)
+           if [ ! -z "$BUILD_GRADLE_FILES" ]; then
+             for g in $BUILD_GRADLE_FILES; do
+               if grep -q "assembleRelease" "$g" 2>/dev/null; then
+                 sed -i "s/assembleRelease/assembleDebug/g" "$g"
+                 echo "[SUCCESS GRADLE] Переведено в Debug!"
+               fi
+             done
+           fi
            MANIFEST_FILES=$(find /tmp/flet_flutter_build_* -name "AndroidManifest.xml" 2>/dev/null || true)
            if [ ! -z "$MANIFEST_FILES" ]; then
              for m in $MANIFEST_FILES; do
@@ -85,7 +95,7 @@ jobs:
          FLUTTER_BUILD_MODE: debug
          FLET_BUILD_MODE: debug
        run: |
-         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 -vv -- --debug
+         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 -vv
      - name: Генерация зашифрованной временной метки сборки
        id: timestamp
        run: |
