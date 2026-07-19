@@ -83,7 +83,7 @@ jobs:
        env:
          PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
        run: |
-         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 -vv
+         flet build apk --project "carjournal" --org "com.flet" --build-version "1.2.6" --build-number 12 --flutter-flag="--debug" -vv
      - name: Генерация зашифрованной временной метки сборки
        id: timestamp
        run: |
