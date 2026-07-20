@@ -1,3 +1,16 @@
+import sys
+import os
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+# Сквозной перехват путей до инициализации расчетного ядра engine
+if os.name != "nt":
+    sandbox_dir = os.environ.get("HOME", os.path.expanduser("~"))
+    target_db = os.path.join(sandbox_dir, "database.txt")
+    if not os.path.exists(target_db):
+        with open(target_db, "w", encoding="utf-8") as f:
+            f.write("") # Создаем чистый холст базы в песочнице Android
+
 # -*- coding: utf-8 -*-
 import sys
 import os
