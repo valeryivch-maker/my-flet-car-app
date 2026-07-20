@@ -290,3 +290,5 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
+
+# CACHE_FLUSH_MARKER: 20.07.2026 21:00:20
