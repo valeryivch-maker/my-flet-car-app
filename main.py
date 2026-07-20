@@ -91,6 +91,11 @@ def main(page: ft.Page):
         page.window_width = None
         page.window_height = None
         page.window_resizable = False
+        # Принудительный редирект внутренней базы данных в легальную песочницу Android
+        sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+        if sandbox_dir in ["/", "/data", ""]:
+            sandbox_dir = "/data/data/com.flet.carjournal/files"
+        os.makedirs(sandbox_dir, exist_ok=True)
 
     def rebuild_ui():
         page.clean()
