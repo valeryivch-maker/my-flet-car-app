@@ -33,6 +33,7 @@ db_data = {}
 
 def run_local_telegram_sync():
     import shutil
+    if os.name == 'nt': pass
     import glob
     tg_downloads_path = r"C:\Users\User\Загрузки\Telegram Desktop"
     if not os.path.exists(tg_downloads_path):
@@ -70,6 +71,7 @@ def main(page: ft.Page):
         page.window_resizable = False
 
     import shutil
+    if os.name == 'nt': pass
     if os.name != "nt" or "ANDROID_BOOTLOGO" in os.environ:
         sandbox_dir = os.environ.get("HOME", os.path.expanduser("~"))
         target_db = os.path.join(sandbox_dir, "database.txt")
