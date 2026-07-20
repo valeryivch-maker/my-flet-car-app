@@ -52,7 +52,7 @@ import engine
 import views
 
 APP_VERSION = "1.2.6"
-BUILD_NUMBER = "12"
+BUILD_NUMBER = "13"
 db_data = {}
 
 def run_local_telegram_sync():
