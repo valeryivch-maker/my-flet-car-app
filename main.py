@@ -5,11 +5,23 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 # Сквозной перехват путей до инициализации расчетного ядра engine
 if os.name != "nt":
-    sandbox_dir = os.environ.get("HOME", os.path.expanduser("~"))
+    # Используем внутреннюю защищенную директорию Flet-рантайма на Android
+    sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+    if sandbox_dir == "/" or sandbox_dir == "/data":
+        # Аварийный редирект в легальную локальную песочницу данных приложения
+        sandbox_dir = "/data/data/com.flet.carjournal/files"
+        
+    os.makedirs(sandbox_dir, exist_ok=True)
     target_db = os.path.join(sandbox_dir, "database.txt")
     if not os.path.exists(target_db):
-        with open(target_db, "w", encoding="utf-8") as f:
-            f.write("") # Создаем чистый холст базы в песочнице Android
+        try:
+            with open(target_db, "w", encoding="utf-8") as f:
+                f.write("")
+        except:
+            # Если и там закрыто, уходим в глубокий кэш ассетов Flutter
+            sandbox_dir = os.path.dirname(sys.executable) if hasattr(sys, 'executable') else "."
+            target_db = os.path.join(sandbox_dir, "database.txt")
+            with open(target_db, "w", encoding="utf-8") as f: f.write("")
 
 # -*- coding: utf-8 -*-
 import sys
