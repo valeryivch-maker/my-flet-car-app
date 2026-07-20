@@ -104,7 +104,7 @@ def recalculate_auto_daily_mileage(car_profile):
         
     try:
         # Сортируем историю строго по хронологии дат
-        sorted_hist = sorted(history, key=lambda x: datetime.strptime(x["date"], "%d.%m.%Y"))
+        sorted_hist = sorted(history, key=lambda x: datetime.strptime(x.get("date", "01.01.2000"), "%d.%m.%Y") if x.get("date") else datetime.min)
         
         rates = []
         # Проходим по парам соседних (последовательных) записей пробега
