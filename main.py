@@ -258,7 +258,7 @@ def main(page: ft.Page):
         if engine.app_state.get("view_mode") == "analytics":
             main_layout = ft.Column([header_card, views.generate_analytics_view(page, car_profile)], scroll=ft.ScrollMode.ADAPTIVE)
         else:
-            main_layout = ft.Column([header_card, ft.ElevatedButton('Обновить UI', on_click=lambda e: rebuild_ui())], scroll=ft.ScrollMode.ADAPTIVE)
+            main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
@@ -266,8 +266,6 @@ def main(page: ft.Page):
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
         page.update()
-
-    rebuild_ui()
 
 if __name__ == "__main__":
     ft.app(target=main)
