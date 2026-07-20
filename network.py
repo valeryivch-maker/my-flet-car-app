@@ -1,5 +1,5 @@
 ﻿import os
-import engine
+# import engine внутри функций
 # Берем точное имя файла базы данных, которое использует само приложение
 DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
 LAST_SENT_ALERTS = {}
@@ -11,7 +11,7 @@ import traceback
 import requests
 import urllib3
 from concurrent.futures import ThreadPoolExecutor
-import engine
+# import engine внутри функций
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 network_executor = ThreadPoolExecutor(max_workers=2)
@@ -37,7 +37,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         def async_export_worker():
             try:
                 print("\n[DEBUG] Воркер экспорта запущен!")
-                import engine
+                # import engine внутри функций
                 current_db_data = engine.load_data()
                 
                 
@@ -305,7 +305,7 @@ def auto_import_last_file(show_message_callback):
                 f.write(db_resp.text)
             show_message_callback("✅ База данных успешно импортирована из чата!")
             # Триггерим обновление интерфейса приложения
-            import engine
+            # import engine внутри функций
             engine.load_data()
                 
                 
@@ -358,7 +358,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
 def auto_import_last_file(page, show_message_callback):
     """Импорт базы данных на основе проверенной логики скрипта smart_cloud_sync."""
     import requests
-    import engine
+    # import engine внутри функций
     import flet as ft
     import json
     
