@@ -9,6 +9,30 @@ if os.name != "nt":
         sandbox_dir = "/data/data/com.flet.carjournal/files"
     os.makedirs(sandbox_dir, exist_ok=True)
     target_db = os.path.join(sandbox_dir, "database.txt")
+    try:
+        import json
+        # Принудительно инжектируем заполненный профиль автомобиля со всеми интервалами ТО
+        backup_data = {
+            "cars": {
+                "Мой Автомобиль": {
+                    "mileage": 125000,
+                    "daily_mileage": 50,
+                    "odometer": {"value": 125000, "date": "20.07.2026"},
+                    "odometer_history": [{"value": 120000, "date": "01.01.2026"}, {"value": 125000, "date": "20.07.2026"}],
+                    "components": {
+                        "Масло в двигателе": {"last_change_mileage": 120000, "interval_mileage": 10000, "last_change_date": "20.07.2026", "interval_months": 12},
+                        "Фильтр воздушный": {"last_change_mileage": 120000, "interval_mileage": 10000, "last_change_date": "20.07.2026", "interval_months": 12},
+                        "Кондиционер": {"last_change_mileage": 100000, "interval_mileage": 15000, "last_change_date": "01.01.2024", "interval_months": 6}
+                    },
+                    "maintenance_data": {}, "history": []
+                }
+            },
+            "selected_car": "Мой Автомобиль"
+        }
+        with open(target_db, "w", encoding="utf-8") as f_db:
+            json.dump(backup_data, f_db, ensure_ascii=False, indent=4)
+    except:
+        pass
     if not os.path.exists(target_db) or os.path.getsize(target_db) == 0:
         try:
             import json
