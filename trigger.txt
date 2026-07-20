@@ -1,1 +1,1 @@
-Force release build pipeline with artifact deployment
+Enforce adaptive storage directory injection: 20.07.2026 21:54:55

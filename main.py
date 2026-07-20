@@ -6,8 +6,25 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 if os.name != "nt":
     sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
     if sandbox_dir in ["/", "/data", ""]:
-        sandbox_dir = "/data/data/com.flet.carjournal/files"
-    os.makedirs(sandbox_dir, exist_ok=True)
+        # Автоматически определяем реальный системный путь запущенного приложения, исключая любые жесткие имена пакетов
+        try:
+            from plyer import storagepath
+            sandbox_dir = storagepath.get_application_dir()
+        except:
+            # Аварийный универсальный путь относительно исполняемого файла внутри песочницы Android
+            sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+            if "app_flutter" not in sandbox_dir:
+                sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+    
+    # Делаем проверку: если путь все еще пытается создать папки в корне /data, изолируем его в текущую директорию скрипта
+    if sandbox_dir.startswith("/data/data/") and len(sandbox_dir.split("/")) <= 3:
+        sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+        
+    try:
+        os.makedirs(sandbox_dir, exist_ok=True)
+    except:
+        # Если Android совсем запретил создавать папки выше, работаем строго в локальной папке запуска скрипта
+        sandbox_dir = "." 
     target_db = os.path.join(sandbox_dir, "database.txt")
     try:
         import json
