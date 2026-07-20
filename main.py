@@ -93,6 +93,17 @@ def main(page: ft.Page):
         # Аварийный обход Scoped Storage: генерируем чистую структуру прямо в оперативной памяти
         db_data = {"cars": {"Мой Автомобиль": engine.get_default_car_data()}}
 
+    def run_delayed_alerts(profile_data, name_str):
+        import time
+        try:
+            time.sleep(2.0)
+            import sys
+            net_mod = sys.modules.get('network', __import__('network'))
+            if hasattr(net_mod, 'check_and_send_alerts'):
+                net_mod.check_and_send_alerts(profile_data, car_name=name_str)
+        except:
+            pass
+
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
         page.update()
@@ -106,6 +117,20 @@ def main(page: ft.Page):
 
     def rebuild_ui():
         page.clean()
+        
+        def run_delayed_alerts():
+            import time
+            try:
+                time.sleep(1.5)
+                import sys
+                net_mod = sys.modules.get('network', __import__('network'))
+                if hasattr(net_mod, 'check_and_send_alerts'):
+                    net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
+            except:
+                pass
+                
+        import threading
+        threading.Thread(target=run_delayed_alerts, daemon=True).start()
         try:
             current_db = engine.load_data()
         except Exception:
@@ -146,13 +171,13 @@ def main(page: ft.Page):
                 import sys
                 net_mod = sys.modules.get('network', __import__('network'))
                 if hasattr(net_mod, 'check_and_send_alerts'):
-                    net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
+                    net_mod.check_and_send_alerts(profile_data, car_name=name_str)
             except:
                 pass
         
         # Запускаем сетевой скрининг в изолированном фоновом потоке, не мешающем UI
-        import threading
-        threading.Thread(target=run_delayed_alerts, daemon=True).start()
+        # Фоновый скрининг перенесен на этап после полной отрисовки canvas
+        pass
 
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
@@ -285,8 +310,10 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
+        import threading
+        threading.Thread(target=run_delayed_alerts, daemon=True).start()
 
     rebuild_ui()
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)
