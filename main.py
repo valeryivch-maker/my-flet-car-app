@@ -76,10 +76,10 @@ def main(page: ft.Page):
         target_cfg = os.path.join(sandbox_dir, "app_config.txt")
         os.makedirs(sandbox_dir, exist_ok=True)
         if not os.path.exists(target_db) and os.name == "nt":
-            try: shutil.copy2("database.txt", target_db)
+            try: pass if os.name != "nt" else shutil.copy2("database.txt", target_db)
             except: pass
         if not os.path.exists(target_cfg) and os.path.exists("app_config.txt"):
-            try: shutil.copy2("app_config.txt", target_cfg)
+            try: pass if os.name != "nt" else shutil.copy2("app_config.txt", target_cfg)
             except: pass
 
     try:
