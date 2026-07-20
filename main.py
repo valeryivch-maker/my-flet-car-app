@@ -53,7 +53,7 @@ def run_local_telegram_sync():
 
 def main(page: ft.Page):
     page.title = "Бортовой Журнал"
-    page.scroll = ft.ScrollMode.AUTO # Отключаем скролл страницы, скроллиться будут только списки
+    page.scroll = ft.ScrollMode.ADAPTIVE # Отключаем скролл страницы, скроллиться будут только списки
     global db_data
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
