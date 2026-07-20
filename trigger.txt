@@ -1,1 +1,1 @@
-Force build pipeline freeze trigger: 20.07.2026 17:36:24
+Absolute freeze and flush cache trigger: 20.07.2026 17:51:45
