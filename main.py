@@ -5,7 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 if os.name != "nt":
     sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
-    if sandbox_dir in ["/", "/data"]:
+    if sandbox_dir in ["/", "/data", ""]:
         sandbox_dir = "/data/data/com.flet.carjournal/files"
     os.makedirs(sandbox_dir, exist_ok=True)
     target_db = os.path.join(sandbox_dir, "database.txt")
@@ -91,11 +91,6 @@ def main(page: ft.Page):
         page.window_width = None
         page.window_height = None
         page.window_resizable = False
-        # Принудительный редирект внутренней базы данных в легальную песочницу Android
-        sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
-        if sandbox_dir in ["/", "/data", ""]:
-            sandbox_dir = "/data/data/com.flet.carjournal/files"
-        os.makedirs(sandbox_dir, exist_ok=True)
 
     def rebuild_ui():
         page.clean()
@@ -266,6 +261,8 @@ def main(page: ft.Page):
     def show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
         page.update()
+
+    rebuild_ui()
 
 if __name__ == "__main__":
     ft.app(target=main)
