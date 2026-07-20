@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 try:
     import network
@@ -316,4 +318,4 @@ def main(page: ft.Page):
     rebuild_ui()
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.app(target=main)
