@@ -105,6 +105,6 @@ jobs:
       - name: Динамическое сохранение готового APK (Поиск по маске)
         uses: actions/upload-artifact@v4
         with:
-          name: carjournal-release-package
+name: Production Clean Build v20072055
           path: "final_output/*.apk"
           if-no-files-found: error
