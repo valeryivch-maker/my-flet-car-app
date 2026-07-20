@@ -35,4 +35,5 @@ jobs:
 
     - name: Build Android APK Package
       run: |
-        flet build apk --name "CarJournal"
+        # Корректный вызов сборщика без устаревших флагов name
+        flet build apk

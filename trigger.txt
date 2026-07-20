@@ -1,1 +1,1 @@
-Force execute production android flutter compile pipeline
+Force clean compile using native flet build apk chain
