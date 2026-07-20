@@ -106,5 +106,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
 name: Production Clean Build v20072055
-          path: "final_output/*.apk"
+      # Fixed syntax freeze trigger step
           if-no-files-found: error
