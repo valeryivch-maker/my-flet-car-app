@@ -93,7 +93,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     if close_win:
                         dialog.open = False
                     page.update()
-                page.run_task(ui_task)
+                page.update() # Безопасный синхронный апдейт вместо run_task
 
             try:
                 print("\n[DEBUG] Воркер импорта запущен!")
