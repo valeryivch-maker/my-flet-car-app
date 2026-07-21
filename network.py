@@ -35,6 +35,21 @@ TELEGRAM_IP = "149.154.167.220"
 
 # Адаптивное разделение сетевого шлюза (Windows / Android)
 if os.name == "nt":
+    BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+    SSL_VERIFY_MODE = False
+else:
+    BASE_URL = f"https://telegram.org{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
+    SSL_VERIFY_MODE = True
+
+URL_EXPORT = f"{BASE_URL}/sendDocument"
+URL_UPDATES = f"{BASE_URL}/getUpdates"
+URL_FILE_INFO = f"{BASE_URL}/getFile"
+URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
+
+# Адаптивное разделение сетевого шлюза (Windows / Android)
+if os.name == "nt":
     # Путь для Windows: прямой IP, без SSL
     BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
     BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
