@@ -45,7 +45,14 @@ CUSTOM_HEADERS = {
     "User-Agent": "Flet-CarJournal-Client/1.0"
 }
 
-def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict, show_message_callback):
+def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
+show_message_callback):
+    import os
+    if os.name != "nt":
+        try:
+            page.permission.request_permission()
+        except Exception as e:
+            print(f"[ПРАВА] Ошибка нативного плагина разрешений Android: {e}")
     if mode == "export":
         def async_export_worker():
             try:
