@@ -128,6 +128,16 @@ async def mobile_import_click_handler(e):
     except Exception as ex:
         print(f"[FLET_ERROR] Ошибка вызова мобильного импорта: {ex}")
 
+
+# Неблокирующий асинхронный воркер импорта для предотвращения графического дедлока на Android
+async def android_safe_import_task(page, show_message_callback):
+    try:
+        import network
+        # Запускаем чистый импорт в изолированном контексте
+        network.auto_import_last_file(page, show_message_callback)
+    except Exception as ex:
+        print(f"[FLET_DEADLOCK_FIX] Ошибка фоновой задачи: {ex}")
+
 def main(page: ft.Page):
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
     def on_perm_result(e):
@@ -276,7 +286,7 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
-        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=mobile_import_click_handler),
+        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_task(android_safe_import_task, e.page, show_message)),
                         ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
                         ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
                         ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
