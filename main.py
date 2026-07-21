@@ -124,7 +124,10 @@ def main(page: ft.Page):
         print(f"[ПРАВА] Результат запроса разрешений: {e.granted}")
     
     if os.name != "nt":
-        page.request_permission(on_perm_result)
+        try:
+            page.permission.request_permission()
+        except Exception as e:
+            print(f"[ПРАВА] Ошибка инициализации плагина разрешений: {e}")
 
     page.title = "Бортовой Журнал"
     page.scroll = ft.ScrollMode.ADAPTIVE
