@@ -1,5 +1,7 @@
 ﻿{
+    "project": "Бортовой Журнал",
     "android": {
+        "package": "com.flet.my_flet_car_app",
         "permissions": [
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WRITE_EXTERNAL_STORAGE"

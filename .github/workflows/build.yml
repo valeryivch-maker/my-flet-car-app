@@ -34,9 +34,7 @@ jobs:
 
       - name: Build Android APK Package
         run: |
-          flet build apk \
-            --project "Бортовой Журнал" \
-            --package "com.flet.my_flet_car_app"
+          flet build apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
