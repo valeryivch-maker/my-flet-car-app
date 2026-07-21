@@ -47,6 +47,10 @@ URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
 URL_FILE_INFO = f"{BASE_URL}/getFile"
 URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
+import sys
+import traceback
+sys.stderr = sys.stdout = open(os.path.join(os.path.dirname(DB_REAL_PATH), "python_debug_log.txt"), "w", encoding="utf-8")
+
 
 # Адаптивное разделение сетевого шлюза (Windows / Android)
 if os.name == "nt":
