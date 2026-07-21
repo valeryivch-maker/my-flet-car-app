@@ -1,7 +1,20 @@
 ﻿import os
 # import engine внутри функций
 # Берем точное имя файла базы данных, которое использует само приложение
-DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
+# Адаптивное определение пути к базе данных для Android Scoped Storage
+if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
+    sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+    if sandbox_dir in ["/", "/data", ""]:
+        try:
+            from plyer import storagepath
+            sandbox_dir = storagepath.get_application_dir()
+        except:
+            sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+            if "app_flutter" not in sandbox_dir:
+                sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+    DB_REAL_PATH = os.path.join(sandbox_dir, "database.txt")
+else:
+    DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
 LAST_SENT_ALERTS = {}
 import flet as ft
 import json
