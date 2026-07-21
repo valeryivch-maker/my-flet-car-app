@@ -50,9 +50,11 @@ show_message_callback):
     import os
     if os.name != "nt":
         try:
-            page.permission.request_permission()
+            import asyncio
+            # Принудительно блокируем поток выполнения до тех пор, пока Android не обработает окно прав
+            asyncio.run_coroutine_threadsafe(page.permission.request_permission_async(), page.loop)
         except Exception as e:
-            print(f"[ПРАВА] Ошибка нативного плагина разрешений Android: {e}")
+            print(f"[ПРАВА] Ошибка блокирующего плагина разрешений Android: {e}")
     if mode == "export":
         def async_export_worker():
             try:
