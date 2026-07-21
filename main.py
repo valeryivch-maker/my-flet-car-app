@@ -119,6 +119,13 @@ def run_local_telegram_sync():
         return False
 
 def main(page: ft.Page):
+    # Запрос нативных разрешений Android на чтение/запись файлов песочницы
+    def on_perm_result(e):
+        print(f"[ПРАВА] Результат запроса разрешений: {e.granted}")
+    
+    if os.name != "nt":
+        page.request_permission(on_perm_result)
+
     page.title = "Бортовой Журнал"
     page.scroll = ft.ScrollMode.ADAPTIVE
     page.theme_mode = ft.ThemeMode.LIGHT
