@@ -1,0 +1,2 @@
+
+[СИСТЕМНЫЙ DEBUG] Ответ Telegram API: Код 200, Текст: {"ok":true,"result":{"message_id":697,"from":{"id":8859678783,"is_bot":true,"first_name":"\u041c\u043e\u0439 \u0416\u044

@@ -49,7 +49,7 @@ URL_FILE_INFO = f"{BASE_URL}/getFile"
 URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
 import sys
 import traceback
-sys.stderr = sys.stdout = open(os.path.join(os.path.dirname(DB_REAL_PATH), "python_debug_log.txt"), "w", encoding="utf-8")
+# Логгер перенаправлен в телеграм шлюз
 
 
 # Адаптивное разделение сетевого шлюза (Windows / Android)
@@ -500,4 +500,10 @@ def auto_import_last_file(page, show_message_callback):
         else:
             show_alert("Срок ссылки файла в Telegram истек. Сделайте новый экспорт на телефоне.")
     except Exception as ex:
+        import traceback
+        error_stack = traceback.format_exc()
+        try:
+            send_telegram_alert_message(f"⚠️ <b>Сбой шлюза импорта на Android:</b>\n<pre>{error_stack[:3500]}</pre>")
+        except:
+            pass
         show_alert(f"Ошибка шлюза импорта: {str(ex)}")
