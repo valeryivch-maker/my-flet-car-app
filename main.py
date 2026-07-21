@@ -28,8 +28,8 @@ if os.name != "nt":
     target_db = os.path.join(sandbox_dir, "database.txt")
     try:
         import json
-        # Принудительно инжектируем заполненный профиль автомобиля со всеми интервалами ТО
-        backup_data = {
+        pass # Блок инжекции полностью отключен; backup_disabled_data
+        backup_disabled_data = {
             "cars": {
                 "Мой Автомобиль": {
                     "mileage": 125000,
