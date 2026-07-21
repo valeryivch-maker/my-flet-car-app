@@ -417,6 +417,22 @@ def auto_export_file_to_telegram(page, show_message_callback):
         show_alert(f"Ошибка сети: {str(e)}")
 
 def auto_import_last_file(page, show_message_callback):
+    import traceback
+    
+    def show_android_crash_dialog(error_text):
+        def close_dlg(e):
+            crash_dialog.open = False
+            page.update()
+            
+        crash_dialog = ft.AlertDialog(
+            title=ft.Text("⚠️ КРИТИЧЕСКАЯ ОШИБКА ИМПОРТА"),
+            content=ft.Text(str(error_text), selectable=True),
+            actions=[ft.TextButton("ОК", on_click=close_dlg)],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.dialog = crash_dialog
+        crash_dialog.open = True
+        page.update()
     """Импорт базы данных на основе проверенной логики скрипта smart_cloud_sync."""
     import requests
     # import engine внутри функций
