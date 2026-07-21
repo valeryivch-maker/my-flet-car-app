@@ -32,6 +32,26 @@ network_executor = ThreadPoolExecutor(max_workers=2)
 BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
 
 TELEGRAM_IP = "149.154.167.220"
+
+# Адаптивное разделение сетевого шлюза (Windows / Android)
+if os.name == "nt":
+    # Путь для Windows: прямой IP, без SSL
+    BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+    SSL_VERIFY_MODE = False
+else:
+    # Путь для Android: легальный официальный домен с проверкой SSL
+    BASE_URL = f"https://telegram.org{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}" if 'api.api' not in locals() else f"https://telegram.org{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
+    SSL_VERIFY_MODE = True
+
+# Переопределяем базовые URL для изоляции платформ
+URL_EXPORT = f"{BASE_URL}/sendDocument"
+URL_UPDATES = f"{BASE_URL}/getUpdates"
+URL_FILE_INFO = f"{BASE_URL}/getFile"
+URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
+
 BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
 BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
 
@@ -83,7 +103,7 @@ show_message_callback):
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=15, 
-                    verify=False
+                    verify=SSL_VERIFY_MODE
                 )
                 
                 if response.status_code == 200:
@@ -123,7 +143,7 @@ show_message_callback):
                 print("\n[DEBUG] Воркер импорта запущен!")
                 
                 try:
-                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=False)
+                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=SSL_VERIFY_MODE)
                     time.sleep(0.5)
                 except:
                     pass
@@ -134,7 +154,7 @@ show_message_callback):
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12, 
-                    verify=False
+                    verify=SSL_VERIFY_MODE
                 )
                 print(f"[DEBUG] Импорт Updates: Код {response.status_code}")
                 
@@ -169,7 +189,7 @@ show_message_callback):
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12, 
-                    verify=False
+                    verify=SSL_VERIFY_MODE
                 )
                 file_path = file_info_res.json().get("result", {}).get("file_path")
                 
@@ -178,7 +198,7 @@ show_message_callback):
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12, 
-                    verify=False
+                    verify=SSL_VERIFY_MODE
                 )
                 
                 print(f"[DEBUG] Скачано байт: {len(download_res.text)}")
@@ -248,7 +268,7 @@ def send_telegram_alert_message(text_msg):
         "parse_mode": "HTML"
     }
     try:
-        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=False)
+        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=SSL_VERIFY_MODE)
     except Exception:
         pass
 
@@ -286,7 +306,7 @@ def auto_import_last_file(show_message_callback):
     """Сканирует историю чата бота, находит последний JSON-бэкап и импортирует его."""
     url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=1"
     try:
-        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
         if response.status_code != 200:
             show_message_callback("Ошибка подключения к Telegram API")
             return
@@ -311,7 +331,7 @@ def auto_import_last_file(show_message_callback):
             
         # Получаем прямую ссылку на скачивание файла
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10).json()
         
         if not file_info_resp.get("ok"):
             show_message_callback("Ошибка получения ссылки на файл")
@@ -321,7 +341,7 @@ def auto_import_last_file(show_message_callback):
         url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
         
         # Скачиваем файл и перезаписываем локальную базу данных
-        db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+        db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
         if db_resp.status_code == 200:
             with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
                 f.write(db_resp.text)
@@ -364,7 +384,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
         with open(DB_REAL_PATH, "rb") as file_data:
             files = {"document": ("Carjournal_database.json", file_data)}
             payload = {"chat_id": 1036911003, "caption": "📦 Резервная копия базы"}
-            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
             
             if resp.status_code == 200:
                 resp_json = resp.json()
@@ -404,7 +424,7 @@ def auto_import_last_file(page, show_message_callback):
     try:
         # Запрашиваем глубокий кэш обновлений (100 пунктов), как в рабочем скрипте
         url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=100"
-        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
         
         if response.status_code == 200:
             res_data = response.json()
@@ -432,12 +452,12 @@ def auto_import_last_file(page, show_message_callback):
     try:
         # Прямое скачивание
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10).json()
         
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
             url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
-            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
             
             if db_resp.status_code == 200:
                 # Перезаписываем корень приложения
