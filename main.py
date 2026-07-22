@@ -124,7 +124,7 @@ async def mobile_import_click_handler(e):
     try:
         import network
         # Передаем управление сетевому шлюзу импорта
-        network.auto_import_last_file(e.page, lambda msg: print(f"[FLET_UI] {msg}"))
+        network.auto_import_last_file(e.page)
     except Exception as ex:
         print(f"[FLET_ERROR] Ошибка вызова мобильного импорта: {ex}")
 
@@ -167,6 +167,7 @@ def android_safe_import_thread(page, show_message_callback):
     except Exception as ex:
         print(f"[FLET_THREAD_FIX] Ошибка фонового потока: {ex}")
 def main(page: ft.Page):
+    page.data = {'refresh_ui': lambda: rebuild_ui()}
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
     def on_perm_result(e):
         print(f"[ПРАВА] Результат запроса разрешений: {e.granted}")
