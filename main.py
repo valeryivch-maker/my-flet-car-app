@@ -135,11 +135,37 @@ async def mobile_import_click_handler(e):
 def android_safe_import_thread(page, show_message_callback):
     try:
         import network
-        # Запускаем импорт в абсолютно изолированном потоке ОС
-        network.auto_import_last_file(page, show_message_callback)
+        import engine
+        # Запускаем чистую загрузку в изолированном системном потоке ОС
+        success, message = network.auto_import_last_file(page)
+        
+        # Передаем управление в Main UI Thread для легальной отрисовки слоев Android
+        async def safe_ui_refresh_task():
+            if success:
+                try:
+                    # Принудительно обновляем глобальное состояние памяти из нового database.txt
+                    fresh_db = engine.load_data()
+                    if page.data:
+                        page.data["db_data"] = fresh_db
+                    
+                    # Прямой вызов перерисовки интерфейса в главном потоке
+                    # Находим и вызываем rebuild_ui через замыкание или рефреш
+                    if "refresh_ui" in page.data:
+                        page.data["refresh_ui"]()
+                    else:
+                        # Если коллбэк пуст, принудительно вызываем снэкбар
+                        pass
+                except Exception as ex_eng:
+                    print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
+            
+            # Легально выводим плашку успешного или ошибочного завершения
+            show_message_callback(message)
+            page.update()
+
+        page.run_task(safe_ui_refresh_task)
+        
     except Exception as ex:
         print(f"[FLET_THREAD_FIX] Ошибка фонового потока: {ex}")
-
 def main(page: ft.Page):
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
     def on_perm_result(e):
