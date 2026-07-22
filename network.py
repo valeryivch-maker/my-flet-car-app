@@ -416,76 +416,37 @@ def auto_export_file_to_telegram(page, show_message_callback):
     except Exception as e:
         show_alert(f"Ошибка сети: {str(e)}")
 
-def auto_import_last_file(page, show_message_callback):
-    import traceback
-    
-    def show_android_crash_dialog(error_text):
-        def close_dlg(e):
-            crash_dialog.open = False
-            page.update()
-            
-        crash_dialog = ft.AlertDialog(
-            title=ft.Text("⚠️ КРИТИЧЕСКАЯ ОШИБКА ИМПОРТА"),
-            content=ft.Text(str(error_text), selectable=True),
-            actions=[ft.TextButton("ОК", on_click=close_dlg)],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        page.dialog = crash_dialog
-        crash_dialog.open = True
-        page.update()
-    """Импорт базы данных на основе проверенной логики скрипта smart_cloud_sync."""
+def auto_import_last_file(page):
+    """Чистая функция импорта базы: сканирует кэш обновлений и скачивает файл без работы с UI."""
     import requests
-    # import engine внутри функций
-    import flet as ft
     import json
     
-    def show_alert(msg_text):
-        def close_dialog(_):
-            dialog.open = False
-            page.update()
-        dialog = ft.AlertDialog(
-            title=ft.Text("Синхронизация базы"),
-            content=ft.Text(msg_text),
-            actions=[ft.TextButton("ОК", on_click=close_dialog)]
-        )
-        page.overlay.append(dialog)
-        dialog.open = True
-        page.update()
-
-    print("[СЕТЬ] Сканирование чата по методу smart_cloud_sync...")
+    print("[СЕТЬ-ФОН] Сканирование чата по методу smart_cloud_sync...")
     target_file_id = None
     CHAT_ID = 1036911003
     
     try:
-        # Запрашиваем глубокий кэш обновлений (100 пунктов), как в рабочем скрипте
         url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=100"
         response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
         
         if response.status_code == 200:
             res_data = response.json()
-            # Сканируем массив строго с конца
             for result in reversed(res_data.get("result", [])):
                 message = result.get("message", result.get("edited_message", {}))
-                
-                # Фильтруем отправителя: ищем файлы только от вашего chat_id (телефона)
                 if message.get("chat", {}).get("id") == CHAT_ID or message.get("from", {}).get("id") == CHAT_ID:
                     document = message.get("document", {})
                     if document:
                         fname = str(document.get("file_name", ""))
-                        # Проверяем имя файла без жесткой привязки к регистру
                         if "carjournal_database" in fname.lower():
                             target_file_id = document.get("file_id")
-                            print(f"[УСПЕХ] Найден файл от телефона по методу smart_sync: {target_file_id[:15]}...")
+                            print(f"[УСПЕХ] Найден файл в облаке: {target_file_id[:15]}...")
                             break
-    except Exception as ex:
-        print(f"[ОШИБКА СЕТИ]: {ex}")
-
-    if not target_file_id:
-        show_alert("Файл базы от телефона не найден в кэше обновлений. Нажмите 'ЭКСПОРТ' на телефоне и повторите попытку.")
-        return
-
-    try:
-        # Прямое скачивание
+        else:
+            return False, f"Ошибка подключения к Telegram API: Код {response.status_code}"
+            
+        if not target_file_id:
+            return False, "Файл базы от телефона не найден в кэше обновлений. Сделайте ЭКСПОРТ на телефоне."
+            
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
         file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10).json()
         
@@ -495,31 +456,22 @@ def auto_import_last_file(page, show_message_callback):
             db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
             
             if db_resp.status_code == 200:
-                # Перезаписываем корень приложения
-                with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
-                    f.write(db_resp.text)
+                with open(DB_REAL_PATH, "w", encoding="utf-8") as f_out:
+                    f_out.write(db_resp.text)
                 
-                # Синхронизируем состояние памяти
+                import engine
                 engine.app_state["last_file_id"] = target_file_id
-                fresh_db = engine.load_data()
-                
-                if page.data:
-                    page.data["db_data"] = fresh_db
-                    
-                show_alert("✅ База данных успешно импортирована с вашего телефона!")
-                
-                # Принудительно заставляем main.py перерисовать экран новыми данными
-                if page.data and "refresh_ui" in page.data:
-                    page.data["refresh_ui"]()
+                return True, "База данных успешно импортирована с вашего телефона!"
             else:
-                show_alert("Не удалось загрузить файл из облака Telegram.")
+                return False, "Не удалось загрузить файл из облака Telegram."
         else:
-            show_alert("Срок ссылки файла в Telegram истек. Сделайте новый экспорт на телефоне.")
+            return False, "Срок ссылки файла в Telegram истек. Сделайте новый экспорт на телефоне."
+            
     except Exception as ex:
         import traceback
         error_stack = traceback.format_exc()
         try:
-            send_telegram_alert_message(f"⚠️ <b>Сбой шлюза импорта на Android:</b>\n<pre>{error_stack[:3500]}</pre>")
+            send_telegram_alert_message(f"<b>Сбой шлюза импорта на Android:</b>\n<pre>{error_stack[:3500]}</pre>")
         except:
             pass
-        show_alert(f"Ошибка шлюза импорта: {str(ex)}")
+        return False, f"Ошибка шлюза импорта: {str(ex)}"
