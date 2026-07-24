@@ -41,7 +41,7 @@ if os.name == "nt":
 else:
     BASE_URL = f"https://telegram.org{BOT_TOKEN}"
     BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
-    SSL_VERIFY_MODE = True
+    SSL_VERIFY_MODE = False  # Переведено в режим False для обхода handshake error на Android
 
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
