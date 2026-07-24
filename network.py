@@ -1,7 +1,21 @@
-﻿import os
-# import engine внутри функций
-# Берем точное имя файла базы данных, которое использует само приложение
-# Адаптивное определение пути к базе данных для Android Scoped Storage
+import os
+import flet as ft
+import json
+import io
+import time
+import traceback
+import requests
+import urllib3
+import sys
+from concurrent.futures import ThreadPoolExecutor
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+network_executor = ThreadPoolExecutor(max_workers=2)
+LAST_SENT_ALERTS = {}
+
+BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
+TELEGRAM_IP = "149.154.167.220"
+
 if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
     sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
     if sandbox_dir in ["/", "/data", ""]:
@@ -10,28 +24,11 @@ if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
             sandbox_dir = storagepath.get_application_dir()
         except:
             sandbox_dir = os.path.dirname(os.path.abspath(__file__))
-            if "app_flutter" not in sandbox_dir:
-                sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+        if "app_flutter" not in sandbox_dir:
+            sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
     DB_REAL_PATH = os.path.join(sandbox_dir, "database.txt")
 else:
     DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
-LAST_SENT_ALERTS = {}
-import flet as ft
-import json
-import io
-import time
-import traceback
-import requests
-import urllib3
-from concurrent.futures import ThreadPoolExecutor
-# import engine внутри функций
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-network_executor = ThreadPoolExecutor(max_workers=2)
-
-BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
-
-TELEGRAM_IP = "149.154.167.220"
 
 # Адаптивное разделение сетевого шлюза (Windows / Android)
 if os.name == "nt":
@@ -41,38 +38,7 @@ if os.name == "nt":
 else:
     BASE_URL = f"https://telegram.org{BOT_TOKEN}"
     BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
-    SSL_VERIFY_MODE = False  # Переведено в режим False для обхода handshake error на Android
-
-URL_EXPORT = f"{BASE_URL}/sendDocument"
-URL_UPDATES = f"{BASE_URL}/getUpdates"
-URL_FILE_INFO = f"{BASE_URL}/getFile"
-URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
-import sys
-import traceback
-# Логгер перенаправлен в телеграм шлюз
-
-
-# Адаптивное разделение сетевого шлюза (Windows / Android)
-if os.name == "nt":
-    # Путь для Windows: прямой IP, без SSL
-    BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
-    BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
-    SSL_VERIFY_MODE = False
-else:
-    # Путь для Android: легальный официальный домен с проверкой SSL
-    BASE_URL = f"https://telegram.org{BOT_TOKEN}"
-    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}" if 'api.api' not in locals() else f"https://telegram.org{BOT_TOKEN}"
-    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
-    SSL_VERIFY_MODE = False  # Отключено для обхода handshake error на Android
-
-# Переопределяем базовые URL для изоляции платформ
-URL_EXPORT = f"{BASE_URL}/sendDocument"
-URL_UPDATES = f"{BASE_URL}/getUpdates"
-URL_FILE_INFO = f"{BASE_URL}/getFile"
-URL_DOWNLOAD_BASE = f"{BASE_FILE_URL}/"
-
-BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
-BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+    SSL_VERIFY_MODE = False  # Отключено для Android песочницы
 
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
