@@ -385,4 +385,5 @@ def auto_import_last_file(page):
             send_telegram_alert_message(f"<b>Сбой шлюза импорта на Android:</b>\n<pre>{error_stack[:3500]}</pre>")
         except:
             pass
-        return False, f"Ошибка шлюза импорта: {str(ex)}"
+        print(f"[ПАТЧ_КРИТ] Перехвачено исключение шлюза: {str(ex)}")
+    return False, f"Ошибка шлюза импорта: {str(ex)}"
