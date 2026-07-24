@@ -63,7 +63,7 @@ else:
     BASE_URL = f"https://telegram.org{BOT_TOKEN}"
     BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}" if 'api.api' not in locals() else f"https://telegram.org{BOT_TOKEN}"
     BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
-    SSL_VERIFY_MODE = True
+    SSL_VERIFY_MODE = False  # Отключено для обхода handshake error на Android
 
 # Переопределяем базовые URL для изоляции платформ
 URL_EXPORT = f"{BASE_URL}/sendDocument"
