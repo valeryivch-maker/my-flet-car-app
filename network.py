@@ -30,15 +30,16 @@ if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
 else:
     DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
 
-# Адаптивное разделение сетевого шлюза (Windows / Android)
+# Адаптивное разделение сетевого шлюза (Windows / Android) — IP-Шлюз с Host-заголовком
 if os.name == "nt":
     BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
     BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
     SSL_VERIFY_MODE = False
 else:
-    BASE_URL = f"https://telegram.org{BOT_TOKEN}"
-    BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
-    SSL_VERIFY_MODE = False  # Отключено для Android песочницы
+    # Перевод Android на IP-адрес для обхода блокировок мобильных DNS
+    BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+    SSL_VERIFY_MODE = False
 
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
