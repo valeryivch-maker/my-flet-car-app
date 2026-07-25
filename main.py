@@ -123,6 +123,14 @@ def android_safe_import_thread(page, show_message_callback):
         
     except Exception as ex:
         print(f"[FLET_THREAD_FIX] Ошибка фонового потока: {ex}")
+
+async def async_mobile_import_handler(e):
+    try:
+        # Безопасно запускаем тяжелый сетевой импорт в системном пуле потоков Python
+        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, e.page.snack_bar.content.value if hasattr(e.page.snack_bar, 'content') else print)
+    except Exception as ex:
+        print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
+
 def main(page: ft.Page):
     page.data = {'refresh_ui': lambda: rebuild_ui()}
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
@@ -272,7 +280,7 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
-        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_task(lambda *_: e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message))),
+        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_task(async_mobile_import_handler, e)),
                         ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
                         ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
                         ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
