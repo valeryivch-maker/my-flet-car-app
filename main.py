@@ -49,85 +49,9 @@ from datetime import datetime
 import engine
 import views
 
-APP_VERSION = "1.2.6"
-BUILD_NUMBER = "13"
-db_data = {}
-
-def run_local_telegram_sync():
-    import shutil
-    import glob
-    if os.name != 'nt': return False
-    tg_downloads_path = r"C:\\Users\\User\\Загрузки\\Telegram Desktop"
-    if not os.path.exists(tg_downloads_path):
-        user_profile = os.environ.get("USERPROFILE", "C:\\\\Users\\\\User")
-        tg_downloads_path = os.path.join(user_profile, "Downloads", "Telegram Desktop")
-    if not os.path.exists(tg_downloads_path):
-        tg_downloads_path = os.path.join(user_profile, "Загрузки", "Telegram Desktop")
-    if not os.path.exists(tg_downloads_path):
-        return False
-    search_pattern = os.path.join(tg_downloads_path, "*atabase*.json")
-    found_files = glob.glob(search_pattern)
-    if not found_files: return False
-    try:
-        found_files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(found_files[0], "database.txt")
-        return True
-    except:
-        return False
-
-
-# Изолированный асинхронный обработчик импорта для Android-смартфонов
-async def mobile_import_click_handler(e):
-    try:
-        import network
-        # Передаем управление сетевому шлюзу импорта
-        network.auto_import_last_file(e.page)
-    except Exception as ex:
-        print(f"[FLET_ERROR] Ошибка вызова мобильного импорта: {ex}")
-
-
-# Неблокирующий асинхронный воркер импорта для предотвращения графического дедлока на Android
-
-# Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
-def android_safe_import_thread(page, show_message_callback):
-    try:
-        import network
-        import engine
-        # Запускаем чистую загрузку в изолированном системном потоке ОС
-        success, message = network.auto_import_last_file(page)
-        
-        # Передаем управление в Main UI Thread для легальной отрисовки слоев Android
-        async def safe_ui_refresh_task():
-            if success:
-                try:
-                    # Принудительно обновляем глобальное состояние памяти из нового database.txt
-                    fresh_db = engine.load_data()
-                    if page.data:
-                        page.data["db_data"] = fresh_db
-                    
-                    # Прямой вызов перерисовки интерфейса в главном потоке
-                    # Находим и вызываем rebuild_ui через замыкание или рефреш
-                    if "refresh_ui" in page.data:
-                        page.data["refresh_ui"]()
-                    else:
-                        # Если коллбэк пуст, принудительно вызываем снэкбар
-                        pass
-                except Exception as ex_eng:
-                    print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
-            
-            # Легально выводим плашку успешного или ошибочного завершения
-            show_message_callback(message)
-            page.update()
-
-        page.run_task(safe_ui_refresh_task)
-        
-    except Exception as ex:
-        print(f"[FLET_THREAD_FIX] Ошибка фонового потока: {ex}")
-
 async def async_mobile_import_handler(e):
     try:
-        # Безопасно запускаем тяжелый сетевой импорт в системном пуле потоков Python
-        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, e.page.snack_bar.content.value if hasattr(e.page.snack_bar, 'content') else print)
+        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message)
     except Exception as ex:
         print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
 
