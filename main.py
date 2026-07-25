@@ -254,9 +254,15 @@ async def async_mobile_import_handler(e):
     except Exception as ex:
         print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
 
+
+
+# Финальный изолированный обработчик импорта для Android-смартфонов
+async def async_mobile_import_handler(e):
+    try:
+        # Абсолютно все функции (android_safe_import_thread и show_message) объявлены выше, NameError исключен
+        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message)
+    except Exception as ex:
+        print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
+
 if __name__ == "__main__":
-
     ft.app(target=main)
-
-
-# CACHE_FLUSH_MARKER: 20.07.2026 21:10:44
