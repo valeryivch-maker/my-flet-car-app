@@ -49,12 +49,6 @@ from datetime import datetime
 import engine
 import views
 
-async def async_mobile_import_handler(e):
-    try:
-        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message)
-    except Exception as ex:
-        print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
-
 def main(page: ft.Page):
     page.data = {'refresh_ui': lambda: rebuild_ui()}
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
@@ -253,7 +247,15 @@ def main(page: ft.Page):
 
     rebuild_ui()
 
+
+async def async_mobile_import_handler(e):
+    try:
+        await e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message)
+    except Exception as ex:
+        print(f"[ПАТЧ_КРИТ] Ошибка асинхронного диспетчера: {ex}")
+
 if __name__ == "__main__":
+
     ft.app(target=main)
 
 
