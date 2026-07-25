@@ -3,89 +3,46 @@ import os
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+# Гарантируем корректный поиск локальных модулей на Android до их импорта
+base_dir = os.path.abspath(os.path.dirname(__file__))
+if base_dir not in sys.path: sys.path.insert(0, base_dir)
+cwd_dir = os.getcwd()
+if cwd_dir not in sys.path: sys.path.insert(0, cwd_dir)
+
 if os.name != "nt":
     sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
     if sandbox_dir in ["/", "/data", ""]:
-        # Автоматически определяем реальный системный путь запущенного приложения, исключая любые жесткие имена пакетов
         try:
             from plyer import storagepath
             sandbox_dir = storagepath.get_application_dir()
         except:
-            # Аварийный универсальный путь относительно исполняемого файла внутри песочницы Android
             sandbox_dir = os.path.dirname(os.path.abspath(__file__))
             if "app_flutter" not in sandbox_dir:
                 sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
-    
-    # Делаем проверку: если путь все еще пытается создать папки в корне /data, изолируем его в текущую директорию скрипта
-    if sandbox_dir.startswith("/data/data/") and len(sandbox_dir.split("/")) <= 3:
-        sandbox_dir = os.path.dirname(os.path.abspath(__file__))
         
-    try:
-        os.makedirs(sandbox_dir, exist_ok=True)
-    except:
-        # Если Android совсем запретил создавать папки выше, работаем строго в локальной папке запуска скрипта
-        sandbox_dir = "." 
-    target_db = os.path.join(sandbox_dir, "database.txt")
-    try:
-        import json
-        pass # Блок инжекции полностью отключен; backup_disabled_data
-        backup_disabled_data = {
-            "cars": {
-                "Мой Автомобиль": {
-                    "mileage": 125000,
-                    "daily_mileage": 50,
-                    "odometer": {"value": 125000, "date": "20.07.2026"},
-                    "odometer_history": [{"value": 120000, "date": "01.01.2026"}, {"value": 125000, "date": "20.07.2026"}],
-                    "components": {
-                        "Масло в двигателе": {"last_change_mileage": 120000, "interval_mileage": 10000, "last_change_date": "20.07.2026", "interval_months": 12},
-                        "Фильтр воздушный": {"last_change_mileage": 120000, "interval_mileage": 10000, "last_change_date": "20.07.2026", "interval_months": 12},
-                        "Кондиционер": {"last_change_mileage": 100000, "interval_mileage": 15000, "last_change_date": "01.01.2024", "interval_months": 6}
-                    },
-                    "maintenance_data": {}, "history": []
-                }
-            },
-            "selected_car": "Мой Автомобиль"
-        }
-        with open(target_db, "w", encoding="utf-8") as f_db:
-            json.dump(backup_data, f_db, ensure_ascii=False, indent=4)
-    except:
-        pass
-    if not os.path.exists(target_db) or os.path.getsize(target_db) == 0:
+        if sandbox_dir.startswith("/data/data/") and len(sandbox_dir.split("/")) <= 3:
+            sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+        
         try:
-            import json
-            default_data = {
-                "cars": {
-                    "Мой Автомобиль": {
-                        "mileage": 125000,
-                        "components": {
-                            "Масло в двигателе": {"last_change_mileage": 120000, "interval_mileage": 10000, "last_change_date": "20.07.2026", "interval_months": 12},
-                            "Кондиционер": {"last_change_mileage": 100000, "interval_mileage": 15000, "last_change_date": "01.01.2024", "interval_months": 6}
-                        }
-                    }
-                },
-                "selected_car": "Мой Автомобиль"
-            }
-            with open(target_db, "w", encoding="utf-8") as f:
-                json.dump(default_data, f, ensure_ascii=False, indent=4)
+            os.makedirs(sandbox_dir, exist_ok=True)
         except:
-            pass
+            sandbox_dir = "." 
+        target_db = os.path.join(sandbox_dir, "database.txt")
 
 try:
     import network
 except ImportError:
     class NetworkStub:
         def __getattr__(self, name):
-            def stub_func(*args, **kwargs): pass
+            def stub_func(*args, **kwargs): 
+                return False, "Сетевой шлюз недоступен (ошибка импорта)."
             return stub_func
-        def auto_export_file_to_telegram(self, *args, **kwargs): pass
-        def auto_import_last_file(self, *args, **kwargs): pass
+        def auto_export_file_to_telegram(self, *args, **kwargs): 
+            return False, "Экспорт недоступен."
+        def auto_import_last_file(self, *args, **kwargs): 
+            return False, "Импорт недоступен."
     network = NetworkStub()
     sys.modules['network'] = network
-
-base_dir = os.path.abspath(os.path.dirname(__file__))
-if base_dir not in sys.path: sys.path.insert(0, base_dir)
-cwd_dir = os.getcwd()
-if cwd_dir not in sys.path: sys.path.insert(0, cwd_dir)
 
 import flet as ft
 from datetime import datetime
