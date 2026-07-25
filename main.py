@@ -199,7 +199,7 @@ def main(page: ft.Page):
                     controls=[
                         ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
         ft.IconButton(
-                    ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_task(lambda *_: e.page.loop.run_in_executor(None, android_safe_import_thread, e.page, show_message))),
+                                        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_thread(android_safe_import_thread, e.page, show_message)),
                     tooltip="Импорт базы данных", 
                     on_click=lambda e: e.page.run_task(
                         lambda *_: e.page.loop.run_in_executor(
@@ -265,33 +265,31 @@ def android_safe_import_thread(page, show_message_callback):
     try:
         import network
         import engine
-        # Запускаем чистую загрузку в изолированном системном потоке ОС
+        # 1. Спокойно качаем файл в фоновом системном потоке Python (UI не блокируется)
         success, message = network.auto_import_last_file(page)
  
-        # Передаем управление в Main UI Thread для легальной отрисовки слоев Android
+        # 2. Объявляем честную, изолированную async def корутину для Main UI Thread Android
         async def safe_ui_refresh_task():
             if success:
                 try:
-                    # Принудительно обновляем глобальное состояние памяти из нового database.txt
                     fresh_db = engine.load_data()
                     if page.data:
                         page.data["db_data"] = fresh_db
- 
-                    # Прямой вызов перерисовки интерфейса в главном потоке через page.data
                     if "refresh_ui" in page.data:
                         page.data["refresh_ui"]()
                 except Exception as ex_eng:
                     print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
- 
-            # Легально выводим плашку успешного или ошибочного завершения
+            
+            # Снэкбар выводим строго внутри Main UI Thread
             show_message_callback(message)
             page.update()
             
+        # 3. Передаем честную корутину (не лямбду!) во Flet рантайм
         page.run_task(safe_ui_refresh_task)
  
     except Exception as ex:
         print(f"[FLET_THREAD_FIX] Ошибка фонового потока: {ex}")
 
-if __name__ == "__main__":
+if __name__ == "__main__" :
 
     ft.app(target=main)
