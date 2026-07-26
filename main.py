@@ -206,7 +206,7 @@ def main(page: ft.Page):
                 ft.IconButton(
                     icon=ft.Icons.CLOUD_DOWNLOAD, 
                     tooltip="Импорт базы данных",
-                    on_click=lambda e: e.page.run_task(android_safe_import_thread, e.page, show_message)
+                    on_click=lambda e: [show_message("Облачный импорт запущен..."), e.page.run_task(android_safe_import_thread, e.page, show_message)]
                 ),
                 ft.IconButton(
                     icon=ft.Icons.BAR_CHART_ROUNDED, 
