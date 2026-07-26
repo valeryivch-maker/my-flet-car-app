@@ -265,19 +265,49 @@ def main(page: ft.Page):
 
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
 async def android_safe_import_thread(page, show_message_callback):
+    import httpx
+    
+    BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
+    
     try:
-        # Прямая ссылка на веб-шлюз бэкапа базы данных вашего Telegram-канала
-        # Нативный Flutter-контекст запускает скачивание через доверенный системный менеджер Android
-        backup_gateway_url = "https://telegram.org?download=1"
+        show_message_callback("Поиск последнего бэкапа в облаке...")
         
-        # Информируем пользователя перед запуском нативного интента
-        show_message_callback("Запуск нативного менеджера загрузок Android...")
-        
-        # Вызываем нативный метод, полностью минуя заблокированный Python-модуль requests
-        await page.launch_url(backup_gateway_url)
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # 1. Запрашиваем историю обновлений чата бота
+            updates_res = await client.get(f"https://telegram.org{BOT_TOKEN}/getUpdates?offset=-1&limit=100")
+            updates_data = updates_res.json()
+            
+            # Находим самый свежий документ в чате
+            results = updates_data.get("result", [])
+            file_id = None
+            for update in reversed(results):
+                msg = update.get("message", {})
+                doc = msg.get("document", {})
+                if doc and doc.get("file_name") == "database.txt":
+                    file_id = doc.get("file_id")
+                    break
+            
+            if not file_id:
+                show_message_callback("Ошибка: Бэкап database.txt не найден в чате!")
+                return
+                
+            # 2. Запрашиваем у API прямой путь к файлу на сервере
+            file_info_res = await client.get(f"https://telegram.org{BOT_TOKEN}/getFile?file_id={file_id}")
+            file_path = file_info_res.json().get("result", {}).get("file_path")
+            
+            if not file_path:
+                show_message_callback("Ошибка получения пути к файлу бэкапа!")
+                return
+                
+            # 3. Формируем финальный URL под нативный менеджер загрузок Android
+            final_download_url = f"https://telegram.org{BOT_TOKEN}/{file_path}"
+            
+            show_message_callback("Ссылка сформирована! Скачивание...")
+            await page.launch_url(final_download_url)
         
     except Exception as ex:
-        print(f"[FLET_NATIVE_FIX] Ошибка вызова системного загрузчика: {ex}")
+        print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
+        show_message_callback("Сетевая ошибка на стороне рантайма.")
 
 if __name__ == "__main__" :
     ft.app(target=main)
