@@ -264,36 +264,32 @@ def main(page: ft.Page):
 
 
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
-def android_safe_import_thread(page, show_message_callback):
+async def android_safe_import_thread(page, show_message_callback):
     import asyncio
     import network
     import engine
-
-    async def async_run():
-        try:
-            # Выносим блокирующий requests.get в изолированный нативный системный поток
-            success, message = await asyncio.to_thread(network.auto_import_last_file)
+    try:
+        # Выносим блокирующий requests.get в изолированный нативный системный поток
+        success, message = await asyncio.to_thread(network.auto_import_last_file)
+        
+        async def safe_ui_refresh_task():
+            if success:
+                try:
+                    fresh_db = engine.load_data()
+                    if page.data:
+                        page.data["db_data"] = fresh_db
+                        if "refresh_ui" in page.data:
+                            page.data["refresh_ui"]()
+                except Exception as ex_eng:
+                    print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
             
-            async def safe_ui_refresh_task():
-                if success:
-                    try:
-                        fresh_db = engine.load_data()
-                        if page.data:
-                            page.data["db_data"] = fresh_db
-                            if "refresh_ui" in page.data:
-                                page.data["refresh_ui"]()
-                    except Exception as ex_eng:
-                        print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
-                
-                show_message_callback(message)
-                page.update()
+            show_message_callback(message)
+            page.update()
             
-            page.run_task(safe_ui_refresh_task)
-            
-        except Exception as ex:
-            print(f"[FLET_ASYNC_FIX] Ошибка выполнения сетевого потока: {ex}")
-
-    asyncio.run(async_run())
+        page.run_task(safe_ui_refresh_task)
+        
+    except Exception as ex:
+        print(f"[FLET_ASYNC_FIX] Ошибка выполнения сетевого потока: {ex}")
 
 if __name__ == "__main__" :
 
