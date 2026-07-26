@@ -195,21 +195,31 @@ def main(page: ft.Page):
             controls=[
                 ft.Text("База и управление профилями:", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_700),
                 ft.Row(
-                    scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
-         ft.IconButton(
-                    ft.Icons.CLOUD_DOWNLOAD,
+            scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.IconButton(
+                    icon=ft.Icons.CLOUD_UPLOAD, 
+                    tooltip="Экспорт базы в Telegram",
+                    on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)
+                ),
+                # Кнопка импорта теперь одиночная и вызывает run_thread
+                ft.IconButton(
+                    icon=ft.Icons.CLOUD_DOWNLOAD, 
                     tooltip="Импорт базы данных",
                     on_click=lambda e: e.page.run_thread(android_safe_import_thread, e.page, show_message)
                 ),
-                        ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
-                        ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
-                        ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
-                        ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать авто", on_click=edit_car_name_click),
-                        ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=delete_car_click, icon_color=ft.Colors.RED_500),
-                    ]
-                )
+                ft.IconButton(
+                    icon=ft.Icons.BAR_CHART_ROUNDED, 
+                    tooltip="Аналитика", 
+                    on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]
+                ),
+                ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
+                ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
+                ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать авто", on_click=edit_car_name_click),
+                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=delete_car_click, icon_color=ft.Colors.RED_500),
+            ]
+        )
+
             ]
         )
 
