@@ -31,16 +31,19 @@ else:
     DB_REAL_PATH = os.path.join(os.getcwd(), "database.txt")
 
 # Адаптивное разделение сетевого шлюза (Windows / Android) — IP-Шлюз с Host-заголовком
+# Адаптивное разделение сетевого шлюза (Windows / Android) — Честная изоляция окружений
 if os.name == "nt":
+    # Для Windows оставляем текущий рабочий IP-шлюз с отключенным SSL
     BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
     BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
     SSL_VERIFY_MODE = False
 else:
-    # Перевод Android на IP-адрес для обхода блокировок мобильных DNS
-    BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
-    BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
-    SSL_VERIFY_MODE = False
-
+    # ИСПРАВЛЕНО ДЛЯ ANDROID (XIAOMI): Использование легитимного веб-домена с включенной SSL-проверкой
+    # Это снимает блокировку сокетов ядром MIUI/HyperOS, так как трафик полностью легален
+    TELEGRAM_PROXY_DOMAIN = "api.telegram.org"  # При необходимости меняется на рабочий прокси-домен, например, vesta.tgproxy.today
+    BASE_URL = f"https://{TELEGRAM_PROXY_DOMAIN}/bot{BOT_TOKEN}"
+    BASE_FILE_URL = f"https://{TELEGRAM_PROXY_DOMAIN}/file/bot{BOT_TOKEN}"
+    SSL_VERIFY_MODE = True
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
 URL_FILE_INFO = f"{BASE_URL}/getFile"
@@ -254,7 +257,7 @@ def send_telegram_alert_message(text_msg):
         "parse_mode": "HTML"
     }
     try:
-        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=1.5, verify=SSL_VERIFY_MODE)
+        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=8.0, verify=SSL_VERIFY_MODE)
     except Exception:
         pass
 
@@ -314,7 +317,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
         with open(DB_REAL_PATH, "rb") as file_data:
             files = {"document": ("Carjournal_database.json", file_data)}
             payload = {"chat_id": 1036911003, "caption": "📦 Резервная копия базы"}
-            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
+            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=8.0)
             
             if resp.status_code == 200:
                 resp_json = resp.json()
@@ -329,7 +332,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
 
 def auto_import_last_file():
     import socket
-    socket.setdefaulttimeout(1.5)
+    socket.setdefaulttimeout(8.0)
     """Чистая функция импорта базы: сканирует кэш обновлений и скачивает файл без работы с UI."""
     import requests
     import json
@@ -340,7 +343,7 @@ def auto_import_last_file():
     
     try:
         url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=100"
-        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
+        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=8.0)
         
         if response.status_code == 200:
             res_data = response.json()
@@ -361,12 +364,12 @@ def auto_import_last_file():
             return False, "Файл базы от телефона не найден в кэше обновлений. Сделайте ЭКСПОРТ на телефоне."
             
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5).json()
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=8.0).json()
         
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
             url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
-            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=8.0)
             
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f_out:
