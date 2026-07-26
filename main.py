@@ -272,11 +272,11 @@ async def android_safe_import_thread(page, show_message_callback):
     try:
         show_message_callback("Поиск последнего бэкапа в облаке...")
         
-        # Задаем базовый клиент без жесткого прописывания двоеточия в хост, обходя баг Invalid port
         async with httpx.AsyncClient(timeout=5.0) as client:
+            # ИСПРАВЛЕНО: Указан законный поддомен api.telegram.org для Bot API
+            base_host = httpx.URL("https://api.telegram.org")
             
-            # Безопасное конструирование URL: httpx не будет парсить двоеточие как порт, если оно находится строго в path
-            updates_url = f"https://telegram.org{BOT_TOKEN}/getUpdates"
+            updates_url = base_host.join(f"/bot{BOT_TOKEN}/getUpdates")
             updates_res = await client.get(updates_url, params={"offset": -1, "limit": 100})
             updates_data = updates_res.json()
             
@@ -293,8 +293,7 @@ async def android_safe_import_thread(page, show_message_callback):
                 show_message_callback("Ошибка: Бэкап database.txt не найден в чате!")
                 return
                 
-            # Запрашиваем путь к файлу через безопасный URL
-            file_info_url = f"https://telegram.org{BOT_TOKEN}/getFile"
+            file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
             file_info_res = await client.get(file_info_url, params={"file_id": file_id})
             file_path = file_info_res.json().get("result", {}).get("file_path")
             
@@ -302,8 +301,8 @@ async def android_safe_import_thread(page, show_message_callback):
                 show_message_callback("Ошибка получения пути к файлу бэкапа!")
                 return
                 
-            # Формируем финальный URL для нативного скачивания на Android
-            final_download_url = f"https://telegram.org{BOT_TOKEN}/{file_path}"
+            # ИСПРАВЛЕНО: Финальное скачивание перенаправлено на api.telegram.org
+            final_download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
             
             show_message_callback("Ссылка сформирована! Скачивание...")
             await page.launch_url(final_download_url)
