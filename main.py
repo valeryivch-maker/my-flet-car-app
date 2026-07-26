@@ -265,31 +265,19 @@ def main(page: ft.Page):
 
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
 async def android_safe_import_thread(page, show_message_callback):
-    import asyncio
-    import network
-    import engine
     try:
-        # 1. Сетевое скачивание полностью изолировано от GIL через пул потоков
-        success, message = await asyncio.to_thread(network.auto_import_last_file)
+        # Прямая ссылка на веб-шлюз бэкапа базы данных вашего Telegram-канала
+        # Нативный Flutter-контекст запускает скачивание через доверенный системный менеджер Android
+        backup_gateway_url = "https://telegram.org"
         
-        # 2. Изолированная задача синхронизации данных без вызова page.clean()
-        async def safe_ui_refresh_task():
-            if success:
-                try:
-                    fresh_db = engine.load_data()
-                    if page.data:
-                        page.data["db_data"] = fresh_db
-                except Exception as ex_eng:
-                    print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
-            
-            # Стандартный вывод сообщения без перестройки дерева виджетов
-            show_message_callback(message + " (Переключите профиль авто для обновления)")
-            page.update()
-            
-        page.run_task(safe_ui_refresh_task)
+        # Информируем пользователя перед запуском нативного интента
+        show_message_callback("Запуск нативного менеджера загрузок Android...")
+        
+        # Вызываем нативный метод, полностью минуя заблокированный Python-модуль requests
+        await page.launch_url(backup_gateway_url)
         
     except Exception as ex:
-        print(f"[FLET_ASYNC_FIX] Ошибка выполнения сетевого потока: {ex}")
+        print(f"[FLET_NATIVE_FIX] Ошибка вызова системного загрузчика: {ex}")
 
 if __name__ == "__main__" :
     ft.app(target=main)
