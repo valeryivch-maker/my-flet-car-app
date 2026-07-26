@@ -272,12 +272,14 @@ async def android_safe_import_thread(page, show_message_callback):
     try:
         show_message_callback("Поиск последнего бэкапа в облаке...")
         
+        # Задаем базовый клиент без жесткого прописывания двоеточия в хост, обходя баг Invalid port
         async with httpx.AsyncClient(timeout=5.0) as client:
-            # 1. Запрашиваем историю обновлений чата бота
-            updates_res = await client.get(f"https://telegram.org{BOT_TOKEN}/getUpdates?offset=-1&limit=100")
+            
+            # Безопасное конструирование URL: httpx не будет парсить двоеточие как порт, если оно находится строго в path
+            updates_url = f"https://telegram.org{BOT_TOKEN}/getUpdates"
+            updates_res = await client.get(updates_url, params={"offset": -1, "limit": 100})
             updates_data = updates_res.json()
             
-            # Находим самый свежий документ в чате
             results = updates_data.get("result", [])
             file_id = None
             for update in reversed(results):
@@ -291,15 +293,16 @@ async def android_safe_import_thread(page, show_message_callback):
                 show_message_callback("Ошибка: Бэкап database.txt не найден в чате!")
                 return
                 
-            # 2. Запрашиваем у API прямой путь к файлу на сервере
-            file_info_res = await client.get(f"https://telegram.org{BOT_TOKEN}/getFile?file_id={file_id}")
+            # Запрашиваем путь к файлу через безопасный URL
+            file_info_url = f"https://telegram.org{BOT_TOKEN}/getFile"
+            file_info_res = await client.get(file_info_url, params={"file_id": file_id})
             file_path = file_info_res.json().get("result", {}).get("file_path")
             
             if not file_path:
                 show_message_callback("Ошибка получения пути к файлу бэкапа!")
                 return
                 
-            # 3. Формируем финальный URL под нативный менеджер загрузок Android
+            # Формируем финальный URL для нативного скачивания на Android
             final_download_url = f"https://telegram.org{BOT_TOKEN}/{file_path}"
             
             show_message_callback("Ссылка сформирована! Скачивание...")
@@ -307,7 +310,7 @@ async def android_safe_import_thread(page, show_message_callback):
         
     except Exception as ex:
         print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
-        show_message_callback("Сетевая ошибка на стороне рантайма.")
+        show_message_callback(f"Сетевая ошибка: {str(ex)}")
 
 if __name__ == "__main__" :
     ft.app(target=main)
