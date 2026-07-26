@@ -28,6 +28,46 @@ if os.name != "nt":
         except:
             sandbox_dir = "." 
         target_db = os.path.join(sandbox_dir, "database.txt")
+def check_and_link_downloaded_db(show_message_callback=None):
+    """Подсистема Auto-Storage Linker: автономно вычисляет пути и безопасно перемещает бэкап."""
+    import os
+    import shutil
+    
+    # Автономное вычисление пути к песочнице приложения для обхода NameError
+    if os.name != "nt":
+        sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+        if sandbox_dir in ["/", "/data", ""]:
+            try:
+                from plyer import storagepath
+                sandbox_dir = storagepath.get_application_dir()
+            except:
+                sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+        if "app_flutter" not in sandbox_dir:
+            sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+    else:
+        sandbox_dir = "."
+        
+    target_db_path = os.path.join(sandbox_dir, "database.txt")
+    
+    if os.name == "nt":
+        download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+    else:
+        download_dir = "/storage/emulated/0/Download"
+        
+    external_backup = os.path.join(download_dir, "database.txt")
+    
+    if os.path.exists(external_backup) and os.path.getsize(external_backup) > 0:
+        try:
+            print(f"[LINKER] Обнаружен свежий бэкап: {external_backup}")
+            shutil.move(external_backup, target_db_path)
+            print(f"[LINKER] База успешно перемещена в песочницу: {target_db_path}")
+            if show_message_callback:
+                show_message_callback("Синхронизация: Облачная база успешно импортирована!")
+            return True
+        except Exception as e:
+            print(f"[LINKER_ERROR] Не удалось переместить файл базы данных: {e}")
+    return False
+
 
 try:
     import network
@@ -50,6 +90,9 @@ import engine
 import views
 
 def main(page: ft.Page):
+    # Запуск подсистемы линковщика для проверки входящих бэкапов на старте
+    check_and_link_downloaded_db()
+
     page.data = {'refresh_ui': lambda: rebuild_ui()}
     # Запрос нативных разрешений Android на чтение/запись файлов песочницы
     def on_perm_result(e):
