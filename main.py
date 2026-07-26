@@ -269,21 +269,21 @@ async def android_safe_import_thread(page, show_message_callback):
     import network
     import engine
     try:
-        # Выносим блокирующий requests.get в изолированный нативный системный поток
+        # 1. Сетевое скачивание полностью изолировано от GIL через пул потоков
         success, message = await asyncio.to_thread(network.auto_import_last_file)
         
+        # 2. Изолированная задача синхронизации данных без вызова page.clean()
         async def safe_ui_refresh_task():
             if success:
                 try:
                     fresh_db = engine.load_data()
                     if page.data:
                         page.data["db_data"] = fresh_db
-                        if "refresh_ui" in page.data:
-                            page.data["refresh_ui"]()
                 except Exception as ex_eng:
                     print(f"[ПАТЧ_КРИТ] Ошибка синхронизации engine: {ex_eng}")
             
-            show_message_callback(message)
+            # Стандартный вывод сообщения без перестройки дерева виджетов
+            show_message_callback(message + " (Переключите профиль авто для обновления)")
             page.update()
             
         page.run_task(safe_ui_refresh_task)
@@ -292,5 +292,4 @@ async def android_safe_import_thread(page, show_message_callback):
         print(f"[FLET_ASYNC_FIX] Ошибка выполнения сетевого потока: {ex}")
 
 if __name__ == "__main__" :
-
     ft.app(target=main)
