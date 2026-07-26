@@ -254,7 +254,7 @@ def send_telegram_alert_message(text_msg):
         "parse_mode": "HTML"
     }
     try:
-        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=SSL_VERIFY_MODE)
+        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=1.5, verify=SSL_VERIFY_MODE)
     except Exception:
         pass
 
@@ -314,7 +314,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
         with open(DB_REAL_PATH, "rb") as file_data:
             files = {"document": ("Carjournal_database.json", file_data)}
             payload = {"chat_id": 1036911003, "caption": "📦 Резервная копия базы"}
-            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
+            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
             
             if resp.status_code == 200:
                 resp_json = resp.json()
@@ -328,6 +328,8 @@ def auto_export_file_to_telegram(page, show_message_callback):
         show_alert(f"Ошибка сети: {str(e)}")
 
 def auto_import_last_file():
+    import socket
+    socket.setdefaulttimeout(1.5)
     """Чистая функция импорта базы: сканирует кэш обновлений и скачивает файл без работы с UI."""
     import requests
     import json
@@ -338,7 +340,7 @@ def auto_import_last_file():
     
     try:
         url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=100"
-        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
+        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
         
         if response.status_code == 200:
             res_data = response.json()
@@ -359,12 +361,12 @@ def auto_import_last_file():
             return False, "Файл базы от телефона не найден в кэше обновлений. Сделайте ЭКСПОРТ на телефоне."
             
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10).json()
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5).json()
         
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
             url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
-            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=10)
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=1.5)
             
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f_out:
