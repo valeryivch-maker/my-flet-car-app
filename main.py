@@ -198,17 +198,10 @@ def main(page: ft.Page):
                     scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
                         ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message) if os.name == 'nt' or 'network' in sys.modules else None),
-        ft.IconButton(
-                                        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=lambda e: e.page.run_thread(android_safe_import_thread, e.page, show_message)),
-                    tooltip="Импорт базы данных", 
-                    on_click=lambda e: e.page.run_task(
-                        lambda *_: e.page.loop.run_in_executor(
-                            None, 
-                            globals().get("android_safe_import_thread"), 
-                            e.page, 
-                            globals().get("show_message")
-                        )
-                    )
+         ft.IconButton(
+                    ft.Icons.CLOUD_DOWNLOAD,
+                    tooltip="Импорт базы данных",
+                    on_click=lambda e: e.page.run_thread(android_safe_import_thread, e.page, show_message)
                 ),
                         ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), rebuild_ui()]),
                         ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
@@ -266,7 +259,7 @@ def android_safe_import_thread(page, show_message_callback):
         import network
         import engine
         # 1. Спокойно качаем файл в фоновом системном потоке Python (UI не блокируется)
-        success, message = network.auto_import_last_file(page)
+        success, message = network.auto_import_last_file()
  
         # 2. Объявляем честную, изолированную async def корутину для Main UI Thread Android
         async def safe_ui_refresh_task():

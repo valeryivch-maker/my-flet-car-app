@@ -327,7 +327,7 @@ def auto_export_file_to_telegram(page, show_message_callback):
     except Exception as e:
         show_alert(f"Ошибка сети: {str(e)}")
 
-def auto_import_last_file(page):
+def auto_import_last_file():
     """Чистая функция импорта базы: сканирует кэш обновлений и скачивает файл без работы с UI."""
     import requests
     import json
