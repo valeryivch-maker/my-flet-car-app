@@ -268,7 +268,7 @@ async def android_safe_import_thread(page, show_message_callback):
     try:
         # Прямая ссылка на веб-шлюз бэкапа базы данных вашего Telegram-канала
         # Нативный Flutter-контекст запускает скачивание через доверенный системный менеджер Android
-        backup_gateway_url = "https://telegram.org"
+        backup_gateway_url = "https://telegram.org?download=1"
         
         # Информируем пользователя перед запуском нативного интента
         show_message_callback("Запуск нативного менеджера загрузок Android...")
