@@ -353,7 +353,8 @@ async def android_safe_import_thread(page, show_message_callback):
   import asyncio
   await asyncio.sleep(4.0)
   
-  check_and_link_downloaded_db(show_message_callback)
+  # ИЗОЛЯЦИЯ ПОТОКА: Переносим синхронный дисковый I/O в отдельный OS-thread
+  await asyncio.to_thread(check_and_link_downloaded_db, show_message_callback)
   
  except Exception as ex:
   print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
