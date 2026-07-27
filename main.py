@@ -354,7 +354,10 @@ async def android_safe_import_thread(page, show_message_callback):
   await asyncio.sleep(4.0)
   
   # ИЗОЛЯЦИЯ ПОТОКА: Переносим синхронный дисковый I/O в отдельный OS-thread
-  await asyncio.to_thread(check_and_link_downloaded_db, show_message_callback)
+  # Безопасно выполняем дисковый I/O БЕЗ вызова UI внутри фонового OS-потока
+  success = await asyncio.to_thread(check_and_link_downloaded_db, None)
+  if success:
+   show_message_callback('Синхронизация: Облачная база успешно импортирована!')
   
  except Exception as ex:
   print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
