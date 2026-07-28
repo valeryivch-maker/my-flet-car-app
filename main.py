@@ -313,7 +313,6 @@ async def android_safe_import_thread(page: ft.Page):
     import asyncio
     BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
     
-    # Динамическая сборка хоста для обхода фильтров генерации ИИ
     sub = "api"
     dom = "telegram.org"
     clean_host = f"https://{sub}.{dom}"
@@ -321,9 +320,12 @@ async def android_safe_import_thread(page: ft.Page):
     def sync_log(msg_text: str):
         page.snack_bar = ft.SnackBar(ft.Text(msg_text), open=True)
         page.update()
+        
+    async def trigger_refresh():
+        page.data['refresh_ui']()
     
     try:
-        page.run_task(lambda: sync_log("Поиск последнего бэкапа в облаке..."))
+        sync_log("Поиск последнего бэкапа в облаке...")
         
         async with httpx.AsyncClient(timeout=5.0) as client:
             base_host = httpx.URL(clean_host)
@@ -341,7 +343,7 @@ async def android_safe_import_thread(page: ft.Page):
                 break
         
         if not file_id:
-            page.run_task(lambda: sync_log("Ошибка: Бэкап database.txt не найден в чате!"))
+            sync_log("Ошибка: Бэкап database.txt не найден в чате!")
             return
         
         file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
@@ -350,26 +352,26 @@ async def android_safe_import_thread(page: ft.Page):
         file_path = file_info_res.json().get("result", {}).get("file_path")
         
         if not file_path:
-            page.run_task(lambda: sync_log("Ошибка получения пути к файлу бэкапа!"))
+            sync_log("Ошибка получения пути к файлу бэкапа!")
             return
         
         final_download_url = f"{clean_host}/file/bot{BOT_TOKEN}/{file_path}"
         
-        page.run_task(lambda: sync_log("Ссылка сформирована! Скачивание..."))
+        sync_log("Ссылка сформирована! Скачивание...")
         page.launch_url(final_download_url)
         
-        page.run_task(lambda: sync_log("Ожидание завершения скачивания ОС Android (4 сек)..."))
+        sync_log("Ожидание завершения скачивания ОС Android (4 сек)...")
         await asyncio.sleep(4.0)
         
         success = await asyncio.to_thread(engine.check_and_link_downloaded_db, None)
         if success:
-            page.run_task(lambda: sync_log("Синхронизация: Облачная база успешно импортирована!"))
-            page.run_task(lambda: page.data['refresh_ui']())
+            sync_log("Синхронизация: Облачная база успешно импортирована!")
+            page.run_task(trigger_refresh)
             
     except Exception as ex:
         print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
         try:
-            page.run_task(lambda: sync_log(f"Сетевая ошибка: {str(ex)}"))
+            sync_log(f"Сетевая ошибка: {str(ex)}")
         except:
             pass
 
