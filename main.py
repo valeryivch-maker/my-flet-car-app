@@ -308,91 +308,98 @@ def main(page: ft.Page):
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
 
 
-async def android_safe_import_thread(page: ft.Page):
-    import httpx
-    import asyncio
-    BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
+def android_safe_import_thread(page: ft.Page):
+    import threading
     
-    sub = "api"
-    dom = "telegram.org"
-    clean_host = f"https://{sub}.{dom}"
-    
-    def sync_log(msg_text: str):
-        page.snack_bar = ft.SnackBar(ft.Text(msg_text), open=True)
-        page.update()
+    def worker_logic():
+        import httpx
+        import time
+        BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
         
-    async def trigger_refresh():
-        page.data['refresh_ui']()
-    
-    try:
-        sync_log("Поиск последнего бэкапа в облаке...")
+        sub = "api"
+        dom = "telegram.org"
+        clean_host = f"https://{sub}.{dom}"
         
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            base_host = httpx.URL(clean_host)
-            updates_url = base_host.join(f"/bot{BOT_TOKEN}/getUpdates")
-            updates_res = await client.get(updates_url, params={"offset": -1, "limit": 100})
-            updates_data = updates_res.json()
-        
-        results = updates_data.get("result", [])
-        file_id = None
-        for update in reversed(results):
-            msg = update.get("message", {})
-            doc = msg.get("document", {})
-            if doc and doc.get("file_name") == "database.txt":
-                file_id = doc.get("file_id")
-                break
-        
-        if not file_id:
-            sync_log("Ошибка: Бэкап database.txt не найден в чате!")
-            return
-        
-        file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            file_info_res = await client.get(file_info_url, params={"file_id": file_id})
-        file_path = file_info_res.json().get("result", {}).get("file_path")
-        
-        if not file_path:
-            sync_log("Ошибка получения пути к файлу бэкапа!")
-            return
-        
-        final_download_url = f"{clean_host}/file/bot{BOT_TOKEN}/{file_path}"
-        
-        sync_log("Загрузка файла бэкапа напрямую...")
-        
-        # Определяем целевой путь сохранения для линкера
-        if os.name == "nt":
-            download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
-        else:
-            download_dir = "/storage/emulated/0/Download"
-        
-        local_target = os.path.join(download_dir, "database.txt")
-        
-        # Скачиваем бинарный поток напрямую на устройство в обход браузера
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(final_download_url)
-            if response.status_code == 200:
-                with open(local_target, "wb") as f_out:
-                    f_out.write(response.content)
-            else:
-                sync_log(f"Ошибка скачивания: HTTP {response.status_code}")
-                return
-        
-        sync_log("Файл успешно скачан! Запуск линкера...")
-        await asyncio.sleep(1.0)
-        
-        success = await asyncio.to_thread(engine.check_and_link_downloaded_db, None)
-        if success:
-            sync_log("Синхронизация: База успешно импортирована!")
-            page.run_task(trigger_refresh)
-        else:
-            sync_log("Ошибка линкера: файл не перемещен.")
+        # Чистые корутины для планировщика Flet
+        async def ui_log_coro(text: str):
+            page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
+            page.update()
             
-    except Exception as ex:
-        print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
+        async def ui_refresh_coro():
+            page.data['refresh_ui']()
+
+        def send_log(msg: str):
+            # ИСПРАВЛЕНО: Передаем корутину и ее аргумент раздельно без lambda
+            page.run_task(ui_log_coro, msg)
+
         try:
-            sync_log(f"Сетевая ошибка: {str(ex)}")
-        except:
-            pass
+            send_log("Поиск последнего бэкапа в облаке...")
+            
+            with httpx.Client(timeout=5.0) as client:
+                base_host = httpx.URL(clean_host)
+                updates_url = base_host.join(f"/bot{BOT_TOKEN}/getUpdates")
+                updates_res = client.get(updates_url, params={"offset": -1, "limit": 100})
+                updates_data = updates_res.json()
+            
+            results = updates_data.get("result", [])
+            file_id = None
+            for update in reversed(results):
+                msg = update.get("message", {})
+                doc = msg.get("document", {})
+                if doc and doc.get("file_name") == "database.txt":
+                    file_id = doc.get("file_id")
+                    break
+            
+            if not file_id:
+                send_log("Ошибка: Бэкап database.txt не найден в чате!")
+                return
+            
+            file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
+            with httpx.Client(timeout=5.0) as client:
+                file_info_res = client.get(file_info_url, params={"file_id": file_id})
+            file_path = file_info_res.json().get("result", {}).get("file_path")
+            
+            if not file_path:
+                send_log("Ошибка получения пути к файлу бэкапа!")
+                return
+            
+            final_download_url = f"{clean_host}/file/bot{BOT_TOKEN}/{file_path}"
+            send_log("Загрузка файла бэкапа напрямую...")
+            
+            if os.name == "nt":
+                download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+            else:
+                download_dir = "/storage/emulated/0/Download"
+            
+            local_target = os.path.join(download_dir, "database.txt")
+            
+            with httpx.Client(timeout=15.0) as client:
+                response = client.get(final_download_url)
+                if response.status_code == 200:
+                    with open(local_target, "wb") as f_out:
+                        f_out.write(response.content)
+                else:
+                    send_log(f"Ошибка скачивания: HTTP {response.status_code}")
+                    return
+            
+            send_log("Файл успешно скачан! Запуск линкера...")
+            time.sleep(1.0)
+            
+            success = engine.check_and_link_downloaded_db(None)
+            if success:
+                send_log("Синхронизация: База успешно импортирована!")
+                page.run_task(ui_refresh_coro)
+            else:
+                send_log("Ошибка линкера: файл не перемещен.")
+                
+        except Exception as ex:
+            print(f"[FLET_THREAD_ERROR] Критическая ошибка шлюза: {ex}")
+            try:
+                send_log(f"Сетевая ошибка: {str(ex)}")
+            except:
+                pass
+
+    threading.Thread(target=worker_logic, daemon=True).start()
 
 if __name__ == "__main__":
     ft.app(target=main)
