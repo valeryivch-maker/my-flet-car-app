@@ -357,16 +357,35 @@ async def android_safe_import_thread(page: ft.Page):
         
         final_download_url = f"{clean_host}/file/bot{BOT_TOKEN}/{file_path}"
         
-        sync_log("Ссылка сформирована! Скачивание...")
-        page.launch_url(final_download_url)
+        sync_log("Загрузка файла бэкапа напрямую...")
         
-        sync_log("Ожидание завершения скачивания ОС Android (4 сек)...")
-        await asyncio.sleep(4.0)
+        # Определяем целевой путь сохранения для линкера
+        if os.name == "nt":
+            download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        else:
+            download_dir = "/storage/emulated/0/Download"
+        
+        local_target = os.path.join(download_dir, "database.txt")
+        
+        # Скачиваем бинарный поток напрямую на устройство в обход браузера
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(final_download_url)
+            if response.status_code == 200:
+                with open(local_target, "wb") as f_out:
+                    f_out.write(response.content)
+            else:
+                sync_log(f"Ошибка скачивания: HTTP {response.status_code}")
+                return
+        
+        sync_log("Файл успешно скачан! Запуск линкера...")
+        await asyncio.sleep(1.0)
         
         success = await asyncio.to_thread(engine.check_and_link_downloaded_db, None)
         if success:
-            sync_log("Синхронизация: Облачная база успешно импортирована!")
+            sync_log("Синхронизация: База успешно импортирована!")
             page.run_task(trigger_refresh)
+        else:
+            sync_log("Ошибка линкера: файл не перемещен.")
             
     except Exception as ex:
         print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
