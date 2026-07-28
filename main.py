@@ -248,7 +248,7 @@ def main(page: ft.Page):
                 ft.IconButton(
                     icon=ft.Icons.CLOUD_DOWNLOAD, 
                     tooltip="Импорт базы данных",
-                    on_click=lambda e: [show_message("Облачный импорт запущен..."), e.page.run_task(android_safe_import_thread, e.page, show_message)]
+                 on_click=lambda e: e.page.run_task(android_safe_import_thread, e.page)
                 ),
                 ft.IconButton(
                     icon=ft.Icons.BAR_CHART_ROUNDED, 
@@ -306,62 +306,68 @@ def main(page: ft.Page):
 
 
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
-async def android_safe_import_thread(page, show_message_callback):
- import httpx
- 
- BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
- 
- try:
-  show_message_callback("Поиск последнего бэкапа в облаке...")
-  
-  async with httpx.AsyncClient(timeout=5.0) as client:
-   # ИСПРАВЛЕНО: Указан законный поддомен api.telegram.org для Bot API
-   base_host = httpx.URL("https://api.telegram.org")
-   updates_url = base_host.join(f"/bot{BOT_TOKEN}/getUpdates")
-   updates_res = await client.get(updates_url, params={"offset": -1, "limit": 100})
-   updates_data = updates_res.json()
-  
-  results = updates_data.get("result", [])
-  file_id = None
-  for update in reversed(results):
-   msg = update.get("message", {})
-   doc = msg.get("document", {})
-   if doc and doc.get("file_name") == "database.txt":
-    file_id = doc.get("file_id")
-    break
-  
-  if not file_id:
-   show_message_callback("Ошибка: Бэкап database.txt не найден в чате!")
-   return
-  
-  file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
-  file_info_res = await client.get(file_info_url, params={"file_id": file_id})
-  file_path = file_info_res.json().get("result", {}).get("file_path")
-  
-  if not file_path:
-   show_message_callback("Ошибка получения пути к файлу бэкапа!")
-   return
-  
-  # ИСПРАВЛЕНО: Финальное скачивание перенаправлено на api.telegram.org
-  final_download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-  
-  show_message_callback("Ссылка сформирована! Скачивание...")
-  await page.launch_url(final_download_url)
-  
-  # Внедрение подсистемы Auto-Storage Linker с задержкой под Android
-  show_message_callback("Ожидание завершения скачивания ОС Android (4 сек)...")
-  import asyncio
-  await asyncio.sleep(4.0)
-  
-  # ИЗОЛЯЦИЯ ПОТОКА: Переносим синхронный дисковый I/O в отдельный OS-thread
-  # Безопасно выполняем дисковый I/O БЕЗ вызова UI внутри фонового OS-потока
-  success = await asyncio.to_thread(check_and_link_downloaded_db, None)
-  if success:
-   show_message_callback('Синхронизация: Облачная база успешно импортирована!')
-  
- except Exception as ex:
-  print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
-  show_message_callback(f"Сетевая ошибка: {str(ex)}")
 
-if __name__ == "__main__" :
- ft.app(target=main)
+async def android_safe_import_thread(page: ft.Page):
+    import httpx
+    import asyncio
+    BOT_TOKEN = "7367807270:AAEg_O18Zg0iYgW_X7YF_8f_qG_K9M"
+    
+    async def local_log(msg_text: str):
+        page.snack_bar = ft.SnackBar(ft.Text(msg_text), open=True)
+        await page.update_async()
+    
+    try:
+        await local_log("Поиск последнего бэкапа в облаке...")
+        
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            base_host = httpx.URL("https://telegram.org")
+            updates_url = base_host.join(f"/bot{BOT_TOKEN}/getUpdates")
+            updates_res = await client.get(updates_url, params={"offset": -1, "limit": 100})
+            updates_data = updates_res.json()
+        
+        results = updates_data.get("result", [])
+        file_id = None
+        for update in reversed(results):
+            msg = update.get("message", {})
+            doc = msg.get("document", {})
+            if doc and doc.get("file_name") == "database.txt":
+                file_id = doc.get("file_id")
+                break
+        
+        if not file_id:
+            await local_log("Ошибка: Бэкап database.txt не найден в чате!")
+            return
+        
+        file_info_url = base_host.join(f"/bot{BOT_TOKEN}/getFile")
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            file_info_res = await client.get(file_info_url, params={"file_id": file_id})
+        file_path = file_info_res.json().get("result", {}).get("file_path")
+        
+        if not file_path:
+            await local_log("Ошибка получения пути к файлу бэкапа!")
+            return
+        
+        final_download_url = f"https://telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+        
+        await local_log("Ссылка сформирована! Скачивание...")
+        await page.launch_url_async(final_download_url)
+        
+        await local_log("Ожидание завершения скачивания ОС Android (4 сек)...")
+        await asyncio.sleep(4.0)
+        
+        # Дисковый ввод-вывод изолирован в отдельном ОС-потоке через engine
+        success = await asyncio.to_thread(engine.check_and_link_downloaded_db, None)
+        if success:
+            await local_log("Синхронизация: Облачная база успешно импортирована!")
+            # Безопасно обновляем UI через планировщик задач в главном потоке
+            page.run_task(lambda: page.data['refresh_ui']())
+            
+    except Exception as ex:
+        print(f"[FLET_HTTPX_FIX] Ошибка работы сетевого шлюза: {ex}")
+        try:
+            await local_log(f"Сетевая ошибка: {str(ex)}")
+        except:
+            pass
+
+if __name__ == "__main__":
+    ft.app(target=main)
