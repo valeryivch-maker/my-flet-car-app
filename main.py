@@ -248,7 +248,7 @@ def main(page: ft.Page):
                 ft.IconButton(
                     icon=ft.Icons.CLOUD_DOWNLOAD, 
                     tooltip="Импорт базы данных",
-                 on_click=lambda e: e.page.run_task(android_safe_import_thread, e.page)
+                 on_click=android_safe_import_thread
                 ),
                 ft.IconButton(
                     icon=ft.Icons.BAR_CHART_ROUNDED, 
@@ -308,7 +308,8 @@ def main(page: ft.Page):
 # Безопасный системный поток импорта для полного предотвращения дедлоков рендеринга на Android
 
 
-def android_safe_import_thread(page: ft.Page):
+def android_safe_import_thread(e: ft.ControlEvent):
+    page = e.page
     import threading
     
     def worker_logic():
@@ -403,3 +404,4 @@ def android_safe_import_thread(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
+
