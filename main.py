@@ -242,7 +242,7 @@ def main(page: ft.Page):
                 ft.IconButton(
                     icon=ft.Icons.CLOUD_UPLOAD, 
                     tooltip="Экспорт базы в Telegram",
-                    on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)
+                    on_click=android_safe_export_thread
                 ),
                 # Кнопка импорта теперь одиночная и вызывает run_thread
                 ft.IconButton(
@@ -321,7 +321,9 @@ def android_safe_import_thread(e: ft.ControlEvent):
         dom = "telegram.org"
         clean_host = f"https://{sub}.{dom}"
         
-        # Чистые корутины для планировщика Flet
+        async def ui_log_coro(text: str):
+            page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
+            page.update()
         async def ui_log_coro(text: str):
             page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
             page.update()
@@ -402,6 +404,28 @@ def android_safe_import_thread(e: ft.ControlEvent):
 
     threading.Thread(target=worker_logic, daemon=True).start()
 
+
+# Безопасный системный поток экспорта для полного предотвращения дедлоков рендеринга
+def android_safe_export_thread(e: ft.ControlEvent):
+    page = e.page
+    import threading
+    
+    def worker_logic():
+        async def ui_log_coro(text: str):
+            page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
+            page.update()
+            
+        try:
+            page.run_task(ui_log_coro, "Запуск экспорта базы данных...")
+            import sys
+            net_mod = sys.modules.get('network', __import__('network'))
+            
+            success, msg = net_mod.auto_export_file_to_telegram(page, None)
+            page.run_task(ui_log_coro, msg)
+        except Exception as ex:
+            print(f"[FLET_EXPORT_ERROR] Ошибка шлюза экспорта: {ex}")
+            
+    threading.Thread(target=worker_logic, daemon=True).start()
+
 if __name__ == "__main__":
     ft.app(target=main)
-
