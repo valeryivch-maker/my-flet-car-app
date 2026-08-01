@@ -90,6 +90,15 @@ import engine
 import views
 
 def main(page: ft.Page):
+    # Автономный перенос бэкапа из папки загрузок при холодном старте
+    try:
+        if check_and_link_downloaded_db(None):
+            if hasattr(engine, 'app_state') and engine.app_state:
+                engine.app_state.clear()
+            print('[CACHE] Внутренние буферы СУБД сброшены под импортированную базу.')
+    except Exception as le:
+        print(f'[LINKER_START_ERROR] Сбой холодного автолинкера: {le}')
+
     # Защитный демпфер графического конвейера HyperOS
     orig_update = page.update
     import time
