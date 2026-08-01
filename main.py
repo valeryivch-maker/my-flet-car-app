@@ -404,27 +404,29 @@ def android_safe_import_thread(e: ft.ControlEvent):
 
     threading.Thread(target=worker_logic, daemon=True).start()
 
-
 # Безопасный системный поток экспорта для полного предотвращения дедлоков рендеринга
 def android_safe_export_thread(e: ft.ControlEvent):
     page = e.page
     import threading
-    
+
     def worker_logic():
+        import time
         async def ui_log_coro(text: str):
             page.snack_bar = ft.SnackBar(ft.Text(text), open=True)
             page.update()
-            
+
         try:
+            time.sleep(0.5) # Демпфер для стабилизации графического контекста HyperOS
             page.run_task(ui_log_coro, "Запуск экспорта базы данных...")
             import sys
             net_mod = sys.modules.get('network', __import__('network'))
-            
+
             success, msg = net_mod.auto_export_file_to_telegram(page, None)
+            time.sleep(0.3) # Пауза перед финальным обновлением UI для предотвращения ANR
             page.run_task(ui_log_coro, msg)
         except Exception as ex:
             print(f"[FLET_EXPORT_ERROR] Ошибка шлюза экспорта: {ex}")
-            
+
     threading.Thread(target=worker_logic, daemon=True).start()
 
 if __name__ == "__main__":
