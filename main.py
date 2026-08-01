@@ -90,6 +90,20 @@ import engine
 import views
 
 def main(page: ft.Page):
+    # Защитный демпфер графического конвейера HyperOS
+    orig_update = page.update
+    import time
+    last_update_time = [0.0]
+
+    def throttled_update():
+        now = time.time()
+        if now - last_update_time[0] < 0.06:
+            time.sleep(0.04)
+        last_update_time[0] = time.time()
+        orig_update()
+
+    page.update = throttled_update
+
     # Перенесено в асинхронный воркер кнопки импорта во избежание дедлока
 
     page.data = {'refresh_ui': lambda: rebuild_ui()}
@@ -416,13 +430,13 @@ def android_safe_export_thread(e: ft.ControlEvent):
             page.update()
 
         try:
-            time.sleep(0.5) # Демпфер для стабилизации графического контекста HyperOS
+            time.sleep(0.5) # Локальный демпфер потока экспорта
             page.run_task(ui_log_coro, "Запуск экспорта базы данных...")
             import sys
             net_mod = sys.modules.get('network', __import__('network'))
 
             success, msg = net_mod.auto_export_file_to_telegram(page, None)
-            time.sleep(0.3) # Пауза перед финальным обновлением UI для предотвращения ANR
+            time.sleep(0.3) # Предотвращение ANR перед финализацией UI
             page.run_task(ui_log_coro, msg)
         except Exception as ex:
             print(f"[FLET_EXPORT_ERROR] Ошибка шлюза экспорта: {ex}")
