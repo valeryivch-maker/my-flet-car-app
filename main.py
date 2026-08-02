@@ -102,6 +102,7 @@ def main(page: ft.Page):
 
     # Защитный демпфер графического конвейера HyperOS
     # Защитный демпфер графического конвейера HyperOS
+    # Защитный демпфер графического конвейера HyperOS
     orig_update = page.update
     import time
     last_update_time = [0.0]
@@ -109,14 +110,12 @@ def main(page: ft.Page):
     def throttled_update(*args, **kwargs):
         import os
         if os.name == 'nt':
-            # На Windows отключаем демпфер полностью во избежание пустых окон
             orig_update(*args, **kwargs)
             return
-            
         now = time.time()
-        if now - last_update_time[0] < 0.06:
+        if now - last_update_time < 0.06:
             time.sleep(0.04)
-        last_update_time[0] = time.time()
+        last_update_time = time.time()
         orig_update(*args, **kwargs)
         
     page.update = throttled_update
@@ -129,10 +128,7 @@ def main(page: ft.Page):
         print(f"[ПРАВА] Результат запроса разрешений: {e.granted}")
     
     if os.name != "nt":
-        try:
-            page.permission.request_permission()
-        except Exception as e:
-            print(f"[ПРАВА] Ошибка инициализации плагина разрешений: {e}")
+        pass
 
     page.title = "Бортовой Журнал"
     page.scroll = ft.ScrollMode.ADAPTIVE
