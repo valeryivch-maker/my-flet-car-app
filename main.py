@@ -101,11 +101,9 @@ def main(page: ft.Page):
         print(f'[LINKER_START_ERROR] Сбой холодного автолинкера: {le}')
 
     # Защитный демпфер графического конвейера HyperOS
-    # Защитный демпфер графического конвейера HyperOS
-    # Защитный демпфер графического конвейера HyperOS
     orig_update = page.update
     import time
-    last_update_time = [0.0]
+    state_holder = {'last_time': 0.0}
 
     def throttled_update(*args, **kwargs):
         import os
@@ -113,9 +111,9 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        if now - last_update_time < 0.06:
+        if now - state_holder['last_time'] < 0.06:
             time.sleep(0.04)
-        last_update_time = time.time()
+        state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
         
     page.update = throttled_update
