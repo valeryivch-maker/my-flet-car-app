@@ -59,7 +59,8 @@ def check_and_link_downloaded_db(show_message_callback=None):
     if os.path.exists(external_backup) and os.path.getsize(external_backup) > 0:
         try:
             print(f"[LINKER] Обнаружен свежий бэкап: {external_backup}")
-            shutil.move(external_backup, target_db_path)
+            shutil.copy2(external_backup, target_db_path)
+            os.remove(external_backup)
             print(f"[LINKER] База успешно перемещена в песочницу: {target_db_path}")
             if show_message_callback:
                 show_message_callback("Синхронизация: Облачная база успешно импортирована!")
@@ -100,17 +101,24 @@ def main(page: ft.Page):
         print(f'[LINKER_START_ERROR] Сбой холодного автолинкера: {le}')
 
     # Защитный демпфер графического конвейера HyperOS
+    # Защитный демпфер графического конвейера HyperOS
     orig_update = page.update
     import time
     last_update_time = [0.0]
 
-    def throttled_update():
+    def throttled_update(*args, **kwargs):
+        import os
+        if os.name == 'nt':
+            # На Windows отключаем демпфер полностью во избежание пустых окон
+            orig_update(*args, **kwargs)
+            return
+            
         now = time.time()
         if now - last_update_time[0] < 0.06:
             time.sleep(0.04)
         last_update_time[0] = time.time()
-        orig_update()
-
+        orig_update(*args, **kwargs)
+        
     page.update = throttled_update
 
     # Перенесено в асинхронный воркер кнопки импорта во избежание дедлока
@@ -407,7 +415,7 @@ def android_safe_import_thread(e: ft.ControlEvent):
             send_log("Файл успешно скачан! Запуск линкера...")
             time.sleep(1.0)
 
-            success = engine.check_and_link_downloaded_db(None)
+            success = check_and_link_downloaded_db(None)
             if success:
                 time.sleep(0.5) # Демпфер для стабилизации UI перед тяжелым рендером
                 send_log("Синхронизация: База успешно импортирована!")
