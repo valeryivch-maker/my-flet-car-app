@@ -111,8 +111,9 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        if now - state_holder['last_time'] < 0.06:
-            time.sleep(0.04)
+        if now - state_holder['last_time'] < 0.25:
+            time.sleep(0.1)
+            return
         state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
         
