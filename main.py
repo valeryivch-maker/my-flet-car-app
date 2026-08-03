@@ -59,6 +59,24 @@ def run_local_telegram_sync():
         return False
 
 def main(page: ft.Page):
+    # Защитный демпфер графического конвейера HyperOS для устранения sync point 5
+    orig_update = page.update
+    import time
+    state_holder = {'last_time': 0.0}
+    
+    def throttled_update(*args, **kwargs):
+        import os
+        if os.name == 'nt':
+            orig_update(*args, **kwargs)
+            return
+        now = time.time()
+        if now - state_holder['last_time'] < 0.25:
+            time.sleep(0.1)
+            return
+        state_holder.update({'last_time': now})
+        orig_update(*args, **kwargs)
+    
+    page.update = throttled_update
     global db_data
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -229,6 +247,18 @@ def main(page: ft.Page):
             
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         page.update()
+        
+        # Подсистема контроля износа: отправка критических уведомлений в Telegram-бота
+        try:
+            import threading
+            def trigger_alerts_worker():
+                import sys
+                net_mod = sys.modules.get('network', __import__('network'))
+                if hasattr(net_mod, 'check_and_send_alerts'):
+                    net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
+            threading.Thread(target=trigger_alerts_worker, daemon=True).start()
+        except:
+            pass
         
     rebuild_ui()
 
