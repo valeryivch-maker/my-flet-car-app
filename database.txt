@@ -2,8 +2,8 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 200458,
-                "date": "18.07.2026"
+                "value": 200766,
+                "date": "31.07.2026"
             },
             "daily_mileage": 25,
             "odometer_history": [
@@ -111,28 +111,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 7797,
-                    "rem_days": 311,
+                    "rem_km": 7646,
+                    "rem_days": 305,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 24783,
-                    "rem_days": 991,
+                    "rem_km": 24632,
+                    "rem_days": 985,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 35393,
-                    "rem_days": 1415,
+                    "rem_km": 35242,
+                    "rem_days": 1409,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 30563,
-                    "rem_days": 1222,
+                    "rem_km": 30412,
+                    "rem_days": 1216,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -60307,
-                    "rem_days": -2412,
+                    "rem_km": -60458,
+                    "rem_days": -2418,
                     "is_overdue": true
                 }
             },
@@ -186,6 +186,16 @@
                     "odometer": 200458,
                     "consumption": 11.85,
                     "comment": "БРСМ"
+                },
+                {
+                    "date": "31.07.2026",
+                    "type": "Газ",
+                    "liters": 34.86,
+                    "price": 41.14,
+                    "cost": 1434.14,
+                    "odometer": 200766,
+                    "consumption": 11.32,
+                    "comment": "БРСМ г. Харькова"
                 }
             ],
             "repair_history": [
