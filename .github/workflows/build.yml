@@ -37,9 +37,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install "flet[cli]"
 
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses
+
       - name: Build Android APK Package
         run: |
-          flet build apk
+          flet build apk --python-version 3.13
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
