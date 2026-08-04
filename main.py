@@ -89,7 +89,7 @@ def main(page: ft.Page):
     page.window_width = 1200
     page.window_height = 800
 
-    def refresh_ui():
+    async def refresh_ui():
         page.controls.clear()
         page.update()
         rebuild_ui()
@@ -215,11 +215,11 @@ def main(page: ft.Page):
                             on_click=lambda _: [
                                 network.auto_import_last_file(page, show_message),
                                 page.data.pop("db_data", None),
-                                page.run_task(lambda _: refresh_ui())
+                                page.run_task(refresh_ui)
                             ] if os.name != "nt" else [
                                 run_local_telegram_sync(), 
                                 page.data.pop("db_data", None),
-                                refresh_ui(),
+                                page.run_task(refresh_ui),
                                 show_message("[V] База данных успешно импортирована локально из Telegram Desktop!")
                             ]
                         ),
