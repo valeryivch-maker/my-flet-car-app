@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Android APK Package
         run: |
-          flet build apk --python-version 3.13
+          flet build apk --python-version 3.11
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
