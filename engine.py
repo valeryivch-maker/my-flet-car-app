@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 import sys
 if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
-    DB_FILE = 'Carjournal_database.json'
+ DB_FILE = 'Carjournal_database.json'
     CONFIG_FILE = 'app_config.txt'
 else:
     DB_FILE = 'Carjournal_database.json'

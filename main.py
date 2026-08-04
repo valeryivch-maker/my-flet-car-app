@@ -197,7 +197,9 @@ def main(page: ft.Page):
                             ft.Icons.CLOUD_DOWNLOAD, 
                             tooltip="Импорт базы данных", 
                             on_click=lambda _: [
-                                network.auto_import_last_file(page, show_message)
+                                network.auto_import_last_file(page, show_message),
+        page.data.pop("db_data", None),
+        page.run_task(lambda _: refresh_ui())
                             ] if os.name != "nt" else [
                                 run_local_telegram_sync(), 
  page.data.pop("db_data", None),
