@@ -4,16 +4,19 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
-if base_dir not in sys.path: sys.path.insert(0, base_dir)
+if base_dir not in sys.path: 
+    sys.path.insert(0, base_dir)
 cwd_dir = os.getcwd()
-if cwd_dir not in sys.path: sys.path.insert(0, cwd_dir)
+if cwd_dir not in sys.path: 
+    sys.path.insert(0, cwd_dir)
 
 try:
     import network
 except ImportError:
     class NetworkStub:
         def __getattr__(self, name):
-            def stub_func(*args, **kwargs): return False, "Сетевой шлюз недоступен."
+            def stub_func(*args, **kwargs): 
+                return False, "Сетевой шлюз недоступен."
             return stub_func
     network = NetworkStub()
     sys.modules['network'] = network
@@ -34,8 +37,7 @@ def run_local_telegram_sync():
     """Оригинальный линкер от 14 июля: сканирует папку загрузок Telegram Desktop на ПК."""
     import shutil
     import glob
-    import glob
-    user_profile = os.environ.get("USERPROFILE", "C:\\Users\"User")
+    user_profile = os.environ.get("USERPROFILE", "C:\\Users\\User")
     possible_paths = [
         os.path.join(user_profile, "Downloads", "Telegram Desktop"),
         os.path.join(user_profile, "Загрузки", "Telegram Desktop"),
@@ -58,15 +60,16 @@ def run_local_telegram_sync():
         return True
     except:
         return False
-
 def main(page: ft.Page):
-    # Защитный демпфер графического конвейера HyperOS для устранения sync point 5
+    global _current_page_ref
+    _current_page_ref = page
+
+    # Защитный демпфер графического конвейера HyperOS для мобильных платформ
     orig_update = page.update
     import time
     state_holder = {'last_time': 0.0}
     
     def throttled_update(*args, **kwargs):
-        import os
         if os.name == 'nt':
             orig_update(*args, **kwargs)
             return
@@ -78,7 +81,6 @@ def main(page: ft.Page):
         orig_update(*args, **kwargs)
     
     page.update = throttled_update
-    global db_data
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
@@ -86,15 +88,14 @@ def main(page: ft.Page):
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
-    db_data = engine.load_data()
-    
+
     def refresh_ui():
         page.controls.clear()
         page.update()
         rebuild_ui()
 
     page.data = {"refresh_ui": refresh_ui}
-    
+
     def rebuild_ui():
         page.clean()
         try:
@@ -104,22 +105,24 @@ def main(page: ft.Page):
             current_db = {'cars': {}}
         
         cars_dict = current_db.get('cars', {})
-        if not cars_dict:
+        car_names = list(cars_dict.keys())
+        
+        if not cars_dict or not car_names:
             page.add(ft.Container(content=ft.Text('База данных пуста или повреждена.\nПожалуйста, нажмите кнопку Импорт или добавьте автомобиль.', size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.center, padding=50))
             page.update()
             return
         
-        car_names = list(cars_dict.keys())
         selected_car = engine.app_state.get('selected_car')
+        if selected_car:
+            match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
+            if match:
+                selected_car = match[0]
+                engine.app_state['selected_car'] = selected_car
+        
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
             engine.app_state['selected_car'] = selected_car
-        
-        if not selected_car:
-            page.add(ft.Text('Ошибка профиля автомобиля.', size=16))
-            page.update()
-            return
-        
+            
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
             is_selected = (name == selected_car)
@@ -134,7 +137,7 @@ def main(page: ft.Page):
         car_profile = cars_dict[selected_car]
         odo_dict = car_profile.get("odometer") or {}
         current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
-        daily_input = ft.TextField(label="Пробег in день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
+        daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
         
         def update_forecast_click(e):
             try:
@@ -146,40 +149,54 @@ def main(page: ft.Page):
                 if not any(h["value"] == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": now_date_str})
                 engine.save_data(current_db)
-                
                 show_message("Данные успешно обновлены!")
-            except ValueError: show_message("Ошибка поля пробега")
-            
+                rebuild_ui()
+            except ValueError: 
+                show_message("Ошибка ввода пробега")
+                
         def add_car_click(e):
             car_name_input = ft.TextField(label="Марка / Модель")
             def save_new_car(_):
                 name = car_name_input.value.strip()
                 if not name or name in current_db["cars"]: return
                 current_db["cars"][name] = {"odometer": {"value": 0, "date": datetime.now().strftime("%d.%m.%Y")}, "daily_mileage": 0, "odometer_history": [], "maintenance_data": {}, "history": []}
-                engine.save_data(current_db); engine.app_state["selected_car"] = name
-                dialog.open = False; page.update(); 
+                engine.save_data(current_db)
+                engine.app_state["selected_car"] = name
+                dialog.open = False
+                refresh_ui()
             dialog = ft.AlertDialog(title=ft.Text("Добавить автомобиль"), content=ft.Column([car_name_input], tight=True), actions=[ft.TextButton("Добавить", on_click=save_new_car)])
-            page.overlay.append(dialog); dialog.open = True; page.update()
-            
+            page.overlay.append(dialog)
+            dialog.open = True
+            page.update()
+
         def edit_car_name_click(e):
             edit_name_input = ft.TextField(label="Новое имя профиля", value=selected_car)
             def save_name_change(_):
                 new_name = edit_name_input.value.strip()
                 success_rename, rename_msg = engine.rename_car_profile(current_db, selected_car, new_name)
-                if not success_rename: show_message(rename_msg); return
+                if not success_rename: 
+                    show_message(rename_msg)
+                    return
                 engine.app_state["selected_car"] = new_name
-                dialog.open = False; page.update(); 
+                dialog.open = False
+                refresh_ui()
             dialog = ft.AlertDialog(title=ft.Text("Редактировать имя"), content=ft.Column([edit_name_input], tight=True), actions=[ft.TextButton("Сохранить", on_click=save_name_change)])
-            page.overlay.append(dialog); dialog.open = True; page.update()
-            
+            page.overlay.append(dialog)
+            dialog.open = True
+            page.update()
+
         def delete_car_click(e):
             if len(current_db["cars"]) <= 1: return
             def confirm_delete(_):
                 current_db["cars"].pop(selected_car)
-                engine.save_data(current_db); engine.app_state["selected_car"] = list(current_db["cars"].keys())[0]
-                dialog.open = False; page.update(); 
+                engine.save_data(current_db)
+                engine.app_state["selected_car"] = list(current_db["cars"].keys())[0]
+                dialog.open = False
+                refresh_ui()
             dialog = ft.AlertDialog(title=ft.Text("Удаление профиля"), content=ft.Text(f"Удалить '{selected_car}'?"), actions=[ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED_600))])
-            page.overlay.append(dialog); dialog.open = True; page.update()
+            page.overlay.append(dialog)
+            dialog.open = True
+            page.update()
 
         action_panel = ft.Column(
             spacing=5,
@@ -191,27 +208,29 @@ def main(page: ft.Page):
                     spacing=5,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram",
-                                      on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
+                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
                         ft.IconButton(
                             ft.Icons.CLOUD_DOWNLOAD, 
                             tooltip="Импорт базы данных", 
                             on_click=lambda _: [
                                 network.auto_import_last_file(page, show_message),
-        page.data.pop("db_data", None),
-        page.run_task(lambda _: refresh_ui())
+                                page.data.pop("db_data", None),
+                                page.run_task(lambda _: refresh_ui())
                             ] if os.name != "nt" else [
                                 run_local_telegram_sync(), 
- page.data.pop("db_data", None),
-                                refresh_ui(), 
+                                page.data.pop("db_data", None),
+                                refresh_ui(),
                                 show_message("[V] База данных успешно импортирована локально из Telegram Desktop!")
                             ]
                         ),
-                        ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=lambda _: [
-                            engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}), 
- rebuild_ui()
-                            
-                        ]),
+                        ft.IconButton(
+                            ft.Icons.BAR_CHART_ROUNDED, 
+                            tooltip="Аналитика", 
+                            on_click=lambda _: [
+                                engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode') != 'analytics' else 'list'}),
+                                rebuild_ui()
+                            ]
+                        ),
                         ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
                         ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=add_car_click),
                         ft.IconButton(icon=ft.Icons.EDIT, tooltip="Переименовать авто", on_click=edit_car_name_click),
@@ -254,9 +273,6 @@ def main(page: ft.Page):
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
             
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
-    # Избыточный page.update() удален для предотвращения зависания Windows
-        
-        # Подсистема контроля износа: отправка критических уведомлений в Telegram-бота
         try:
             import threading
             def trigger_alerts_worker():
@@ -265,9 +281,12 @@ def main(page: ft.Page):
                 if hasattr(net_mod, 'check_and_send_alerts'):
                     net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
             threading.Thread(target=trigger_alerts_worker, daemon=True).start()
-        except:
-            pass
+        except: pass
+
+    # Чистый стартовый запуск кадра внутри контекста main()
     rebuild_ui()
+
+
 
 if __name__ == "__main__":
     ft.app(target=main)
