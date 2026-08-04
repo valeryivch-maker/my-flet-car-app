@@ -38,7 +38,7 @@ jobs:
           pip install "flet[cli]"
 
       - name: Accept Android SDK Licenses
-        run: yes | sdkmanager --licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
       - name: Build Android APK Package
         run: |
