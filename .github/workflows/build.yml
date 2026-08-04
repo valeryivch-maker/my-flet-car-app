@@ -25,7 +25,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Linux Toolchain Dependencies (GTK 3.0)
         run: |
@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Android APK Package
         run: |
-          flet build apk --python-version 3.11
+          flet build apk --python-version 3.12
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
