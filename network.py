@@ -369,6 +369,11 @@ def auto_import_last_file():
     import requests
     import json
     
+    print("=" * 70)
+    print("[IMPORT] START")
+    print(f"[IMPORT] DB_REAL_PATH = {DB_REAL_PATH}")
+    print(f"[IMPORT] BASE_URL = {BASE_URL}")
+    print(f"[IMPORT] URL_UPDATES = {URL_UPDATES}")
     print("[СЕТЬ-ФОН] Сканирование чата по методу smart_cloud_sync...")
     target_file_id = None
     CHAT_ID = 1036911003
@@ -376,6 +381,10 @@ def auto_import_last_file():
     try:
         url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=100"
         response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=5.0)
+
+        print(f"[IMPORT] HTTP STATUS = {response.status_code}")
+        print("[IMPORT] RESPONSE:")
+        print(response.text[:1000])
         
         if response.status_code == 200:
             res_data = response.json()
@@ -392,17 +401,30 @@ def auto_import_last_file():
         else:
             return False, f"Ошибка подключения к Telegram API: Код {response.status_code}"
             
+        print(f"[IMPORT] target_file_id = {target_file_id}")
+
         if not target_file_id:
             return False, "Файл базы от телефона не найден в кэше обновлений. Сделайте ЭКСПОРТ на телефоне."
             
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=5.0).json()
+        file_info_resp = requests.get(
+            url_file_info,
+            headers=CUSTOM_HEADERS,
+            verify=SSL_VERIFY_MODE,
+            timeout=5.0
+        ).json()
+
+        print("[IMPORT] FILE INFO:")
+        print(file_info_resp)
         
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
             url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
             db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=SSL_VERIFY_MODE, timeout=5.0)
             
+            print(f"[IMPORT] DOWNLOAD STATUS = {db_resp.status_code}")
+            print(f"[IMPORT] DOWNLOADED BYTES = {len(db_resp.text)}")
+
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f_out:
                     f_out.write(db_resp.text)
@@ -422,5 +444,8 @@ def auto_import_last_file():
             send_telegram_alert_message(f"<b>Сбой шлюза импорта на Android:</b>\n<pre>{error_stack[:3500]}</pre>")
         except:
             pass
+        print("=" * 70)
+        print("[IMPORT] EXCEPTION")
+        traceback.print_exc()
         print(f"[ПАТЧ_КРИТ] Перехвачено исключение шлюза: {str(ex)}")
     return False, f"Ошибка шлюза импорта: {str(ex)}"
