@@ -89,6 +89,33 @@ def main(page: ft.Page):
     page.window_width = 1200
     page.window_height = 800
 
+
+    def import_button_click(_):
+        import traceback
+        from datetime import datetime
+
+        try:
+            with open("import_button.log", "a", encoding="utf-8") as f:
+                f.write("\n" + "=" * 70 + "\n")
+                f.write(datetime.now().strftime("%d.%m.%Y %H:%M:%S") + "\n")
+                f.write("BUTTON PRESSED\n")
+
+                f.write("CALL auto_import_last_file()\n")
+
+                result = network.auto_import_last_file(page, show_message)
+
+                f.write(f"RESULT = {repr(result)}\n")
+
+                page.data.pop("db_data", None)
+                page.run_task(refresh_ui)
+
+                f.write("REFRESH_UI STARTED\n")
+
+        except Exception:
+            with open("import_button.log", "a", encoding="utf-8") as f:
+                f.write("\nEXCEPTION:\n")
+                f.write(traceback.format_exc())
+
     async def refresh_ui():
         page.controls.clear()
         page.update()
@@ -212,11 +239,7 @@ def main(page: ft.Page):
                         ft.IconButton(
                             ft.Icons.CLOUD_DOWNLOAD, 
                             tooltip="Импорт базы данных", 
-                            on_click=lambda _: [
-                                network.auto_import_last_file(page, show_message),
-                                page.data.pop("db_data", None),
-                                page.run_task(refresh_ui)
-                            ] if os.name != "nt" else [
+                            on_click=import_button_click if os.name != "nt" else lambda _: [
                                 run_local_telegram_sync(), 
                                 page.data.pop("db_data", None),
                                 page.run_task(refresh_ui),
