@@ -824,7 +824,7 @@ def build_action_panel(page, current_db, selected_car, async_mobile_import, asyn
                     ft.IconButton(
                         ft.Icons.CLOUD_DOWNLOAD, 
                         tooltip="Импорт базы данных", 
-                        on_click=lambda e: page.run_task(async_mobile_import) if os.name != "nt" else page.run_task(async_pc_import)
+                        on_click=lambda _: page.run_task(async_mobile_import) if os.name != "nt" else page.run_task(async_pc_import)
                     ),
                     analytics_btn,
                     ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
