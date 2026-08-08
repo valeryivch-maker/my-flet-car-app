@@ -3,9 +3,9 @@
         "Chevrolet lacetti": {
             "odometer": {
                 "value": 200766,
-                "date": "31.07.2026"
+                "date": "08.08.2026"
             },
-            "daily_mileage": 25,
+            "daily_mileage": 24,
             "odometer_history": [
                 {
                     "value": 183503,
@@ -46,6 +46,10 @@
                 {
                     "value": 200307,
                     "date": "13.07.2026"
+                },
+                {
+                    "value": 200766,
+                    "date": "08.08.2026"
                 }
             ],
             "maintenance_data": {
@@ -111,28 +115,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 7646,
+                    "rem_km": 7338,
                     "rem_days": 305,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 24632,
-                    "rem_days": 985,
+                    "rem_km": 24324,
+                    "rem_days": 1013,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 35242,
-                    "rem_days": 1409,
+                    "rem_km": 34934,
+                    "rem_days": 1455,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 30412,
-                    "rem_days": 1216,
+                    "rem_km": 30104,
+                    "rem_days": 1254,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -60458,
-                    "rem_days": -2418,
+                    "rem_km": -60766,
+                    "rem_days": -2531,
                     "is_overdue": true
                 }
             },
