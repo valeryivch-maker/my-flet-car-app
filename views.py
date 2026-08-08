@@ -89,10 +89,16 @@ def build_action_panel(page, current_db, selected_car, async_mobile_import, asyn
     import flet as ft
     import os
     
+    def on_analytics_click(e):
+        current_mode = engine.app_state.get('view_mode', 'list')
+        new_mode = 'analytics' if current_mode != 'analytics' else 'list'
+        engine.app_state.update({'view_mode': new_mode})
+        refresh_callback()
+
     analytics_btn = ft.IconButton(
         ft.Icons.BAR_CHART_ROUNDED, 
         tooltip="Аналитика", 
-        on_click=toggle_analytics_click
+        on_click=on_analytics_click
     )
     
     return ft.Column(

@@ -1,6 +1,6 @@
 ﻿**********************
 Начало записи сценария Windows PowerShell
-Время начала: 20260808194457
+Время начала: 20260808203837
 Имя пользователя: VALAN\User
 Запуск от имени пользователя: VALAN\User
 Имя конфигурации: 
@@ -17,32 +17,8 @@ PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
 Транскрибирование запущено, выходной файл C:\flet_app\GitHub\my-flet-car-app\console_log.txt
-[PATCH] Настройка .gitignore для фильтрации __pycache__...
-[STATUS] Успешно! Правила игнорирования кэша добавлены в .gitignore.
+[PATCH] Исправление кнопок Импорта и Аналитики во views.py...
+[PATCH] Кнопка Аналитики успешно переведена на реактивный refresh_callback.
+[STATUS] Успешно! Мобильные триггеры полностью исправлены.
 
-Нажмите Enter для продолжения к очистке индекса....
-PS C:\flet_app\GitHub\my-flet-car-app> git rm -r --cached .
-rm '.fletignore'
-rm '.github/workflows/build.yml'
-rm '.github/workflows/weekly_reminder.yml'
-rm '.gitignore'
-rm 'Carjournal_database.json'
-rm '__pycache__/engine.cpython-313.pyc'
-rm '__pycache__/network.cpython-313.pyc'
-rm '__pycache__/views.cpython-313.pyc'
-rm 'app.py'
-rm 'app_config.txt'
-rm 'assets/icon.png'
-rm 'cron_weekly_check.py'
-rm 'engine.py'
-rm 'flet-config.json'
-rm 'flet.yaml'
-rm 'main.py'
-rm 'network.py'
-rm 'network_template.py'
-rm 'python_debug_log.txt'
-rm 'trigger.txt'
-rm 'views.py'
-PS C:\flet_app\GitHub\my-flet-car-app> git add .
-
-
+Нажмите Enter для завершения....
