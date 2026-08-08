@@ -1,12 +1,12 @@
 ﻿**********************
 Начало записи сценария Windows PowerShell
-Время начала: 20260808213659
+Время начала: 20260808210156
 Имя пользователя: VALAN\User
 Запуск от имени пользователя: VALAN\User
 Имя конфигурации: 
 Компьютер: VALAN (Microsoft Windows NT 10.0.17763.0)
 Ведущее приложение: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-ИД процесса: 9764
+ИД процесса: 12680
 PSVersion: 5.1.17763.8385
 PSEdition: Desktop
 PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.17763.8385
@@ -17,7 +17,7 @@ PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
 Транскрибирование запущено, выходной файл C:\flet_app\GitHub\my-flet-car-app\console_log.txt
-[PATCH] Views Рефакторинг. Восстановление диалогов заправок и ремонтов...
-[STATUS] Успешно! Все недостающие диалоги учета ГБО и ремонтов интегрированы во views.py.
+[PATCH] Реставрация модуля уведомлений бота в ядре main.py...
+[STATUS] Успешно! Поток алертов интегрирован в точку входа main().
 
 Нажмите Enter для завершения....
