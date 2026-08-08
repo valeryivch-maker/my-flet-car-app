@@ -93,12 +93,7 @@ def build_action_panel(page, current_db, selected_car, async_mobile_import, asyn
         current_mode = engine.app_state.get('view_mode', 'list')
         new_mode = 'analytics' if current_mode != 'analytics' else 'list'
         engine.app_state.update({'view_mode': new_mode})
-        
-        # Безопасный кроссплатформенный запуск асинхронного обновления экрана
-        if hasattr(page, "run_task"):
-            page.run_task(page.data["refresh_ui"])
-        else:
-            refresh_callback()
+        refresh_callback()
 
     analytics_btn = ft.IconButton(
         ft.Icons.BAR_CHART_ROUNDED, 

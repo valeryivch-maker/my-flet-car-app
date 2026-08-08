@@ -68,42 +68,6 @@ def run_local_telegram_sync():
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
-    
-    # --- ИЗОЛИРОВАННЫЙ ФОНОВЫЙ ПОТОК УВЕДОМЛЕНИЙ ТЕЛЕГРАМ-БОТА ---
-    try:
-        import threading
-        import time
-        import sys
-        
-        def run_background_alerts():
-            # Задержка перед стартом, чтобы СУБД успела прогрузиться
-            time.sleep(3)
-            while True:
-                try:
-                    net_mod = sys.modules.get('network', __import__('network'))
-                    eng_mod = sys.modules.get('engine', __import__('engine'))
-                    
-                    current_db = eng_mod.load_data()
-                    cars_dict = current_db.get('cars', {})
-                    selected_car = eng_mod.app_state.get('selected_car')
-                    
-                    if not selected_car and cars_dict:
-                        selected_car = list(cars_dict.keys())[0]
-                        
-                    if selected_car and selected_car in cars_dict:
-                        car_profile = cars_dict[selected_car]
-                        if hasattr(net_mod, 'check_and_send_alerts'):
-                            net_mod.check_and_send_alerts(car_profile, car_name=selected_car)
-                except Exception as e:
-                    print(f"[BG ALERTS ERROR] {e}")
-                
-                # Проверка критического положения каждые 60 секунд
-                time.sleep(60)
-                
-        threading.Thread(target=run_background_alerts, daemon=True).start()
-        print("[STATUS] Фоновый демон Telegram-уведомлений успешно запущен.")
-    except Exception as thread_err:
-        print(f"[CRITICAL] Не удалось инициализировать поток алертов: {thread_err}")
     orig_update = page.update
     import time
     state_holder = {'last_time': 0.0}
