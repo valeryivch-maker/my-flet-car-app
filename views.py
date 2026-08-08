@@ -719,3 +719,132 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
     dlg.open = True
     page.update()
     refresh()
+
+# --- БЛОК ДИАЛОГОВ УПРАВЛЕНИЯ ПРОФИЛЯМИ АВТОМОБИЛЕЙ (РЕФАКТОРИНГ) ---
+
+def show_add_car_dialog(page, current_db, refresh_callback):
+    car_name_input = ft.TextField(label="Марка / Модель")
+    
+    def save_new_car(_):
+        name = car_name_input.value.strip()
+        if not name or name in current_db["cars"]: return
+        current_db["cars"][name] = {
+            "odometer": {"value": 0, "date": datetime.now().strftime("%d.%m.%Y")},
+            "daily_mileage": 0, 
+            "odometer_history": [], 
+            "maintenance_data": {}, 
+            "history": []
+        }
+        engine.save_data(current_db)
+        engine.app_state["selected_car"] = name
+        dialog.open = False
+        page.update()
+        refresh_callback()
+        
+    dialog = ft.AlertDialog(
+        title=ft.Text("Добавить автомобиль"), 
+        content=ft.Column([car_name_input], tight=True),
+        actions=[ft.TextButton("Добавить", on_click=save_new_car)]
+    )
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
+
+def show_edit_car_name_dialog(page, current_db, selected_car, refresh_callback):
+    edit_name_input = ft.TextField(label="Новое имя профиля", value=selected_car)
+    
+    def save_name_change(_):
+        new_name = edit_name_input.value.strip()
+        success_rename, rename_msg = engine.rename_car_profile(current_db, selected_car, new_name)
+        if not success_rename: 
+            if hasattr(page, "snack_bar"):
+                page.snack_bar = ft.SnackBar(ft.Text(rename_msg), open=True)
+                page.update()
+            return
+        engine.app_state["selected_car"] = new_name
+        dialog.open = False
+        page.update()
+        refresh_callback()
+        
+    dialog = ft.AlertDialog(
+        title=ft.Text("Редактировать имя"), 
+        content=ft.Column([edit_name_input], tight=True),
+        actions=[ft.TextButton("Сохранить", on_click=save_name_change)]
+    )
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
+
+def show_delete_car_dialog(page, current_db, selected_car, refresh_callback):
+    if len(current_db["cars"]) <= 1: return
+    
+    def confirm_delete(_):
+        current_db["cars"].pop(selected_car)
+        engine.save_data(current_db)
+        engine.app_state["selected_car"] = list(current_db["cars"].keys())[0]
+        dialog.open = False
+        page.update()
+        refresh_callback()
+        
+    dialog = ft.AlertDialog(
+        title=ft.Text("Удаление профиля"), 
+        content=ft.Text(f"Удалить '{selected_car}'?"),
+        actions=[ft.TextButton("Удалить", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED_600))]
+    )
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
+
+
+def build_action_panel(page, current_db, selected_car, async_mobile_import, async_pc_import, toggle_analytics_click, network, show_message, refresh_callback):
+    import flet as ft
+    import os
+    
+    analytics_btn = ft.IconButton(
+        ft.Icons.BAR_CHART_ROUNDED, 
+        tooltip="Аналитика", 
+        on_click=toggle_analytics_click
+    )
+    
+    return ft.Column(
+        spacing=5,
+        horizontal_alignment=ft.CrossAxisAlignment.START,
+        controls=[
+            ft.Text("База и управление профилями:", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_700),
+            ft.Row(
+                scroll=ft.ScrollMode.AUTO,
+                spacing=5,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.IconButton(
+                        ft.Icons.CLOUD_UPLOAD, 
+                        tooltip="Экспорт базы в Telegram",
+                        on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)
+                    ),
+                    ft.IconButton(
+                        ft.Icons.CLOUD_DOWNLOAD, 
+                        tooltip="Импорт базы данных", 
+                        on_click=lambda e: page.run_task(async_mobile_import) if os.name != "nt" else page.run_task(async_pc_import)
+                    ),
+                    analytics_btn,
+                    ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
+                    ft.IconButton(
+                        ft.Icons.ADD_CIRCLE, 
+                        tooltip="Добавить авто", 
+                        on_click=lambda _: show_add_car_dialog(page, current_db, refresh_callback)
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.EDIT, 
+                        tooltip="Переименовать авто", 
+                        on_click=lambda _: show_edit_car_name_dialog(page, current_db, selected_car, refresh_callback)
+                    ),
+                    ft.IconButton(
+                        ft.Icons.DELETE_FOREVER, 
+                        tooltip="Удалить авто", 
+                        on_click=lambda _: show_delete_car_dialog(page, current_db, selected_car, refresh_callback), 
+                        icon_color=ft.Colors.RED_500
+                    ),
+                ]
+            )
+        ]
+    )

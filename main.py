@@ -96,6 +96,33 @@ def main(page: ft.Page):
     page.data = {"refresh_ui": refresh_ui}
     def rebuild_ui():
         page.clean()
+        
+        async def async_mobile_import(e):
+            show_message("⬇️ Запрос файла из Telegram...")
+            import asyncio
+            loop = asyncio.get_running_loop()
+            try:
+                success = await loop.run_in_executor(None, lambda: network.auto_import_last_file(page, show_message))
+                if success or os.name != "nt":
+                    page.data.pop("db_data", None)
+                    await refresh_ui()
+                    show_message("[V] База данных успешно обновлена!")
+                else:
+                    show_message("[X] Не удалось получить новый файл")
+            except Exception as err:
+                show_message(f"[X] Ошибка импорта: {str(err)}")
+
+        async def async_pc_import(e):
+            show_message("🔄 Сканирование локальных загрузок...")
+            import asyncio
+            loop = asyncio.get_running_loop()
+            success = await loop.run_in_executor(None, run_local_telegram_sync)
+            if success:
+                page.data.pop("db_data", None)
+                await refresh_ui()
+                show_message("[V] База данных успешно импортирована!")
+            else:
+                show_message("[X] Файлы импорта не найдены.")
         try:
             current_db = engine.load_data()
         except Exception as db_err:
@@ -165,21 +192,18 @@ def main(page: ft.Page):
 
         analytics_btn = ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=toggle_analytics_click)
         
-        action_panel = ft.Column(
-            spacing=5, horizontal_alignment=ft.CrossAxisAlignment.START,
-            controls=[
-                ft.Text("База и управление профилями:", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_700),
-                ft.Row(
-                    scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.IconButton(ft.Icons.CLOUD_UPLOAD, on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
-                        ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, on_click=lambda e: page.run_task(async_mobile_import) if os.name != "nt" else page.run_task(async_pc_import)),
-                        analytics_btn,
-                        ft.VerticalDivider(width=10),
-                    ]
-                )
-            ]
+        action_panel = views.build_action_panel(
+            page, 
+            current_db, 
+            selected_car, 
+            async_mobile_import, 
+            async_pc_import, 
+            toggle_analytics_click, 
+            network, 
+            show_message, 
+            lambda: page.run_task(refresh_ui)
         )
+        
         odo_hist = car_profile.get("odometer_history", [])
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
         header_card = ft.Card(
