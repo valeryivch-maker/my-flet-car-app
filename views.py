@@ -114,7 +114,8 @@ def build_action_panel(page, current_db, selected_car, async_mobile_import, asyn
                         ft.Icons.CLOUD_DOWNLOAD, 
                         tooltip="Импорт базы данных", 
                         on_click=lambda _: [
-                            show_message("🔄 Запрос к API Telegram..."),
+                            page.snack_bar == ft.SnackBar(ft.Text("🔄 Запрос к API Telegram..."), open=True),
+                            page.update(),
                             page.run_task(async_mobile_import)
                         ] if os.name != "nt" else [
                             page.run_task(async_pc_import)
