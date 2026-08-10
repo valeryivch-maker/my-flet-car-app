@@ -108,7 +108,7 @@ def generate_analytics_view(page, car_profile):
     return view_column
 
 def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, show_msg): 
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=220, spacing=8) 
+    h_col = ft.Column(scroll=ft.ScrollMode.ALWAYS, height=350, spacing=8) 
     def refresh(): 
         h_col.controls.clear() 
         if "history" not in car_profile: 
@@ -180,7 +180,7 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
         page.update() 
     dlg = ft.AlertDialog( 
         title=ft.Text(f"История: {task_name}"), 
-        content=ft.Container(content=h_col, adaptive=True), 
+        content=ft.Container(content=h_col, width=550, adaptive=True), 
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     ) 
     page.overlay.append(dlg) 
@@ -366,7 +366,7 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
     )
     page.overlay.append(dlg); dlg.open = True; page.update(); render()
 def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=240, spacing=8)
+    h_col = ft.Column(scroll=ft.ScrollMode.ALWAYS, height=350, spacing=8)
     dlg = None
     def refresh():
         h_col.controls.clear()
@@ -446,7 +446,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         content=ft.Column([
             ft.Divider(height=1, color=ft.Colors.BLACK_12),
             h_col
-        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=380),
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
     page.overlay.append(dlg); dlg.open = True; page.update(); refresh()
@@ -501,7 +501,7 @@ def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
     dlg.open = True
     page.update()
 def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
-    h_col = ft.Column(scroll=ft.ScrollMode.AUTO, height=280, spacing=10)
+    h_col = ft.Column(scroll=ft.ScrollMode.ALWAYS, height=350, spacing=10)
     search_field = ft.TextField(
         label="Поиск по журналу...", 
         prefix_icon=ft.Icons.SEARCH,
@@ -726,7 +726,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
             search_field,
             ft.Divider(height=1, color=ft.Colors.BLACK_12),
             h_col
-        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=350),
+        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
     page.overlay.append(dlg)

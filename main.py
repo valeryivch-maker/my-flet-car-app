@@ -86,7 +86,16 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
-    page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
+    page.theme = ft.Theme(
+        color_scheme_seed=ft.Colors.AMBER,
+        scrollbar_theme=ft.ScrollbarTheme(
+            track_visibility=True,
+            thumb_visibility=True,
+            thickness=10,
+            radius=4,
+            thumb_color=ft.Colors.AMBER_700
+        )
+    )
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
