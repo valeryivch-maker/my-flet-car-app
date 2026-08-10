@@ -159,13 +159,20 @@ def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, sho
                 h_col.controls.append(ft.Container( 
                     content=ft.Row([ 
                         ft.Column([ 
-                            ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км"), ft.Text(f"💰 {rec.get('cost', 0)} грн", weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)]), 
+                            ft.Row([
+                                ft.Icon(ft.Icons.CALENDAR_TODAY, size=14, color=ft.Colors.BLUE_GREY_400),
+                                ft.Text(f"{rec.get('date')}", size=13), 
+                                ft.Icon(ft.Icons.SPEED, size=14, color=ft.Colors.BLUE_GREY_400),
+                                ft.Text(f"{rec.get('odometer')} км", size=13, weight=ft.FontWeight.W_500), 
+                                ft.Icon(ft.Icons.ATTACH_MONEY, size=14, color=ft.Colors.GREEN_700),
+                                ft.Text(f"{rec.get('cost', 0)} грн", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
+                            ], spacing=6),
                             ft.Text(f"⚙️ {rec.get('part_name','')} [Арт: {rec.get('part_code','')}]" if rec.get('part_code') else "", size=12, color=ft.Colors.GREEN_800, weight=ft.FontWeight.W_500),
                             ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_600, italic=True) 
                         ]), 
                         ft.Row([ 
                             ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()),
-                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del()) 
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, hover_color=ft.Colors.RED_100, tooltip='Удалить запись', on_click=make_del()) 
                         ], spacing=0) 
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), 
                     padding=6, bgcolor=ft.Colors.GREY_50, border_radius=6 
@@ -411,14 +418,21 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                 h_col.controls.append(ft.Container(
                     content=ft.Row([
                         ft.Column([
-                            ft.Row([ft.Text(f"📅 {rec.get('date')}"), ft.Text(f"📍 {rec.get('odometer')} км", weight=ft.FontWeight.BOLD)]),
+                            ft.Row([
+                                ft.Icon(ft.Icons.CALENDAR_TODAY, size=14, color=ft.Colors.BLUE_GREY_400),
+                                ft.Text(f"{rec.get('date')}", size=13), 
+                                ft.Icon(ft.Icons.SPEED, size=14, color=ft.Colors.BLUE_GREY_400),
+                                ft.Text(f"{rec.get('odometer')} км", size=13, weight=ft.FontWeight.W_500), 
+                                ft.Icon(ft.Icons.ATTACH_MONEY, size=14, color=ft.Colors.GREEN_700),
+                                ft.Text(f"{rec.get('cost', 0)} грн", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
+                            ], spacing=6),
                             ft.Text(info_line, size=13),
                             ft.Text(cost_line, size=13, color=ft.Colors.BLUE_GREY_700, weight=ft.FontWeight.W_500),
                             ft.Text(rec.get('comment', ""), size=11, color=ft.Colors.GREY_500, italic=True) if rec.get('comment') else ft.Container()
                         ], spacing=2, expand=True),
                         ft.Row([
                             ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()),
-                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, on_click=make_del())
+                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, hover_color=ft.Colors.RED_100, tooltip='Удалить запись', on_click=make_del())
                         ], spacing=0)
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
