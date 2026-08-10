@@ -1,3 +1,4 @@
+import network
 import sys
 import os
 import warnings
@@ -85,7 +86,16 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
-    page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
+    page.theme = ft.Theme(
+        color_scheme_seed=ft.Colors.AMBER,
+        scrollbar_theme=ft.ScrollbarTheme(
+            track_visibility=True,
+            thumb_visibility=True,
+            thickness=10,
+            radius=4,
+            thumb_color=ft.Colors.AMBER_700
+        )
+    )
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
@@ -178,10 +188,25 @@ def main(page: ft.Page):
                 if "odometer_history" not in car_profile: car_profile["odometer_history"] = []
                 if not any(h.get("value") == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
+                car_profile['predictions'] = engine.get_maintenance_predictions(car_profile)
                 engine.save_data(current_db)
                 page.snack_bar = ft.SnackBar(ft.Text("✅ Данные успешно обновлены в JSON!"), open=True)
                 page.update()
                 page.run_task(refresh_ui)
+
+                # Оживление Telegram-бота: фоновый запуск проверки алертов
+                try:
+                    import threading
+                    # Сбрасываем кэш флуд-контроля для этой машины, так как пробег изменился
+                    if hasattr(network, 'LAST_SENT_ALERTS') and selected_car in network.LAST_SENT_ALERTS:
+                        network.LAST_SENT_ALERTS[selected_car] = None
+                    
+                    def trigger_alerts_worker():
+                        if hasattr(network, 'check_and_send_alerts'):
+                            network.check_and_send_alerts(car_profile, car_name=selected_car)
+                    threading.Thread(target=trigger_alerts_worker, daemon=True).start()
+                except Exception as t_err:
+                    print(f"[ALERT TRIGGER ERROR]: {t_err}")
             except Exception as ex:
                 page.snack_bar = ft.SnackBar(ft.Text(f"❌ Ошибка СУБД: {str(ex)}"), open=True)
                 page.update()
@@ -236,6 +261,23 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         
+
+    # Автоматическая проверка критического износа ТО сразу при запуске программы
+    try:
+        import threading
+        def trigger_start_alerts_worker():
+            import sys
+            net_mod = sys.modules.get('network', __import__('network'))
+            if hasattr(net_mod, 'check_and_send_alerts'):
+                # Перед запуском достаем актуальный профиль выбранной машины
+                current_db_data = engine.load_data()
+                sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
+                if current_db_data and "cars" in current_db_data and sel_car in current_db_data["cars"]:
+                    car_prof = current_db_data["cars"][sel_car]
+                    net_mod.check_and_send_alerts(car_prof, car_name=sel_car)
+        threading.Thread(target=trigger_start_alerts_worker, daemon=True).start()
+    except Exception as start_err:
+        print(f"[START ALERT TRIGGER ERROR]: {start_err}")
     rebuild_ui()
 
 if __name__ == "__main__":
