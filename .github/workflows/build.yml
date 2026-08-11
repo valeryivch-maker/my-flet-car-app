@@ -41,6 +41,8 @@ jobs:
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
       - name: Build Android APK Package
+        env:
+          PYTHONHTTPSVERIFY: "0"
         run: |
           flet clean
           flet build apk --python-version 3.12 --cleanup-app --cleanup-packages
