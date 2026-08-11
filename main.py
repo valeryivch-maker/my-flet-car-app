@@ -111,7 +111,7 @@ def main(page: ft.Page):
             import asyncio
             loop = asyncio.get_running_loop()
             try:
-                success = await loop.run_in_executor(None, lambda: network.auto_import_last_file(page, show_message))
+                success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
                 if success or os.name != "nt":
                     page.data.pop("db_data", None)
                     await refresh_ui()
@@ -211,7 +211,7 @@ def main(page: ft.Page):
                 page.update()
                 
         def toggle_analytics_click(e):
-            engine.app_state.update({'view_mode': 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'})
+            engine.app_state['view_mode'] = 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'
             rebuild_ui()
 
         analytics_btn = ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=toggle_analytics_click)
