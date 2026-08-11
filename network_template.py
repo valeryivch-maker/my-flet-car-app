@@ -88,11 +88,11 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         def async_import_worker():
             # Исправлено: ui_task объявлена как async def для жесткого соответствия требованиям run_task()
             def safe_update_ui(text, close_win=False):
-                async def ui_task():
-                    status_text.value = text
-                    if close_win:
-                        dialog.open = False
-                    page.update()
+                status_text.value = text
+                if close_win:
+                    dialog.open = False
+                page.update()
+
                 page.update() # Безопасный синхронный апдейт вместо run_task
 
             try:
