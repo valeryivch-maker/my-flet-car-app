@@ -256,119 +256,11 @@ def check_and_send_alerts(car_profile, car_name=None):
         
         network_executor.submit(send_telegram_alert_message, full_message)
 
-def auto_import_last_file(show_message_callback):
-    """Сканирует историю чата бота, находит последний JSON-бэкап и импортирует его."""
-    url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=1"
-    try:
-        response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
-        if response.status_code != 200:
-            show_message_callback("Ошибка подключения к Telegram API")
-            return
-            
-        res_data = response.json()
-        if not res_data.get("ok"):
-            show_message_callback("Не удалось получить обновления чата")
-            return
-            
-        # Ищем самый свежий файл базы данных в истории сообщений (сканируем с конца)
-        target_file_id = None
-        for result in reversed(res_data.get("result", [])):
-            message = result.get("message", {})
-            document = message.get("document", {})
-            if document and document.get("file_name") == "Carjournal_database.json":
-                target_file_id = document.get("file_id")
-                break
-                
-        if not target_file_id:
-            show_message_callback("Файл бэкапа не найден в последних сообщениях чата")
-            return
-            
-        # Получаем прямую ссылку на скачивание файла
-        url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
-        
-        if not file_info_resp.get("ok"):
-            show_message_callback("Ошибка получения ссылки на файл")
-            return
-            
-        file_path = file_info_resp["result"]["file_path"]
-        url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
-        
-        # Скачиваем файл и перезаписываем локальную базу данных
-        db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
-        if db_resp.status_code == 200:
-            with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
-                f.write(db_resp.text)
-            show_message_callback("✅ База данных успешно импортирована из чата!")
-            # Триггерим обновление интерфейса приложения
-            import engine
-            engine.load_data()
-        else:
-            show_message_callback("Не удалось скачать файл бэкапа")
-            
-    except Exception as ex:
-        show_message_callback(f"Ошибка импорта: {str(ex)}")
-
-
-def auto_export_file_to_telegram(page, show_message_callback):
-    """Прямой экспорт базы данных в Telegram с кэшированием ID файла."""
-    import requests
-    url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendDocument"
-    
-    def show_alert(msg_text):
-        def close_dialog(_):
-            dialog.open = False
-            page.update()
-        dialog = ft.AlertDialog(
-            title=ft.Text("Синхронизация базы"),
-            content=ft.Text(msg_text),
-            actions=[ft.TextButton("ОК", on_click=close_dialog)]
-        )
-        page.overlay.append(dialog)
-        dialog.open = True
-        page.update()
-    
-    if not os.path.exists(DB_REAL_PATH):
-        show_alert("Ошибка: Файл базы данных не найден.")
-        return
-        
-    try:
-        with open(DB_REAL_PATH, "rb") as file_data:
-            files = {"document": ("Carjournal_database.json", file_data)}
-            payload = {"chat_id": 1036911003, "caption": "📦 Резервная копия базы"}
-            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=False, timeout=10)
-            
-            if resp.status_code == 200:
-                resp_json = resp.json()
-                if resp_json.get("ok"):
-                    doc_info = resp_json["result"].get("document", {})
-                    engine.app_state["last_file_id"] = doc_info.get("file_id")
-                show_alert("✅ База данных успешно экспортирована в Telegram!")
-            else:
-                show_alert(f"Ошибка сервера: {resp.status_code}")
-    except Exception as e:
-        show_alert(f"Ошибка сети: {str(e)}")
-
-def auto_import_last_file(page, show_message_callback):
-    """Импорт базы из кэша сессии или из входящих файлов чата."""
+def auto_import_last_file():
+    """Чистая функция импорта базы данных без привязки к контексту страницы."""
     import requests
     import engine
-    
-    def show_alert(msg_text):
-        def close_dialog(_):
-            dialog.open = False
-            page.update()
-        dialog = ft.AlertDialog(
-            title=ft.Text("Синхронизация базы"),
-            content=ft.Text(msg_text),
-            actions=[ft.TextButton("ОК", on_click=close_dialog)]
-        )
-        page.overlay.append(dialog)
-        dialog.open = True
-        page.update()
-
     target_file_id = engine.app_state.get("last_file_id")
-
     if not target_file_id:
         try:
             url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=10"
@@ -383,29 +275,21 @@ def auto_import_last_file(page, show_message_callback):
                         break
         except Exception:
             pass
-
     if not target_file_id:
-        show_alert("Файл бэкапа не найден в кэше сессии. Перешлите файл Carjournal_database.json в чат бота вручную и повторите импорт.")
-        return
-
+        return False
     try:
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
         file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
-        
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
             url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
             db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
-            
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
                     f.write(db_resp.text)
-                show_alert("✅ База данных успешно импортирована!")
                 import engine
                 engine.load_data()
-            else:
-                show_alert("Не удалось загрузить файл бэкапа.")
-        else:
-            show_alert("Срок действия ссылки на файл в Telegram истек.")
-    except Exception as ex:
-        show_alert(f"Ошибка импорта: {str(ex)}")
+                return True
+    except Exception:
+        pass
+    return False
