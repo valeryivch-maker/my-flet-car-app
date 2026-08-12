@@ -1,6 +1,15 @@
 import sys
 import os
 import warnings
+# Автономная защита ресурсов локализации на Android
+try:
+    if not os.path.exists("server_config"):
+        os.makedirs("server_config", exist_ok=True)
+    if not os.path.exists("server_config/ru_ru.json"):
+        with open("server_config/ru_ru.json", "w", encoding="utf-8") as f_loc:
+            f_loc.write('{"status": "fallback", "locale": "ru_RU"}')
+except Exception as loc_err:
+    print(f"[PATCH_RESOURCE_WARNING] Не удалось создать эмуляцию локализации: {loc_err}")
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
