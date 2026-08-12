@@ -86,105 +86,39 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
             page.update()
             
         def async_import_worker():
-            # Исправлено: ui_task объявлена как async def для жесткого соответствия требованиям run_task()
             def safe_update_ui(text, close_win=False):
                 status_text.value = text
                 if close_win:
                     dialog.open = False
                 page.update()
 
-                page.update() # Безопасный синхронный апдейт вместо run_task
-
             try:
-                print("\n[DEBUG] Воркер импорта запущен!")
+                print("\n[DEBUG] Воркер импорта запущен через чистое ядро!")
+                safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
                 
-                try:
-                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=False)
-                    time.sleep(0.5)
-                except:
-                    pass
+                # Вызываем нашу протестированную функцию данных
+                success = auto_import_last_file()
                 
-                print("[DEBUG] Запрашиваем getUpdates...")
-                response = requests.get(
-                    URL_UPDATES, 
-                    headers=CUSTOM_HEADERS,
-                    proxies={"http": None, "https": None},
-                    timeout=12, 
-                    verify=False
-                )
-                print(f"[DEBUG] Импорт Updates: Код {response.status_code}")
-                
-                if response.status_code != 200:
-                    safe_update_ui(f"Ошибка сети: Код {response.status_code}")
-                    return
+                if success:
+                    # Обновляем оперативную память приложения новыми данными
+                    import engine
+                    db_data_ref.clear()
+                    db_data_ref.update(engine.load_data())
                     
-                updates = response.json().get("result", [])
-                backup_file_id = None
-                
-                for update in reversed(updates):
-                    try:
-                        message = update.get("message", {})
-                        if not message:
-                            continue
-                        document = message.get("document", {})
-                        if document and "json" in str(document.get("file_name", "")).lower():
-                            backup_file_id = document.get("file_id")
-                            break
-                    except:
-                        continue
-                        
-                if not backup_file_id:
-                    safe_update_ui("Бэкап в облаке не найден!")
-                    return
+                    # Безопасный асинхронный коллбэк для перерисовки графики
+                    async def finalize_success():
+                        show_message_callback("База успешно восстановлена из облака!")
+                        if page.data and "refresh_ui" in page.data:
+                            page.data["refresh_ui"]()
                     
-                safe_update_ui("Скачивание файла...")
-                
-                file_info_res = requests.get(
-                    URL_FILE_INFO, 
-                    params={"file_id": backup_file_id}, 
-                    headers=CUSTOM_HEADERS,
-                    proxies={"http": None, "https": None},
-                    timeout=12, 
-                    verify=False
-                )
-                file_path = file_info_res.json().get("result", {}).get("file_path")
-                
-                download_res = requests.get(
-                    URL_DOWNLOAD_BASE + file_path, 
-                    headers=CUSTOM_HEADERS,
-                    proxies={"http": None, "https": None},
-                    timeout=12, 
-                    verify=False
-                )
-                
-                print(f"[DEBUG] Скачано байт: {len(download_res.text)}")
-                
-                try:
-                    imported_json = json.loads(download_res.text)
-                    if "cars" in imported_json:
-                        engine.save_data(imported_json)
-                        db_data_ref.clear()
-                        db_data_ref.update(engine.load_data())
-                        
-                        # Исправлено: корутина для безопасного коллбэка
-                        async def finalize_success():
-                            show_message_callback("База успешно восстановлена!")
-                            if page.data and "refresh_ui" in page.data:
-                                page.data["refresh_ui"]()
-                        
-                        page.run_task(finalize_success)
-                        safe_update_ui("Синхронизация успешна!", close_win=True)
-                    else:
-                        safe_update_ui("Файл поврежден.")
-                except Exception as json_ex:
-                    print("[КРИТИЧЕСКИЙ СБОЙ ПАРСИНГА JSON]:")
-                    traceback.print_exc()
-                    safe_update_ui("Ошибка чтения JSON-структуры")
+                    page.run_task(finalize_success)
+                    safe_update_ui("Синхронизация успешна!", close_win=True)
+                else:
+                    safe_update_ui("Ошибка: Свежий бэкап не найден или поврежден.")
                     
             except Exception as ex:
                 print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
-                traceback.print_exc()
-                safe_update_ui(f"Ошибка: {str(ex)}")
+                safe_update_ui(f"Ошибка рантайма: {str(ex)}")
 
         confirm_btn = ft.FilledButton(
             "Начать импорт",
