@@ -17,11 +17,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 network_executor = ThreadPoolExecutor(max_workers=2)
 
 BOT_TOKEN = "СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН"
-
 TELEGRAM_IP = "149.154.167.220"
 BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
 BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
-
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
 URL_FILE_INFO = f"{BASE_URL}/getFile"
@@ -74,12 +72,12 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 async def fail_msg_task():
                     show_message_callback(f"Сбой сети: {str(ex)}")
                 page.run_task(fail_msg_task)
-                
-        network_executor.submit(async_export_worker)
         
+        network_executor.submit(async_export_worker)
+
     elif mode == "import":
         progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-        status_text = ft.Text("Поиск последнего бэкапа in Telegram...", size=14)
+        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
         
         def close_dialog(e):
             dialog.open = False
@@ -91,12 +89,11 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 if close_win:
                     dialog.open = False
                 page.update()
-
             try:
                 print("\n[DEBUG] Воркер импорта запущен через чистое ядро!")
                 safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
                 
-                # Вызываем нашу протестированную функцию данных
+                # Вызываем протестированную функцию данных
                 success = auto_import_last_file()
                 
                 if success:
@@ -105,21 +102,26 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
-                    # Безопасный асинхронный коллбэк для перерисовки графики
+                    # Гарантированная последовательная перерисовка UI внутри корутины
                     async def finalize_success():
-                        show_message_callback("База успешно восстановлена из облака!")
+                        # Сначала закрываем окно и обновляем страницу
+                        dialog.open = False
+                        status_text.value = "Синхронизация успешна!"
+                        page.update()
+                        
+                        # Затем дергаем глобальный рендер главного экрана
                         if page.data and "refresh_ui" in page.data:
                             page.data["refresh_ui"]()
+                        show_message_callback("База успешно восстановлена из облака!")
                     
                     page.run_task(finalize_success)
-                    safe_update_ui("Синхронизация успешна!", close_win=True)
                 else:
                     safe_update_ui("Ошибка: Свежий бэкап не найден или поврежден.")
                     
             except Exception as ex:
                 print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
                 safe_update_ui(f"Ошибка рантайма: {str(ex)}")
-
+                
         confirm_btn = ft.FilledButton(
             "Начать импорт",
             style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)
@@ -146,7 +148,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         dialog.open = True
         page.update()
 
-
 def send_telegram_alert_message(text_msg):
     """Внутренний фоновый воркер отправки критических уведомлений."""
     url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendMessage"
@@ -161,7 +162,7 @@ def send_telegram_alert_message(text_msg):
         pass
 
 def check_and_send_alerts(car_profile, car_name=None):
-    """Сканирует прогнозы, исправляет имя None и защищает от дублирования алертов."""
+    """Сканирует прогнозы, исправляет им None и защищает от дублирования алертов."""
     global LAST_SENT_ALERTS
     predictions = car_profile.get("predictions", {})
     alerts_to_send = []
@@ -169,12 +170,12 @@ def check_and_send_alerts(car_profile, car_name=None):
     # Исправление бага None: берем переданное имя или ищем в app_state
     if not car_name:
         car_name = engine.app_state.get("selected_car", "Мой Автомобиль")
-        
+    
     for task_name, pred in predictions.items():
         rem_km = pred.get("rem_km", 9999)
         if rem_km <= 500:
             status = f"<b>ПРОСРОЧЕНО</b> на {-rem_km} км!" if rem_km < 0 else f"осталось всего {rem_km} км."
-            alerts_to_send.append(f"• ⚠️ <b>{task_name}</b>: {status}")
+            alerts_to_send.append(f" <b>{task_name}</b>: {status}")
             
     if alerts_to_send:
         full_message_body = "\n".join(alerts_to_send)
@@ -185,7 +186,7 @@ def check_and_send_alerts(car_profile, car_name=None):
             
         LAST_SENT_ALERTS[car_name] = full_message_body
         
-        msg_header = f"🚨 <b>Внимание! Критический износ ТО</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
+        msg_header = f" <b>Внимание! Критический износ ТО</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
         full_message = msg_header + full_message_body
         
         network_executor.submit(send_telegram_alert_message, full_message)
@@ -209,8 +210,10 @@ def auto_import_last_file():
                         break
         except Exception:
             pass
+            
     if not target_file_id:
         return False
+        
     try:
         url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
         file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
