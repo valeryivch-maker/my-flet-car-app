@@ -107,11 +107,21 @@ def main(page: ft.Page):
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
-    async def refresh_ui():
+    async def refresh_ui_async():
         page.controls.clear()
         page.update()
         rebuild_ui()
-    page.data = {"refresh_ui": refresh_ui}
+
+    def on_pubsub_refresh_message(message):
+        if message == "trigger_refresh_ui":
+            page.run_task(refresh_ui_async)
+
+    page.pubsub.on_message = on_pubsub_refresh_message
+
+    def thread_safe_refresh_trigger():
+        page.pubsub.send_all("trigger_refresh_ui")
+
+    page.data = {"refresh_ui": thread_safe_refresh_trigger}
     def rebuild_ui():
         page.clean()
         
@@ -123,7 +133,7 @@ def main(page: ft.Page):
                 success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
                 if success or os.name != "nt":
                     page.data.pop("db_data", None)
-                    await refresh_ui()
+                    page.data["refresh_ui"]()
                     show_message("[V] База данных успешно обновлена!")
                 else:
                     show_message("[X] Не удалось получить новый файл")
@@ -137,7 +147,7 @@ def main(page: ft.Page):
             success = await loop.run_in_executor(None, run_local_telegram_sync)
             if success:
                 page.data.pop("db_data", None)
-                await refresh_ui()
+                page.data["refresh_ui"]()
                 show_message("[V] База данных успешно импортирована!")
             else:
                 show_message("[X] Файлы импорта не найдены.")
@@ -200,7 +210,7 @@ def main(page: ft.Page):
                 engine.save_data(current_db)
                 page.snack_bar = ft.SnackBar(ft.Text("✅ Данные успешно обновлены в JSON!"), open=True)
                 page.update()
-                page.run_task(refresh_ui)
+                page.data["refresh_ui"]()
 
                 # Оживление Telegram-бота: фоновый запуск проверки алертов
                 try:
@@ -234,7 +244,7 @@ def main(page: ft.Page):
             toggle_analytics_click, 
             network, 
             show_message, 
-            lambda: page.run_task(refresh_ui)
+            lambda: page.data["refresh_ui"]()
         )
         
         odo_hist = car_profile.get("odometer_history", [])
