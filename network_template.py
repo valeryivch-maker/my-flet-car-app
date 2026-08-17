@@ -166,20 +166,36 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
+                    # Финальный атомарный блок перерисовки с гашением ProgressRing
                     async def finalize_success():
-                        dialog.open = False
-                        status_text.value = "Синхронизация успешна!"
+                        # ШАГ 1: Полностью останавливаем анимацию вращения, убирая контейнер
+                        action_container.content = ft.Container()
+                        status_text.value = "Данные извлечены. Синхронизация..."
                         page.update()
+                        
+                        # ШАГ 2: Даем HyperOS время очистить видеобуфер от анимации ProgressRing
+                        await asyncio.sleep(0.25)
+                        
+                        # ШАГ 3: Закрываем модальное окно
+                        dialog.open = False
+                        page.update()
+                        
+                        # ШАГ 4: Финальный демпфер перед глобальной перерисовкой карусели
                         await asyncio.sleep(0.35)
                         if page.data and "refresh_ui" in page.data:
                             page.data["refresh_ui"]()
-                        show_message_callback("Base успешно восстановлена!")
+                        show_message_callback("База успешно восстановлена!")
 
                     page.run_task(finalize_success)
                 else:
+                    # Корректный сброс индикатора при неудаче
+                    action_container.content = confirm_btn
+                    confirm_btn.visible = True
                     safe_update_ui("Ошибка: Свежий бэкап не найден.")
             except Exception as ex:
                 print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
+                action_container.content = confirm_btn
+                confirm_btn.visible = True
                 safe_update_ui(f"Ошибка рантайма: {str(ex)}")
         
         confirm_btn = ft.FilledButton(
