@@ -2,8 +2,8 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 201077,
-                "date": "13.08.2026"
+                "value": 201177,
+                "date": "17.08.2026"
             },
             "daily_mileage": 25,
             "odometer_history": [
@@ -46,6 +46,10 @@
                 {
                     "value": 200307,
                     "date": "13.07.2026"
+                },
+                {
+                    "value": 201077,
+                    "date": "13.08.2026"
                 }
             ],
             "maintenance_data": {
@@ -111,28 +115,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 7338,
-                    "rem_days": 293,
+                    "rem_km": 7027,
+                    "rem_days": 281,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 24324,
-                    "rem_days": 972,
+                    "rem_km": 24013,
+                    "rem_days": 960,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 34934,
-                    "rem_days": 1397,
+                    "rem_km": 34623,
+                    "rem_days": 1384,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 30104,
-                    "rem_days": 1204,
+                    "rem_km": 29793,
+                    "rem_days": 1191,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -60766,
-                    "rem_days": -2430,
+                    "rem_km": -61077,
+                    "rem_days": -2443,
                     "is_overdue": true
                 }
             },
@@ -206,6 +210,16 @@
                     "odometer": 201077,
                     "consumption": 11.97,
                     "comment": "БРСМ Юбилейный 45а"
+                },
+                {
+                    "date": "17.08.2026",
+                    "type": "Бензин",
+                    "liters": 13.01,
+                    "price": 76.89,
+                    "cost": 1000.34,
+                    "odometer": 201177,
+                    "consumption": 0.82,
+                    "comment": "БРСМ Свистуна, 11"
                 }
             ],
             "repair_history": [

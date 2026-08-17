@@ -94,7 +94,25 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
                 
                 # Вызываем протестированную функцию данных
-                success = auto_import_last_file()
+                import os
+
+        if os.name == 'nt':
+
+            # Контур персонального компьютера (Windows): вызываем локальный линкер из главного модуля
+
+            safe_update_ui("Сканирование локальных загрузок Telegram на ПК...")
+
+            import main
+
+            success = main.run_local_telegram_sync()
+
+        else:
+
+            # Контур мобильного устройства (Android): вызываем облачный шлюз Telegram
+
+            safe_update_ui("Подключение к Telegram и скачивание бкапа...")
+
+            success = auto_import_last_file()
                 
                 if success:
                     # Обновляем оперативную память приложения новыми данными
@@ -108,6 +126,12 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                         dialog.open = False
                         status_text.value = "Синхронизация успешна!"
                         page.update()
+
+            import asyncio
+
+            await asyncio.sleep(0.35)  # Аппаратный демпфер против таймаутов SurfaceFlinger
+
+
                         
                         # Затем дергаем глобальный рендер главного экрана
                         if page.data and "refresh_ui" in page.data:
