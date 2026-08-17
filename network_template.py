@@ -10,6 +10,26 @@ import traceback
 import requests
 import urllib3
 
+# Защитный слой инициализации ресурсов локализации на Android
+def safe_load_server_config():
+    config_path = "server_config/ru_ru.json"
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    # Возвращаем аварийный fallback-словарь, предотвращая FileNotFoundException
+    print("[RESOURCE FIXED] Файл локализации не найден на диске. Применен встроенный русский профиль.")
+    return {
+        "sync_success": "Синхронизация успешна!",
+        "base_restored": "База успешно восстановлена!",
+        "backup_searching": "Поиск последнего бэкапа в Telegram..."
+    }
+
+# Активируем безопасное чтение ресурсов до запуска интерфейса
+LANG_RES = safe_load_server_config()
+
 # Глобальный хак SSL-контекста для обхода сетевой изоляции песочницы Android
 try:
     import certifi
@@ -33,20 +53,13 @@ LAST_SENT_ALERTS = {}
 
 BOT_TOKEN = "СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН"
 
-# КРОССПЛАТФОРМЕННЫЙ СЕТЕВОЙ ШЛЮЗ: Обход аппаратного фильтра NetworkSecurityPolicy на Android
+# КРОССПЛАТФОРМЕННЫЙ СЕТЕВОЙ ШЛЮЗ
 if os.name == 'nt':
-    # Контур ПК (Windows): используем прямой IP для обхода локальных блокировок провайдеров
     TELEGRAM_HOST = "149.154.167.220"
-    CUSTOM_HEADERS = {
-        "Host": "api.telegram.org",
-        "User-Agent": "Flet-CarJournal-Client/1.0"
-    }
+    CUSTOM_HEADERS = {"Host": "api.telegram.org", "User-Agent": "Flet-CarJournal-Client/1.0"}
 else:
-    # Контур мобильного устройства (Android): используем официальный домен, иначе Android режет HTTPS сокет
     TELEGRAM_HOST = "api.telegram.org"
-    CUSTOM_HEADERS = {
-        "User-Agent": "Flet-CarJournal-Client/1.0"
-    }
+    CUSTOM_HEADERS = {"User-Agent": "Flet-CarJournal-Client/1.0"}
 
 BASE_URL = f"https://{TELEGRAM_HOST}/bot{BOT_TOKEN}"
 BASE_FILE_URL = f"https://{TELEGRAM_HOST}/file/bot{BOT_TOKEN}"
@@ -68,7 +81,6 @@ def auto_import_last_file():
                     message = result.get("message", result.get("edited_message", {}))
                     document = message.get("document", {})
                     filename = str(document.get("file_name", "")).lower()
-                    # Регистронезависимая проверка имени файла бэкапа
                     if document and filename == "carjournal_database.json":
                         target_file_id = document.get("file_id")
                         break
@@ -106,26 +118,13 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     current_db_data = {"cars": {}, "history": []}
                 
                 json_text = json.dumps(current_db_data, ensure_ascii=False, indent=4)
-                
                 file_stream = io.BytesIO(json_text.encode("utf-8"))
                 file_stream.name = "Carjournal_database.json"
                 
-                payload_data = {
-                    "chat_id": 1036911003,
-                    "caption": "Резервная копия базы Журнала ТО"
-                }
+                payload_data = {"chat_id": 1036911003, "caption": "Резервная копия базы Журнала ТО"}
                 payload_files = {"document": file_stream}
                 
-                response = requests.post(
-                    URL_EXPORT, 
-                    data=payload_data, 
-                    files=payload_files, 
-                    headers=CUSTOM_HEADERS,
-                    proxies={"http": None, "https": None},
-                    timeout=15, 
-                    verify=False
-                )
-                
+                response = requests.post(URL_EXPORT, data=payload_data, files=payload_files, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=15, verify=False)
                 if response.status_code == 200:
                     page.run_task(lambda: show_message_callback("Бэкап успешно отправлен в Telegram!"))
                 else:
@@ -138,7 +137,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
     elif mode == "import":
         progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
+        status_text = ft.Text(LANG_RES["backup_searching"], size=14)
         
         def close_dialog(e):
             dialog.open = False
@@ -153,7 +152,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
             try:
                 print("\n[DEBUG] Изолированный воркер импорта запущен!")
-                
                 if os.name == 'nt':
                     safe_update_ui("Сканирование локальных загрузок Telegram на ПК...")
                     import main
@@ -166,29 +164,22 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
-                    # Финальный атомарный блок перерисовки с гашением ProgressRing
                     async def finalize_success():
-                        # ШАГ 1: Полностью останавливаем анимацию вращения, убирая контейнер
                         action_container.content = ft.Container()
                         status_text.value = "Данные извлечены. Синхронизация..."
                         page.update()
-                        
-                        # ШАГ 2: Даем HyperOS время очистить видеобуфер от анимации ProgressRing
                         await asyncio.sleep(0.25)
                         
-                        # ШАГ 3: Закрываем модальное окно
                         dialog.open = False
                         page.update()
-                        
-                        # ШАГ 4: Финальный демпфер перед глобальной перерисовкой карусели
                         await asyncio.sleep(0.35)
+                        
                         if page.data and "refresh_ui" in page.data:
                             page.data["refresh_ui"]()
-                        show_message_callback("База успешно восстановлена!")
+                        show_message_callback(LANG_RES["base_restored"])
 
                     page.run_task(finalize_success)
                 else:
-                    # Корректный сброс индикатора при неудаче
                     action_container.content = confirm_btn
                     confirm_btn.visible = True
                     safe_update_ui("Ошибка: Свежий бэкап не найден.")
@@ -198,29 +189,20 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 confirm_btn.visible = True
                 safe_update_ui(f"Ошибка рантайма: {str(ex)}")
         
-        confirm_btn = ft.FilledButton(
-            "Начать импорт",
-            style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)
-        )
+        confirm_btn = ft.FilledButton("Начать импорт", style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE))
         
         def on_confirm_click(e):
             confirm_btn.visible = False
             action_container.content = progress_ring
             page.update()
-            
             import threading
             threading.Thread(target=async_import_worker, daemon=True).start()
 
         confirm_btn.on_click = on_confirm_click
-        
         action_container = ft.Container(content=confirm_btn)
         dialog = ft.AlertDialog(
             title=ft.Text("Облачный Импорт"),
-            content=ft.Column(
-                [status_text, ft.Container(height=10), action_container],
-                tight=True,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER
-            ),
+            content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             actions=[ft.TextButton("Отмена", on_click=close_dialog)],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -230,11 +212,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
 def send_telegram_alert_message(text_msg):
     url = f"https://{TELEGRAM_HOST}/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": 1036911003,
-        "text": text_msg,
-        "parse_mode": "HTML"
-    }
+    payload = {"chat_id": 1036911003, "text": text_msg, "parse_mode": "HTML"}
     try:
         requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=False)
     except Exception:
