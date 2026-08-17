@@ -1,4 +1,18 @@
-name: "Бортовой Журнал"
-package: com.flet.carjournaldevstudioapp
-version: 1.2.6
-build: 12
+# Нативная конфигурация сборщика Flet
+
+exclude:
+
+  - "app.py"
+
+  - "cron_weekly_check.py"
+
+  - "patch*.py"
+
+  - "generate*.py"
+
+  - "python_debug_log.txt"
+
+  - ".github/*"
+
+  - "README.md"
+
