@@ -32,17 +32,27 @@ DB_REAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), getattr(
 LAST_SENT_ALERTS = {}
 
 BOT_TOKEN = "СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН"
-TELEGRAM_IP = "149.154.167.220"
-BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
-BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+
+# КРОССПЛАТФОРМЕННЫЙ СЕТЕВОЙ ШЛЮЗ: Обход аппаратного фильтра NetworkSecurityPolicy на Android
+if os.name == 'nt':
+    # Контур ПК (Windows): используем прямой IP для обхода локальных блокировок провайдеров
+    TELEGRAM_HOST = "149.154.167.220"
+    CUSTOM_HEADERS = {
+        "Host": "api.telegram.org",
+        "User-Agent": "Flet-CarJournal-Client/1.0"
+    }
+else:
+    # Контур мобильного устройства (Android): используем официальный домен, иначе Android режет HTTPS сокет
+    TELEGRAM_HOST = "api.telegram.org"
+    CUSTOM_HEADERS = {
+        "User-Agent": "Flet-CarJournal-Client/1.0"
+    }
+
+BASE_URL = f"https://{TELEGRAM_HOST}/bot{BOT_TOKEN}"
+BASE_FILE_URL = f"https://{TELEGRAM_HOST}/file/bot{BOT_TOKEN}"
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
 URL_FILE_INFO = f"{BASE_URL}/getFile"
-
-CUSTOM_HEADERS = {
-    "Host": "api.telegram.org",
-    "User-Agent": "Flet-CarJournal-Client/1.0"
-}
 
 def auto_import_last_file():
     """Синхронная чистая функция импорта, устойчивая к SSL-ограничениям мобильной песочницы."""
@@ -128,7 +138,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
     elif mode == "import":
         progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-        status_text = ft.Text("Поиск последнего бэкапа in Telegram...", size=14)
+        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
         
         def close_dialog(e):
             dialog.open = False
@@ -156,7 +166,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
-                    # Финальное 12-пробельное выравнивание для сборщика CI/CD
                     async def finalize_success():
                         dialog.open = False
                         status_text.value = "Синхронизация успешна!"
@@ -164,7 +173,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                         await asyncio.sleep(0.35)
                         if page.data and "refresh_ui" in page.data:
                             page.data["refresh_ui"]()
-                        show_message_callback("База успешно восстановлена!")
+                        show_message_callback("Base успешно восстановлена!")
 
                     page.run_task(finalize_success)
                 else:
@@ -204,7 +213,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         page.update()
 
 def send_telegram_alert_message(text_msg):
-    url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendMessage"
+    url = f"https://{TELEGRAM_HOST}/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": 1036911003,
         "text": text_msg,
