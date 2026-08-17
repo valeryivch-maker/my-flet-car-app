@@ -2,12 +2,16 @@
 import os
 import engine
 import asyncio
-import httpx
 import flet as ft
 import json
 import io
 import time
 import traceback
+import requests
+import urllib3
+
+# Отключаем предупреждения о проверке SSL-сертификатов на уровне ядра библиотеки
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Берем точное имя файла базы данных, которое использует само приложение
 DB_REAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), getattr(engine, "DB_FILE", "database.txt"))
@@ -26,43 +30,46 @@ CUSTOM_HEADERS = {
     "User-Agent": "Flet-CarJournal-Client/1.0"
 }
 
-async def auto_import_last_file():
-    """Асинхронная чистая функция импорта базы данных без блокировки сокетов Android."""
+def auto_import_last_file():
+    """Синхронная чистая функция импорта, устойчивая к SSL-ограничениям мобильной песочницы."""
     target_file_id = engine.app_state.get("last_file_id")
     
-    async with httpx.AsyncClient(verify=False, headers=CUSTOM_HEADERS, timeout=10.0) as client:
-        if not target_file_id:
-            try:
-                url_updates = f"{URL_UPDATES}?offset=-1&limit=10"
-                response = await client.get(url_updates)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    for result in reversed(res_data.get("result", [])):
-                        message = result.get("message", result.get("edited_message", {}))
-                        document = message.get("document", {})
-                        filename = str(document.get("file_name")).lower()
-                        if document and filename == "carjournal_database.json":
-                            target_file_id = document.get("file_id")
-                            break
-            except Exception:
-                pass
-        
-        if not target_file_id:
-            return False
-        
+    if not target_file_id:
         try:
-            file_info_resp = (await client.get(f"{URL_FILE_INFO}?file_id={target_file_id}")).json()
-            if file_info_resp.get("ok"):
-                file_path = file_info_resp["result"]["file_path"]
-                url_download = f"{BASE_FILE_URL}/{file_path}"
-                db_resp = await client.get(url_download)
-                if db_resp.status_code == 200:
-                    with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
-                        f.write(db_resp.text)
-                    engine.load_data()
-                    return True
-        except Exception:
+            url_updates = f"{URL_UPDATES}?offset=-1&limit=10"
+            response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+            if response.status_code == 200:
+                res_data = response.json()
+                for result in reversed(res_data.get("result", [])):
+                    message = result.get("message", result.get("edited_message", {}))
+                    document = message.get("document", {})
+                    filename = str(document.get("file_name", "")).lower()
+                    # Регистронезависимая проверка имени файла бэкапа
+                    if document and filename == "carjournal_database.json":
+                        target_file_id = document.get("file_id")
+                        break
+        except Exception as e:
+            print(f"[DEBUG NETWORK] Ошибка получения обновлений Telegram: {e}")
             pass
+    
+    if not target_file_id:
+        return False
+    
+    try:
+        url_file_info = f"{URL_FILE_INFO}?file_id={target_file_id}"
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
+        if file_info_resp.get("ok"):
+            file_path = file_info_resp["result"]["file_path"]
+            url_download = f"{BASE_FILE_URL}/{file_path}"
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=12)
+            if db_resp.status_code == 200:
+                with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
+                    f.write(db_resp.text)
+                engine.load_data()
+                return True
+    except Exception as e:
+        print(f"[DEBUG NETWORK] Ошибка скачивания файла базы данных: {e}")
+        pass
     return False
 
 def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict, show_message_callback):
@@ -75,10 +82,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     current_db_data = {"cars": {}, "history": []}
                 
                 json_text = json.dumps(current_db_data, ensure_ascii=False, indent=4)
-                
-                import requests
-                import urllib3
-                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                 
                 file_stream = io.BytesIO(json_text.encode("utf-8"))
                 file_stream.name = "Carjournal_database.json"
@@ -117,7 +120,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
             dialog.open = False
             page.update()
         
-        async def async_import_worker():
+        def async_import_worker():
             def safe_update_ui(text, close_win=False):
                 status_text.value = text
                 if close_win:
@@ -125,7 +128,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 page.update()
 
             try:
-                print("\n[DEBUG] Асинхронный воркер импорта запущен через httpx!")
+                print("\n[DEBUG] Изолированный воркер импорта запущен!")
                 
                 if os.name == 'nt':
                     safe_update_ui("Сканирование локальных загрузок Telegram на ПК...")
@@ -133,13 +136,13 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     success = main.run_local_telegram_sync()
                 else:
                     safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
-                    success = await auto_import_last_file()
+                    success = auto_import_last_file()
                 
                 if success:
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
-                    # Идеальное 12-пробельное выравнивание для прохождения compileall в Actions
+                    # Стабильный 12-пробельный блок синхронизации для облачного CI/CD
                     async def finalize_success():
                         dialog.open = False
                         status_text.value = "Синхронизация успешна!"
@@ -149,7 +152,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                             page.data["refresh_ui"]()
                         show_message_callback("База успешно восстановлена!")
 
-                    await finalize_success()
+                    page.run_task(finalize_success)
                 else:
                     safe_update_ui("Ошибка: Свежий бэкап не найден или поврежден.")
             except Exception as ex:
@@ -165,7 +168,10 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
             confirm_btn.visible = False
             action_container.content = progress_ring
             page.update()
-            page.run_task(async_import_worker)
+            
+            # Нативный поток полностью обходит ограничения сокетов Android
+            import threading
+            threading.Thread(target=async_import_worker, daemon=True).start()
 
         confirm_btn.on_click = on_confirm_click
         
@@ -185,7 +191,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         page.update()
 
 def send_telegram_alert_message(text_msg):
-    import requests
     url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": 1036911003,
