@@ -40,7 +40,23 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      - name: Build Android APK Package
+            - name: Hard Purge Non-Core Python Files
+
+        run: |
+
+          rm -f app.py
+
+          rm -f cron_weekly_check.py
+
+          rm -f patch*.py
+
+          rm -f generate*.py
+
+          echo "[CI/CD] Второстепенные скрипты принудительно удалены перед сборкой хуков."
+
+
+
+            - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
