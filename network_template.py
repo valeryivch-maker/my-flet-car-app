@@ -10,6 +10,20 @@ import traceback
 import requests
 import urllib3
 
+# Глобальный хак SSL-контекста для обхода сетевой изоляции песочницы Android
+try:
+    import certifi
+    os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+    
+    import ssl
+    def create_default_context(purpose=ssl.Purpose.SERVER_AUTH, *, cafile=None, capath=None, cadata=None):
+        return ssl.create_default_context(purpose=purpose, cafile=certifi.where(), capath=capath, cadata=cadata)
+    ssl._create_default_https_context = create_default_context
+    print("[SSL FIXED] Корневые сертификаты certifi успешно вшиты в рантайм Android.")
+except Exception as ssl_err:
+    print(f"[SSL WARNING] Не удалось переопределить контекст: {ssl_err}")
+
 # Отключаем предупреждения о проверке SSL-сертификатов на уровне ядра библиотеки
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -114,7 +128,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
     elif mode == "import":
         progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
+        status_text = ft.Text("Поиск последнего бэкапа in Telegram...", size=14)
         
         def close_dialog(e):
             dialog.open = False
@@ -142,7 +156,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     db_data_ref.clear()
                     db_data_ref.update(engine.load_data())
                     
-                    # Стабильный 12-пробельный блок синхронизации для облачного CI/CD
+                    # Финальное 12-пробельное выравнивание для сборщика CI/CD
                     async def finalize_success():
                         dialog.open = False
                         status_text.value = "Синхронизация успешна!"
@@ -154,7 +168,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
                     page.run_task(finalize_success)
                 else:
-                    safe_update_ui("Ошибка: Свежий бэкап не найден или поврежден.")
+                    safe_update_ui("Ошибка: Свежий бэкап не найден.")
             except Exception as ex:
                 print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
                 safe_update_ui(f"Ошибка рантайма: {str(ex)}")
@@ -169,7 +183,6 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
             action_container.content = progress_ring
             page.update()
             
-            # Нативный поток полностью обходит ограничения сокетов Android
             import threading
             threading.Thread(target=async_import_worker, daemon=True).start()
 

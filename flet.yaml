@@ -1,18 +1,16 @@
-# Нативная конфигурация сборщика Flet
+﻿# flet.yaml
+# Нативная конфигурация сборщика Flet с контуром внешних зависимостей
+
+dependencies:
+  - requests==2.32.3
+  - certifi==2024.7.4
+  - urllib3==2.2.2
 
 exclude:
-
   - "app.py"
-
   - "cron_weekly_check.py"
-
   - "patch*.py"
-
   - "generate*.py"
-
   - "python_debug_log.txt"
-
   - ".github/*"
-
   - "README.md"
-
