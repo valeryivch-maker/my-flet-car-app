@@ -43,7 +43,7 @@ def main(page: ft.Page):
  page.update = throttled_update; page.scroll = ft.ScrollMode.AUTO; page.theme_mode = ft.ThemeMode.LIGHT; page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
  page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER, scrollbar_theme=ft.ScrollbarTheme(track_visibility=True, thumb_visibility=True, thickness=10, radius=4, thumb_color=ft.Colors.AMBER_700))
  page.title = "Журнал ТО"; page.window_width = 1200; page.window_height = 800
- def refresh_ui_sync(): page.controls.clear(); page.update(); rebuild_ui()
+ def refresh_ui_sync(): page.controls.clear(); rebuild_ui(); page.update()
  def on_pubsub_refresh_message(message):
   if message == "trigger_refresh_ui": refresh_ui_sync()
  page.pubsub.on_message = on_pubsub_refresh_message
@@ -57,13 +57,13 @@ def main(page: ft.Page):
     if os.path.exists("Carjournal_database.json"):
      try: os.rename("Carjournal_database.json", "Carjournal_database.json.bak")
      except: pass
-   if network.auto_import_last_file(): page.data["refresh_ui"](); show_message("[V] База данных успешно обновлена!")
+   if network.auto_import_last_file(): page.data["refresh_ui"](); page.update(); show_message("[V] База данных успешно обновлена!")
    else: show_message("[X] Не удалось получить новый файл")
   except Exception as err: show_message(f"[X] Ошибка импорта: {str(err)}")
  def async_pc_import(e=None):
   show_message(" Сканирование локальных загрузок...")
   try:
-   if run_local_telegram_sync(): page.data.pop("db_data", None); page.data["refresh_ui"](); show_message("[V] База данных успешно импортирована!")
+   if run_local_telegram_sync(): page.data.pop("db_data", None); page.data["refresh_ui"](); page.update(); show_message("[V] База данных успешно импортирована!")
    else: show_message("[X] Файлы импорта не найдены.")
   except Exception as err: show_message(f"[X] Ошибка импорта: {str(err)}")
  def rebuild_ui():
@@ -78,7 +78,7 @@ def main(page: ft.Page):
    match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
    if match: selected_car = match[0]; engine.app_state["selected_car"] = selected_car
   if not selected_car or selected_car not in cars_dict:
-   selected_car = car_names[0] if car_names else None; engine.app_state["selected_car"] = selected_car
+   selected_car = car_names if car_names else None; engine.app_state["selected_car"] = selected_car
   car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
   for name in car_names:
    is_selected = (name == selected_car)
@@ -112,7 +112,7 @@ def main(page: ft.Page):
  try:
   def start_worker():
    c_data = engine.load_data(); sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-   if c_data and "cars" in c_data and sc in c_data["cars"]: sys.modules.get("network", __import__("network")).check_and_send_alerts(c_data["cars"][sc], car_name=sc) if hasattr(sys.modules.get("network"), "check_and_send_alerts") else None
+   if c_data and "cars" in c_data and sc in c_data["cars"]: views.sys.modules.get("network", __import__("network")).check_and_send_alerts(c_data["cars"][sc], car_name=sc) if hasattr(views.sys.modules.get("network"), "check_and_send_alerts") else None
   threading.Thread(target=start_worker, daemon=True).start()
  except: pass
 if __name__ == "__main__":
