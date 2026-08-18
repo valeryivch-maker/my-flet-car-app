@@ -50,16 +50,24 @@ def main(page: ft.Page):
  page.data = {"refresh_ui": lambda: page.pubsub.send_all("trigger_refresh_ui")}
  def async_mobile_import(e=None):
   show_message(" Запрос файла из Telegram...")
-  try:
-   page.data.pop("db_data", None)
-   if os.name != "nt":
-    import sys; engine_mod = sys.modules.get("engine", __import__("engine")); engine_mod.app_state.clear()
-    if os.path.exists("Carjournal_database.json"):
-     try: os.rename("Carjournal_database.json", "Carjournal_database.json.bak")
-     except: pass
-   if network.auto_import_last_file(): page.data["refresh_ui"](); page.update(); show_message("[V] База данных успешно обновлена!")
-   else: show_message("[X] Не удалось получить новый файл")
-  except Exception as err: show_message(f"[X] Ошибка импорта: {str(err)}")
+  def mobile_network_worker():
+   try:
+    page.data.pop("db_data", None)
+    if os.name != "nt":
+     import sys; engine_mod = sys.modules.get("engine", __import__("engine")); engine_mod.app_state.clear()
+     if os.path.exists("Carjournal_database.json"):
+      try: os.rename("Carjournal_database.json", "Carjournal_database.json.bak")
+      except: pass
+     if network.auto_import_last_file():
+      page.data["refresh_ui"]()
+      show_message("[V] База данных успешно обновлена!")
+     else:
+      show_message("[X] Не удалось получить новый файл")
+   except Exception as err:
+    show_message(f"[X] Ошибка импорта: {str(err)}")
+  import threading
+  threading.Thread(target=mobile_network_worker, daemon=True).start()
+
  def async_pc_import(e=None):
   show_message(" Сканирование локальных загрузок...")
   try:
