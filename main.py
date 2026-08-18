@@ -125,32 +125,31 @@ def main(page: ft.Page):
     def rebuild_ui():
         page.clean()
         
-        async def async_mobile_import(e=None):
-            show_message("⬇️ Запрос файла из Telegram...")
-            import asyncio
-            loop = asyncio.get_running_loop()
-            try:
-                success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
-                if success or os.name != "nt":
-                    page.data.pop("db_data", None)
-                    page.data["refresh_ui"]()
-                    show_message("[V] База данных успешно обновлена!")
-                else:
-                    show_message("[X] Не удалось получить новый файл")
-            except Exception as err:
-                show_message(f"[X] Ошибка импорта: {str(err)}")
+        def async_mobile_import(e=None):
+        show_message(" Запрос файла из Telegram...")
+        try:
+            success = network.auto_import_last_file()
+            if success or os.name != "nt":
+                page.data.pop("db_data", None)
+                page.data["refresh_ui"]()
+                show_message("[V] База данных успешно обновлена!")
+            else:
+                show_message("[X] Не удалось получить новый файл")
+        except Exception as err:
+            show_message(f"[X] Ошибка импорта: {str(err)}")
 
-        async def async_pc_import(e=None):
-            show_message("🔄 Сканирование локальных загрузок...")
-            import asyncio
-            loop = asyncio.get_running_loop()
-            success = await loop.run_in_executor(None, run_local_telegram_sync)
+    def async_pc_import(e=None):
+        show_message(" Сканирование локальных загрузок...")
+        try:
+            success = run_local_telegram_sync()
             if success:
                 page.data.pop("db_data", None)
                 page.data["refresh_ui"]()
                 show_message("[V] База данных успешно импортирована!")
             else:
                 show_message("[X] Файлы импорта не найдены.")
+        except Exception as err:
+            show_message(f"[X] Ошибка импорта: {str(err)}")
         try:
             current_db = engine.load_data()
         except Exception as db_err:
