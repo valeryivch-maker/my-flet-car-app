@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import sys, os, warnings, time, threading
 try:
  if not os.path.exists("server_config"): os.makedirs("server_config", exist_ok=True)
@@ -111,9 +111,16 @@ def main(page: ft.Page):
  rebuild_ui()
  try:
   def start_worker():
-   c_data = engine.load_data(); sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-   if c_data and "cars" in c_data and sc in c_data["cars"]: views.sys.modules.get("network", __import__("network")).check_and_send_alerts(c_data["cars"][sc], car_name=sc) if hasattr(views.sys.modules.get("network"), "check_and_send_alerts") else None
+   c_data = engine.load_data()
+   sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
+   if c_data and "cars" in c_data and sc in c_data["cars"]:
+    net_mod = sys.modules.get("network", __import__("network"))
+    if hasattr(net_mod, "check_and_send_alerts"):
+     net_mod.check_and_send_alerts(c_data["cars"][sc], car_name=sc)
   threading.Thread(target=start_worker, daemon=True).start()
- except: pass
+ except Exception as e:
+  print(f"Ошибка запуска алертов: {e}")
+
 if __name__ == "__main__":
  ft.app(target=main)
+
