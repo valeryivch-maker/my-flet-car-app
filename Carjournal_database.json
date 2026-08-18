@@ -50,10 +50,6 @@
                 {
                     "value": 201077,
                     "date": "13.08.2026"
-                },
-                {
-                    "value": 201177,
-                    "date": "17.08.2026"
                 }
             ],
             "maintenance_data": {
@@ -119,28 +115,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 6927,
-                    "rem_days": 277,
+                    "rem_km": 7027,
+                    "rem_days": 281,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 23913,
-                    "rem_days": 956,
+                    "rem_km": 24013,
+                    "rem_days": 960,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 34523,
-                    "rem_days": 1380,
+                    "rem_km": 34623,
+                    "rem_days": 1384,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 29693,
-                    "rem_days": 1187,
+                    "rem_km": 29793,
+                    "rem_days": 1191,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -61177,
-                    "rem_days": -2447,
+                    "rem_km": -61077,
+                    "rem_days": -2443,
                     "is_overdue": true
                 }
             },

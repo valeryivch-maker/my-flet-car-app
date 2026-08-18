@@ -158,28 +158,23 @@ def main(page: ft.Page):
   try:
    current_db = engine.load_data()
   except Exception as db_err:
-   print(f'[CRITICAL] Сбой СУБД: {db_err}')
-   current_db = {'cars': {}}
-  
-  cars_dict = current_db.get('cars', {})
+   print(f"[CRITICAL] Сбой СУБД: {db_err}")
+   current_db = {"cars": {}}
+  cars_dict = current_db.get("cars", {})
   car_names = list(cars_dict.keys())
-  
   if not cars_dict or not car_names:
-   page.add(ft.Container(content=ft.Text('База данных пуста. Пожалуйста, импортируйте базу.', size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.center, padding=50))
+   page.add(ft.Container(content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.center, padding=50))
    page.update()
    return
-  
-  selected_car = engine.app_state.get('selected_car')
+  selected_car = engine.app_state.get("selected_car")
   if selected_car:
    match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
    if match:
     selected_car = match[0]
-   engine.app_state['selected_car'] = selected_car
-  
+    engine.app_state["selected_car"] = selected_car
   if not selected_car or selected_car not in cars_dict:
    selected_car = car_names[0] if car_names else None
-   engine.app_state['selected_car'] = selected_car
-
+   engine.app_state["selected_car"] = selected_car
   car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
   for name in car_names:
    is_selected = (name == selected_car)
@@ -190,13 +185,10 @@ def main(page: ft.Page):
     bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200, padding=ft.Padding(16, 8, 16, 8), border_radius=8, on_click=make_click_handler()
    )
    car_buttons_row.controls.append(btn)
-  
   car_profile = cars_dict[selected_car]
   odo_dict = car_profile.get("odometer") or {}
-  
   current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
-  daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
-
+  daily_input = ft.TextField(label="Пробег в ден (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
   def update_forecast_click(e):
    try:
     if not current_odo_input.value or not daily_input.value:
@@ -210,17 +202,17 @@ def main(page: ft.Page):
     if "odometer_history" not in car_profile: car_profile["odometer_history"] = []
     if not any(h.get("value") == val for h in car_profile["odometer_history"]):
      car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
-    car_profile['predictions'] = engine.get_maintenance_predictions(car_profile)
+    car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
     engine.save_data(current_db)
     page.snack_bar = ft.SnackBar(ft.Text(" Данные успешно обновлены в JSON!"), open=True)
     page.update()
     page.data["refresh_ui"]()
     try:
      import threading
-     if hasattr(network, 'LAST_SENT_ALERTS') and selected_car in network.LAST_SENT_ALERTS:
+     if hasattr(network, "LAST_SENT_ALERTS") and selected_car in network.LAST_SENT_ALERTS:
       network.LAST_SENT_ALERTS[selected_car] = None
      def trigger_alerts_worker():
-      if hasattr(network, 'check_and_send_alerts'):
+      if hasattr(network, "check_and_send_alerts"):
        network.check_and_send_alerts(car_profile, car_name=selected_car)
      threading.Thread(target=trigger_alerts_worker, daemon=True).start()
     except Exception as t_err:
@@ -228,23 +220,10 @@ def main(page: ft.Page):
    except Exception as ex:
     page.snack_bar = ft.SnackBar(ft.Text(f" Ошибка СУБД: {str(ex)}"), open=True)
     page.update()
-
   def toggle_analytics_click(e):
-   engine.app_state['view_mode'] = 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'
+   engine.app_state["view_mode"] = "analytics" if engine.app_state.get("view_mode", "list") != "analytics" else "list"
    rebuild_ui()
-  
-  action_panel = views.build_action_panel(
-   page, 
-   current_db, 
-   selected_car, 
-   async_mobile_import, 
-   async_pc_import, 
-   toggle_analytics_click, 
-   network, 
-   show_message, 
-   lambda: page.data["refresh_ui"]()
-  )
-  
+  action_panel = views.build_action_panel(page, current_db, selected_car, async_mobile_import, async_pc_import, toggle_analytics_click, network, show_message, lambda: page.data["refresh_ui"]())
   odo_hist = car_profile.get("odometer_history", [])
   hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
   header_card = ft.Card(
@@ -254,17 +233,16 @@ def main(page: ft.Page):
      ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
      ft.Column([current_odo_input, daily_input], expand=False, spacing=8),
      ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
-
      ft.Column([
       ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE),
       ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)
      ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
      ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
      ft.Row([
-      ft.ElevatedButton("Заправит авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: __import__("threading").Thread(target=lambda: [__import__("time").sleep(0.05), views.show_add_fuel_dialog(page, current_db, car_profile, rebuild_ui, show_message)]).start(), expand=True, height=40),
-      ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: __import__("threading").Thread(target=lambda: [__import__("time").sleep(0.05), views.show_fuel_history_dialog(page, current_db, car_profile, rebuild_ui, show_message)]).start(), expand=True, height=40)
+      ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40),
+      ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
      ], spacing=10),
-     ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: __import__("threading").Thread(target=lambda: [__import__("time").sleep(0.05), views.show_repair_history_dialog(page, current_db, car_profile, rebuild_ui, show_message)]).start(), expand=True, height=40),
+     ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40),
     ], spacing=12), padding=12
    )
   )
@@ -277,17 +255,15 @@ def main(page: ft.Page):
    main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
   page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
 
- # Инициализация первого экрана при запуске
  rebuild_ui()
-
  try:
   import threading
   def trigger_start_alerts_worker():
    import sys
-   net_mod = sys.modules.get('network', __import__('network'))
-   if hasattr(net_mod, 'check_and_send_alerts'):
+   net_mod = sys.modules.get("network", __import__("network"))
+   if hasattr(net_mod, "check_and_send_alerts"):
     current_db_data = engine.load_data()
-    sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
+    sel_car = engine.app_state.get("selected_car", "Chevrolet lacetti")
     if current_db_data and "cars" in current_db_data and sel_car in current_db_data["cars"]:
      car_prof = current_db_data["cars"][sel_car]
      net_mod.check_and_send_alerts(car_prof, car_name=sel_car)
