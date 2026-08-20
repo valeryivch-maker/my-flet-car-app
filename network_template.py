@@ -11,7 +11,7 @@ import traceback
 import requests
 import urllib3
 
-# Защитный слой инициализации ресурсов локализации на Android
+# Защитный слой initialization ресурсов локализации на Android
 def safe_load_server_config():
  config_path = "server_config/ru_ru.json"
  if os.path.exists(config_path):
@@ -106,7 +106,7 @@ def auto_import_last_file():
    if db_resp.status_code == 200:
     with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
      f.write(db_resp.text)
-    engine.load_data()
+    # ИСПРАВЛЕНО: Полностью удален engine.load_data() из фонового сетевого потока!
     return True
  except Exception as e:
   print(f"[DEBUG NETWORK] Ошибка скачивания файла базы данных: {e}")
@@ -166,22 +166,22 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
      success = auto_import_last_file()
     
     if success:
-     db_data_ref.clear()
-     db_data_ref.update(engine.load_data())
-     
-     action_container.content = ft.Container()
-     status_text.value = "Данные извлечены. Синхронизация..."
+     status_text.value = "Данные сохранены. Синхронизация интерфейса..."
      page.update()
      
-     # Безопасный демпфер HyperOS/SurfaceFlinger для Xiaomi
+     # Жесткий аппаратный демпфер HyperOS: даем SurfaceFlinger завершить отрисовку кадров крутилки
      import time
-     time.sleep(0.35)
+     time.sleep(0.4)
      
+     # Сначала полностью закрываем и гасим диалог, освобождая графический стек системы
      dialog.open = False
      page.update()
+     time.sleep(0.1)
      
+     # Теперь безопасно триггерим полную перезагрузку СУБД и перерисовку UI из главного потока
      if page.data and "refresh_ui" in page.data:
       page.data["refresh_ui"]()
+      
      show_message_callback(LANG_RES["base_restored"])
     else:
      action_container.content = confirm_btn
@@ -192,7 +192,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
     action_container.content = confirm_btn
     confirm_btn.visible = True
     safe_update_ui(f"Ошибка рантайма: {str(ex)}")
-  
+
   confirm_btn = ft.FilledButton("Начать импорт", style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE))
   
   def on_confirm_click(e):
