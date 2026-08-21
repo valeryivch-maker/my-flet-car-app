@@ -1,4 +1,4 @@
-name: CI Production Clean Build
+﻿name: CI Production Clean Build
 on:
   push:
     branches: [ main ]
@@ -17,10 +17,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # ИСПРАВЛЕНО: Заменили 'channel: stable' на жесткую фиксацию рабочей версии SDK
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.41.7'
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,10 +33,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils
 
+      # ИСПРАВЛЕНО: Фиксируем версию flet cli, чтобы избежать вызова flet==0.86.5 в хуках serious_python
       - name: Install Flet with CLI
         run: |
           python -m pip install --upgrade pip
-          pip install "flet[cli]"
+          pip install "flet==0.23.2"
 
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
