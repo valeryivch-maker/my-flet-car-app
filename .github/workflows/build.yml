@@ -34,11 +34,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils
 
-      # Устанавливаем стабильный релиз CLI без багов pre-release версий
+      # Устанавливаем стабильный релиз CLI и добавляем PyInstaller для проверки flet pack
       - name: Install Flet with CLI
         run: |
           python -m pip install --upgrade pip
-          pip install "flet[cli]==0.27.3"
+          pip install "flet[cli]==0.27.3" pyinstaller
 
       # Принимаем лицензии Android SDK
       - name: Accept Android SDK Licenses
@@ -53,13 +53,13 @@ jobs:
           rm -f generate*.py
           echo "[CI/CD] Второстепенные скрипты принудительно удалены."
 
-      # Собираем приложение через предсказуемый конвейер flet pack и нативный компилятор Flutter
+      # Упаковываем исходники и собираем проект нативным компилятором Flutter
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          # 1. flet pack упаковывает main.py и весь проект в zip-архив, не трогая Flutter
-          flet pack main.py
+          # 1. Упаковываем проект в zip-архив исходников с флагом фонового воркера
+          flet pack main.py --worker
           
-          # 2. Вызываем официальный стабильный Flutter для сборки финального APK
+          # 2. Вызываем официальный стабильный Flutter 3.41.7 для сборки финального APK
           flutter build apk --release
