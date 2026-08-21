@@ -51,11 +51,14 @@ jobs:
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
-          FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter
         run: |
-          export PATH="/opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter/bin:$PATH"
-          export FLUTTER_HOME="/opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter"
-          flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
+          # 1. Запускаем компиляцию python-кода через нативный serious_python напрямую, как это делал flet
+          dart run serious_python:main package /home/runner/work/my-flet-car-app/my-flet-car-app --platform Android --python-version 3.12 --arch arm64-v8a,x86_64,armeabi-v7a -r flet==0.23.2 --exclude build --compile-app --compile-packages --cleanup-app --cleanup-packages
+
+          # 2. Переходим в сгенерированный flutter-шаблон и вызываем жестко зафиксированный компилятор SDK 3.41.7
+          cd build/flutter
+          /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter/bin/flutter build apk --release
+
 
 
       - name: Upload APK Artifact
