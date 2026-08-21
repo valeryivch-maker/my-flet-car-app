@@ -141,76 +141,80 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
   threading.Thread(target=async_export_worker, daemon=True).start()
 
  if mode == "import":
-  progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-  status_text = ft.Text(LANG_RES["backup_searching"], size=14)
-  
-  def close_dialog(e):
-   dialog.open = False
-   page.update()
-  
-  def async_import_worker():
-   def safe_update_ui(text, close_win=False):
-    status_text.value = text
-    if close_win:
-     dialog.open = False
-    page.update()
-
-   try:
-    print("\n[DEBUG] Изолированный воркер импорта запущен!")
-    if os.name == 'nt':
-     safe_update_ui("Сканирование локальных загрузок Telegram на ПК...")
-     import main
-     success = main.run_local_telegram_sync()
-    else:
-     safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
-     success = auto_import_last_file()
-    
-    if success:
-     status_text.value = "Данные сохранены. Синхронизация интерфейса..."
-     page.update()
-     
-     # Жесткий аппаратный демпфер HyperOS: даем SurfaceFlinger завершить отрисовку кадров крутилки
-     import time
-     time.sleep(0.4)
-     
-     # Сначала полностью закрываем и гасим диалог, освобождая графический стек системы
-     dialog.open = False
-     page.update()
-     time.sleep(0.1)
-     
-     # Теперь безопасно триггерим полную перезагрузку СУБД и перерисовку UI из главного потока
-     if page.data and "refresh_ui" in page.data:
-      page.data["refresh_ui"]()
-      
-     show_message_callback(LANG_RES["base_restored"])
-    else:
-     action_container.content = confirm_btn
-     confirm_btn.visible = True
-     safe_update_ui("Ошибка: Свежий бэкап не найден.")
-   except Exception as ex:
-    print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
-    action_container.content = confirm_btn
-    confirm_btn.visible = True
-    safe_update_ui(f"Ошибка рантайма: {str(ex)}")
-
-  confirm_btn = ft.FilledButton("Начать импорт", style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE))
-  
-  def on_confirm_click(e):
-   confirm_btn.visible = False
-   action_container.content = progress_ring
-   page.update()
-   import threading
-   threading.Thread(target=async_import_worker, daemon=True).start()
-
-  confirm_btn.on_click = on_confirm_click
-  action_container = ft.Container(content=confirm_btn)
-  dialog = ft.AlertDialog(
-   title=ft.Text("Облачный Импорт"),
-   content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-   actions=[ft.TextButton("Отмена", on_click=close_dialog)],
-   actions_alignment=ft.MainAxisAlignment.END,
-  )
-  page.overlay.append(dialog)
+        status_text = ft.Text(LANG_RES["backup_searching"], size=14, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_900)
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+            
+        def async_import_worker():
+            def safe_update_ui(text, close_win=False):
+                async def ui_task():
+                    status_text.value = text
+                    if close_win:
+                        dialog.open = False
+                    page.update()
+                page.run_task(ui_task)
+                
+            try:
+                print("
+[DEBUG] Изолированный воркер импорта запущен!")
+                if os.name == 'nt':
+                    safe_update_ui("Сканирование локалных загрузок Telegram на ПК...")
+                    import main
+                    success = main.run_local_telegram_sync()
+                else:
+                    safe_update_ui("Подклчение к Telegram и скачивание бкапа...")
+                    success = auto_import_last_file()
+                    
+                if success:
+                    async def finalize_ui():
+                        status_text.value = "Данные сохранены. Синхронизаци интерфейса..."
+                        page.update()
+                        import time
+                        time.sleep(0.4)
+                        dialog.open = False
+                        page.update()
+                        time.sleep(0.1)
+                        if page.data and "refresh_ui" in page.data:
+                            page.data["refresh_ui"]()
+                        show_message_callback(LANG_RES["base_restored"])
+                    page.run_task(finalize_ui)
+                else:
+                    async def restore_btn():
+                        action_container.content = confirm_btn
+                        confirm_btn.visible = True
+                        status_text.value = "Ошибка: Свежий бкап не найден."
+                        page.update()
+                    page.run_task(restore_btn)
+            except Exception as ex:
+                print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
+                async def handle_exception():
+                    action_container.content = confirm_btn
+                    confirm_btn.visible = True
+                    status_text.value = f"Ошибка рантайма: {str(ex)}"
+                    page.update()
+                page.run_task(handle_exception())
+                
+        confirm_btn = ft.FilledButton("Начат импорт", style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE))
+        
+        def on_confirm_click(e):
+            confirm_btn.visible = False
+            status_text.value = "Запуск сетевого конвейера..."
+            page.update()
+            import threading
+            threading.Thread(target=async_import_worker, daemon=True).start()
+            
+        confirm_btn.on_click = on_confirm_click
+        action_container = ft.Container(content=confirm_btn)
+        
+        dialog = ft.AlertDialog(
+            title=ft.Text("Облачный Импорт"),
+            content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            actions=[ft.TextButton("Отмена", on_click=close_dialog)],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.overlay.append(dialog)
   dialog.open = True
   page.update()
 
