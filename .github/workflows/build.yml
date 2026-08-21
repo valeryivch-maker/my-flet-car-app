@@ -51,8 +51,12 @@ jobs:
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
+          FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter
         run: |
-          flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages --no-flutter-version-check --flutter-path /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter
+          export PATH="/opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter/bin:$PATH"
+          export FLUTTER_HOME="/opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter"
+          flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
+
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
