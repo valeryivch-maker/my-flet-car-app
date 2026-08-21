@@ -52,22 +52,19 @@ jobs:
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          # 1. Создаем целевой контур папки, куда Flet CLI будет пытаться развернуть 3.44.8
-          mkdir -p /home/runner/flutter/3.44.8
-          rm -rf /home/runner/flutter/3.44.8/*
+          # 1. Стираем любые следы папки, созданной прошлым шагом
+          rm -rf /home/runner/flutter/3.44.8
+          mkdir -p /home/runner/flutter
           
-          # 2. Насильно клонируем/копируем туда стабильное ядро 3.41.7
-          cp -r /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter/* /home/runner/flutter/3.44.8/
+          # 2. Создаем жесткую символическую ссылку. Теперь для Flet папка 3.44.8 — это наш легитимный 3.41.7
+          ln -s /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter /home/runner/flutter/3.44.8
           
-          # 3. Фиксируем системный флаг, чтобы Flet думал, что всё готово
+          # 3. Направляем переменные окружения напрямую на этот мост
           export PATH="/home/runner/flutter/3.44.8/bin:$PATH"
           export FLUTTER_ROOT="/home/runner/flutter/3.44.8"
           
-          # 4. Запускаем оригинальный сборщик, который теперь обречен использовать 3.41.7
+          # 4. Запускаем сборку
           flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
-
-
-
 
 
       - name: Upload APK Artifact
