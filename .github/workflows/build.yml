@@ -1,4 +1,4 @@
-name: CI Production Clean Build
+﻿name: CI Production Clean Build
 on:
   push:
     branches: [ main ]
@@ -52,7 +52,7 @@ jobs:
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
+          flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages --no-flutter-version-check --flutter-path /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
