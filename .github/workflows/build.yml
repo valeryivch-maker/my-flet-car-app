@@ -35,7 +35,8 @@ jobs:
       - name: Install Flet with CLI
         run: |
           python -m pip install --upgrade pip
-          pip install "flet[cli]"
+          pip install "flet[cli]==0.27.3"
+
 
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
@@ -51,22 +52,13 @@ jobs:
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
-          SERIOUS_PYTHON_REQUIREMENTS: "flet==0.23.2"
         run: |
-          # 1. Стираем любые следы папки, созданной прошлым шагом
           rm -rf /home/runner/flutter/3.44.8
           mkdir -p /home/runner/flutter
-          
-          # 2. Создаем символическую ссылку на стабильный 3.41.7
           ln -s /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter /home/runner/flutter/3.44.8
-          
-          # 3. Направляем переменные окружения напрямую на этот мост
           export PATH="/home/runner/flutter/3.44.8/bin:$PATH"
           export FLUTTER_ROOT="/home/runner/flutter/3.44.8"
-          
-          # 4. Запускаем сборку
           flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
-
 
 
       - name: Upload APK Artifact
