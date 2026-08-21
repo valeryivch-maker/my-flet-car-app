@@ -1,4 +1,4 @@
-name: CI Production Clean Build
+﻿name: CI Production Clean Build
 on:
   push:
     branches: [ main ]
@@ -17,11 +17,13 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # Фиксируем стабильную версию Flutter, под которую написан проект
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
 
+      # Разворачиваем целевой Python 3.12
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -32,35 +34,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils
 
-      - name: Install Flet with CLI
+      # Устанавливаем только serious_python для нативной сборки архива
+      - name: Install Serious Python Packager
         run: |
           python -m pip install --upgrade pip
-          pip install "flet[cli]==0.27.3"
+          pip install serious-python
 
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
+      # Удаляем второстепенные скрипты перед компиляцией
       - name: Hard Purge Non-Core Python Files
         run: |
           rm -f app.py
           rm -f cron_weekly_check.py
           rm -f patch*.py
           rm -f generate*.py
-          echo "[CI/CD] Второстепенные скрипты принудительно удалены перед сборкой хуков."
+          echo "[CI/CD] Второстепенные скрипты принудительно удалены."
 
+      # Упаковываем исходники и запускаем оригинальный, предсказуемый компилятор Flutter
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          rm -rf /home/runner/flutter/3.44.8
-          mkdir -p /home/runner/flutter
-          ln -s /opt/hostedtoolcache/flutter/stable-3.41.7-x64/flutter /home/runner/flutter/3.44.8
-          export PATH="/home/runner/flutter/3.44.8/bin:$PATH"
-          export FLUTTER_ROOT="/home/runner/flutter/3.44.8"
-          flet build apk
+          # 1. Нативно упаковываем Python-код в ZIP-структуру приложения
+          python -m serious_python package . --platform android --exclude build
           
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: car-journal-apk
-          path: build/apk/*.apk
+          # 2. Переходим в директорию проекта и вызываем официальный стабильный Flutter
+          flutter build apk --release --no-pub
