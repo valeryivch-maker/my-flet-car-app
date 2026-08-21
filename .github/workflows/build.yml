@@ -54,7 +54,6 @@ jobs:
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          flet clean
           flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
 
       - name: Upload APK Artifact
