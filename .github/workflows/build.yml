@@ -71,3 +71,10 @@ jobs:
           # 4. Заходим в созданный проект, где гарантированно присутствует pubspec.yaml, и собираем APK
           cd build_flutter
           flutter build apk --release
+
+      # Сквозная маска поиска файла, исключающая любую ошибку путей выгрузки
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: car-journal-apk
+          path: "**/app-release.apk"
