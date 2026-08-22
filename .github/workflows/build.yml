@@ -18,53 +18,86 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # Фиксируем стабильную вчерашнюю версию Flutter
+      # Фиксируем стабильную версию Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
 
-      # Разворачиваем Python 3.12
+      # Разворачиваем целевой Python 3.12
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install Linux Toolchain Dependencies (GTK 3.0)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev mesa-utils
-
-      # Фиксируем чистую стабильную версию Flet без флагов pre-release версий
-      - name: Install Flet with CLI
-        run: |
-          python -m pip install --upgrade pip
-          pip install "flet[cli]==0.23.2"
-
+      # Принимаем лицензии Android SDK
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      # Очищаем репозиторий от мусора
+      # Очищаем репозиторий от лишних скриптов
       - name: Hard Purge Non-Core Python Files
         run: |
-          rm -rf build_flutter
           rm -f app.py
           rm -f cron_weekly_check.py
           rm -f patch*.py
           rm -f generate*.py
           echo "[CI/CD] Второстепенные скрипты принудительно удалены."
 
-      # Запускаем сборку Flet с синтаксисом аргументов версии 0.23.2
+      # Нативная сборка с правильным Dart-рантаймом под вызов Serious Python
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          # В версии 0.23.2 нет флагов --python-version и --yes, запускаем в чистом режиме
-          flet build apk -v
+          # 1. Создаем чистый Flutter проект
+          flutter create --template=app --platforms=android build_flutter
           
-      # Выгружаем настоящий собранный Flet APK
+          # 2. Подключаем официальный плагин serious_python в конфигурацию проекта
+          cd build_flutter
+          flutter pub add serious_python
+          
+          # 3. Полностью перезаписываем main.dart, чтобы он запускал наш Python-рантайм, а не синюю кнопку
+          cat << 'EOF' > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:serious_python/serious_python.dart';
+          
+          void main() {
+            WidgetsFlutterBinding.ensureInitialized();
+            SeriousPython.run("assets/app/app.zip");
+          }
+          EOF
+          
+          # 4. Возвращаемся в корень и упаковываем Python-код в правильную директорию ассетов
+          cd ..
+          mkdir -p build_flutter/assets/app
+          
+          python -c "
+          import zipfile, os
+          with zipfile.ZipFile('build_flutter/assets/app/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+              for root, dirs, files in os.walk('.'):
+                  if 'build_flutter' in root or '.github' in root or '.git' in root:
+                      continue
+                  for file in files:
+                      if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
+                          fp = os.path.join(root, file)
+                          zipf.write(fp, os.path.relpath(fp, '.'))
+          print('[УСПЕХ] Архивация Python-модулей выполнена успешно.')
+          "
+          
+          # 5. Регистрируем созданный архив в конфигурационном файле pubspec.yaml
+          cd build_flutter
+          cat << 'EOF' >> pubspec.yaml
+          
+          flutter:
+            assets:
+              - assets/app/app.zip
+          EOF
+          
+          # 6. Запускаем нативную компиляцию
+          flutter build apk --release
+
+      # Выгружаем готовый рабочий APK-файл
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: car-journal-apk
-          path: build/apk/*.apk
+          path: "**/app-release.apk"
