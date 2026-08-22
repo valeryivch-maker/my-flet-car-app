@@ -66,15 +66,18 @@ jobs:
           }
           EOF
           
-          # 4. Возвращаемся в корень и упаковываем Python-код в правильную директорию ассетов
+          # 4. Возвращаемся в корень и изолированно скачиваем внешние зависимости приложения под Android
           cd ..
-          mkdir -p build_flutter/assets/app
+          mkdir -p build_dependencies
+          pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 --target build_dependencies
           
+          # 5. Упаковываем весь наш Python-код в архив app.zip внутрь ассетов Flutter
+          mkdir -p build_flutter/assets/app
           python -c "
           import zipfile, os
           with zipfile.ZipFile('build_flutter/assets/app/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
               for root, dirs, files in os.walk('.'):
-                  if 'build_flutter' in root or '.github' in root or '.git' in root:
+                  if 'build_flutter' in root or 'build_dependencies' in root or '.github' in root or '.git' in root:
                       continue
                   for file in files:
                       if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
@@ -83,11 +86,12 @@ jobs:
           print('[УСПЕХ] Архивация Python-модулей выполнена успешно.')
           "
           
-          # 5. ИСПРАВЛЕНО: Инжектируем ассет в уже существующую секцию flutter: с правильными отступами
+          # 6. Инжектируем ассет в уже существующую секцию flutter: с правильными отступами
           cd build_flutter
           sed -i '/^flutter:/a \  assets:\n    - assets/app/app.zip' pubspec.yaml
           
-          # 6. Запускаем нативную компиляцию
+          # 7. Экспортируем обязательную для Gradle переменную пути к библиотекам и запускаем компиляцию
+          export SERIOUS_PYTHON_SITE_PACKAGES="/home/runner/work/my-flet-car-app/my-flet-car-app/build_dependencies"
           flutter build apk --release
 
       # Выгружаем готовый рабочий APK-файл
