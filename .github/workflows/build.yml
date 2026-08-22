@@ -55,7 +55,7 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
           
-          # 3. Полностью перезаписываем main.dart, чтобы он запускал наш Python-рантайм, а не синюю кнопку
+          # 3. Полностью перезаписываем main.dart, чтобы он запускал наш Python-рантайм
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
@@ -83,14 +83,9 @@ jobs:
           print('[УСПЕХ] Архивация Python-модулей выполнена успешно.')
           "
           
-          # 5. Регистрируем созданный архив в конфигурационном файле pubspec.yaml
+          # 5. ИСПРАВЛЕНО: Инжектируем ассет в уже существующую секцию flutter: с правильными отступами
           cd build_flutter
-          cat << 'EOF' >> pubspec.yaml
-          
-          flutter:
-            assets:
-              - assets/app/app.zip
-          EOF
+          sed -i '/^flutter:/a \  assets:\n    - assets/app/app.zip' pubspec.yaml
           
           # 6. Запускаем нативную компиляцию
           flutter build apk --release
