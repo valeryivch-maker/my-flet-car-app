@@ -1,4 +1,5 @@
-﻿name: CI Production Clean Build
+﻿
+name: CI Production Clean Build
 on:
   push:
     branches: [ main ]
@@ -29,17 +30,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Linux Toolchain Dependencies (GTK 3.0)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev mesa-utils
-
-      # Устанавливаем стабильный релиз CLI и добавляем PyInstaller для проверки flet pack
-      - name: Install Flet with CLI
-        run: |
-          python -m pip install --upgrade pip
-          pip install "flet[cli]==0.27.3" pyinstaller
-
       # Принимаем лицензии Android SDK
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
@@ -53,13 +43,27 @@ jobs:
           rm -f generate*.py
           echo "[CI/CD] Второстепенные скрипты принудительно удалены."
 
-      # Упаковываем исходники и собираем проект нативным компилятором Flutter
+      # Упаковываем исходники стандартным Python и собираем проект нативным компилятором Flutter
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
         run: |
-          # 1. Упаковываем проект в zip-архив исходников с флагом фонового воркера
-          flet pack main.py --worker
+          # 1. Создаем структуру каталогов, которую ожидает Serious Python во Flutter
+          mkdir -p build/flutter/assets
           
-          # 2. Вызываем официальный стабильный Flutter 3.41.7 для сборки финального APK
+          # 2. Нативно и без внешних CLI-утилит упаковываем весь проект в app.zip
+          python -c "
+          import zipfile, os
+          with zipfile.ZipFile('build/flutter/assets/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+              for root, dirs, files in os.walk('.'):
+                  if 'build' in root or '.github' in root or '.git' in root:
+                      continue
+                  for file in files:
+                      if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
+                          fp = os.path.join(root, file)
+                          zipf.write(fp, os.path.relpath(fp, '.'))
+          print('[УСПЕХ] Исходники упакованы в app.zip')
+          "
+          
+          # 3. Вызываем официальный стабильный Flutter 3.41.7 для сборки финального APK
           flutter build apk --release
