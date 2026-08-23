@@ -17,7 +17,7 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # Фиксируем стабильный Flutter 3.41.7
+      # Разворачиваем стабильный Flutter 3.41.7
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -34,25 +34,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils
 
-      # Ставим актуальный стабильный Flet
+      # Ставим актуальный стабильный Flet CLI
       - name: Install Flet CLI
         run: |
           python -m pip install --upgrade pip
           pip install "flet[cli]"
 
+      # Принимаем лицензии Android SDK
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      # Удаляем временные папки прошлых нативных попыток, чтобы очистить контур
+      # Полностью очищаем репозиторий от следов прошлых нативных экспериментов
       - name: Clean environment
         run: |
           rm -rf build_flutter
           rm -rf build_dependencies
           rm -f app.py patch*.py generate*.py
+          echo "[CI/CD] Временные папки очищены."
 
-      # Запускаем сборку Flet, жестко указав путь к нашему кэшированному Flutter 3.41.7
+      # Запускаем сборку Flet, принудительно перехватив управление зависимостями
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
+          # ЖЕЛЕЗОБЕТОННЫЙ ХАК: заставляем serious_python игнорировать вызов битой версии 0.86.5
+          SERIOUS_PYTHON_REQUIREMENTS: "flet==0.23.2"
         run: |
           flet build apk -v --yes --python-version 3.12 --cleanup-app --cleanup-packages
+
+      # Выгружаем готовый рабочий APK-файл вашего приложения
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: car-journal-apk
+          path: build/apk/*.apk
