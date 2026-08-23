@@ -33,7 +33,7 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      # Очищаем репозиторий от лишних файлов
+      # Очищаем репозиторий от лишних файлов прошлого билда
       - name: Hard Purge Non-Core Python Files
         run: |
           rm -rf build_flutter
@@ -41,7 +41,7 @@ jobs:
           rm -f app.py cron_weekly_check.py patch*.py generate*.py
           echo "[CI/CD] Второстепенные скрипты принудительно удалены."
 
-      # Нативная сборка без использования утилиты flet build
+      # Нативная сборка Flutter-приложения с интеграцией Python-кода без использования Flet CLI
       - name: Build Android APK Package
         env:
           PYTHONHTTPSVERIFY: "0"
@@ -53,7 +53,7 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
           
-          # 3. Перезаписываем main.dart с использованием ИМЕНОВАННОГО аргумента assetPath
+          # 3. Перезаписываем main.dart с использованием именованного аргумента assetPath
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
@@ -92,14 +92,18 @@ jobs:
           print('[УСПЕХ] Python-код и все зависимости упакованы в app.zip.')
           "
           
-          # Удаляем временную папку site-packages, чтобы она не дублировалась в сборке
+          # Создаем пустую изолированную папку-заглушку для Gradle-валидатора
+          mkdir -p gradle_pip_placeholder
+          
+          # Переносим временную папку site-packages, чтобы она не дублировалась в ассетах Flutter
           rm -rf build_flutter/assets/app/site-packages
           
           # 6. Инжектируем ассет в существующую секцию flutter: в pubspec.yaml
           cd build_flutter
           sed -i '/^flutter:/a \  assets:\n    - assets/app/app.zip' pubspec.yaml
           
-          # 7. Запускаем нативную компиляцию без вызова Gradle-переменных
+          # 7. ИСПРАВЛЕНО: Экспортируем переменную окружения и запускаем компиляцию
+          export SERIOUS_PYTHON_SITE_PACKAGES="/home/runner/work/my-flet-car-app/my-flet-car-app/gradle_pip_placeholder"
           flutter build apk --release
 
       # Выгружаем готовый рабочий APK-файл
