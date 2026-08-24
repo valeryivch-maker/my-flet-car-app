@@ -49,7 +49,7 @@ jobs:
           
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run("assets/app.zip");
+            SeriousPython.run(appPath: "assets/app.zip");
           }
           EOF
 
@@ -64,7 +64,6 @@ jobs:
           python -c "
           import zipfile, os
           with zipfile.ZipFile('build_flutter/assets/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-              # Внедряем чистый исходный код проекта
               for root, dirs, files in os.walk('.'):
                   if 'build_flutter' in root or '.github' in root or '.git' in root or '.pip_packages' in root:
                       continue
@@ -73,7 +72,6 @@ jobs:
                           fp = os.path.join(root, file)
                           zipf.write(fp, os.path.relpath(fp, '.'))
               
-              # Внедряем зависимости напрямую в корень архива
               sp_dir = '.pip_packages'
               for root, dirs, files in os.walk(sp_dir):
                   for file in files:
