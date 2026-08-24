@@ -40,17 +40,19 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
 
-      - name: 3. Перезаписываем main.dart (Исправленный позиционный аргумент)
-        run: |
-          cat << 'EOF' > build_flutter/lib/main.dart
-          import 'package:flutter/material.dart';
-          import 'package:serious_python/serious_python.dart';
-          
-          void main() {
-            WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run("assets/app/app.zip");
-          }
-          EOF
+      - name: 3. Запись main.dart (Строгий YAML-литерал)
+        uses: 1arp/create-file-action@v1.4
+        with:
+          path: 'build_flutter/lib/main.dart'
+          overwrite: true
+          content: |
+            import 'package:flutter/material.dart';
+            import 'package:serious_python/serious_python.dart' as sp;
+            
+            void main() {
+              WidgetsFlutterBinding.ensureInitialized();
+              sp.SeriousPython.run("assets/app/app.zip");
+            }
 
       - name: 4. Скачивание зависимостей Pip в структуру ассетов
         run: |
@@ -71,7 +73,7 @@ jobs:
                           fp = os.path.join(root, file)
                           zipf.write(fp, os.path.relpath(fp, '.'))
               
-              # Схлопываем и упаковываем site-packages внутрь корня архива
+              # Упаковываем зависимости site-packages внутрь корня архива
               sp_dir = 'build_flutter/assets/app/site-packages'
               for root, dirs, files in os.walk(sp_dir):
                   for file in files:
@@ -81,7 +83,7 @@ jobs:
           print('[УСПЕХ] Python-код и все зависимости упакованы в app.zip.')
           "
 
-      - name: 6. Очистка временных папок и подготовка Gradle-заглушки
+      - name: 6. Очистка временных папок
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf build_flutter/assets/app/site-packages
