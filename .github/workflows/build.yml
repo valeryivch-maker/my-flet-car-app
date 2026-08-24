@@ -85,7 +85,7 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf build_flutter/assets/app/site-packages
 
-      - name: 7. Полная перезапись pubspec.yaml с гарантированной регистрацией ассетов
+      - name: 7. Полная перезапись pubspec.yaml с корректной версией Dart SDK
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -95,7 +95,7 @@ jobs:
           version: 1.0.0+1
           
           environment:
-            sdk: ^3.41.7
+            sdk: '>=3.0.0 <4.0.0'
           
           dependencies:
             flutter:
