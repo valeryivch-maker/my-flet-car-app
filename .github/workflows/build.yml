@@ -40,7 +40,7 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
 
-      - name: 3. Запись main.dart (Строгий пустой вызов)
+      - name: 3. Тотальное затирание и перезапись main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -49,43 +49,46 @@ jobs:
           
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run();
+            SeriousPython.run("assets/app.zip");
           }
           EOF
 
-      - name: 4. Скачивание зависимостей Pip в структуру ассетов
+      - name: 4. Скачивание зависимостей Pip во временную директорию
+        run: |
+          mkdir -p .pip_packages
+          pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
+
+      - name: 5. Упаковка кода в гарантированный ассет Flutter
         run: |
           mkdir -p build_flutter/assets
-          pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target build_flutter/assets/site-packages
-
-      - name: 5. Упаковка кода в дефолтный корень assets/app.zip
-        run: |
           python -c "
           import zipfile, os
           with zipfile.ZipFile('build_flutter/assets/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+              # Внедряем чистый исходный код проекта
               for root, dirs, files in os.walk('.'):
-                  if 'build_flutter' in root or '.github' in root or '.git' in root:
+                  if 'build_flutter' in root or '.github' in root or '.git' in root or '.pip_packages' in root:
                       continue
                   for file in files:
                       if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
                           fp = os.path.join(root, file)
                           zipf.write(fp, os.path.relpath(fp, '.'))
               
-              sp_dir = 'build_flutter/assets/site-packages'
+              # Внедряем зависимости напрямую в корень архива
+              sp_dir = '.pip_packages'
               for root, dirs, files in os.walk(sp_dir):
                   for file in files:
                       fp = os.path.join(root, file)
                       arc_name = os.path.relpath(fp, sp_dir)
                       zipf.write(fp, arc_name)
-          print('[УСПЕХ] Архив запакован по дефолтному пути assets/app.zip.')
+          print('[УСПЕХ] Архив app.zip физически создан в build_flutter/assets/.')
           "
 
-      - name: 6. Очистка временных папок
+      - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
-          rm -rf build_flutter/assets/site-packages
+          rm -rf .pip_packages
 
-      - name: 7. Полная перезапись pubspec.yaml под корень assets
+      - name: 7. Полная перезапись pubspec.yaml с жесткой привязкой ассетов
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
