@@ -40,19 +40,18 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
 
-      - name: 3. Запись main.dart (Строгий YAML-литерал)
-        uses: 1arp/create-file-action@v1.4
-        with:
-          path: 'build_flutter/lib/main.dart'
-          overwrite: true
-          content: |
-            import 'package:flutter/material.dart';
-            import 'package:serious_python/serious_python.dart' as sp;
-            
-            void main() {
-              WidgetsFlutterBinding.ensureInitialized();
-              sp.SeriousPython.run("assets/app/app.zip");
-            }
+      - name: 3. Запись main.dart (Нативный изолированный блок)
+        run: |
+          mkdir -p build_flutter/lib
+          exec 3<> build_flutter/lib/main.dart
+          echo "import 'package:flutter/material.dart';" >&3
+          echo "import 'package:serious_python/serious_python.dart' as sp;" >&3
+          echo "" >&3
+          echo "void main() {" >&3
+          echo "  WidgetsFlutterBinding.ensureInitialized();" >&3
+          echo "  sp.SeriousPython.run('assets/app/app.zip');" >&3
+          echo "}" >&3
+          exec 3>&-
 
       - name: 4. Скачивание зависимостей Pip в структуру ассетов
         run: |
