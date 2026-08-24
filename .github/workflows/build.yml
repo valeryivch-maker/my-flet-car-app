@@ -40,18 +40,21 @@ jobs:
           cd build_flutter
           flutter pub add serious_python
 
-      - name: 3. Запись main.dart (Нативный изолированный блок)
+      - name: 3. Тотальное затирание и перезапись main.dart
         run: |
-          mkdir -p build_flutter/lib
-          exec 3<> build_flutter/lib/main.dart
-          echo "import 'package:flutter/material.dart';" >&3
-          echo "import 'package:serious_python/serious_python.dart' as sp;" >&3
-          echo "" >&3
-          echo "void main() {" >&3
-          echo "  WidgetsFlutterBinding.ensureInitialized();" >&3
-          echo "  sp.SeriousPython.run('assets/app/app.zip');" >&3
-          echo "}" >&3
-          exec 3>&-
+          # Принудительно удаляем старый файл, чтобы исключить наложение кода
+          rm -f build_flutter/lib/main.dart
+          
+          # Записываем чистый изолированный код без аргументов в run()
+          cat << 'EOF' > build_flutter/lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:serious_python/serious_python.dart';
+          
+          void main() {
+            WidgetsFlutterBinding.ensureInitialized();
+            SeriousPython.run();
+          }
+          EOF
 
       - name: 4. Скачивание зависимостей Pip в структуру ассетов
         run: |
