@@ -42,17 +42,14 @@ jobs:
 
       - name: 3. Тотальное затирание и перезапись main.dart
         run: |
-          # Принудительно удаляем старый файл, чтобы исключить наложение кода
           rm -f build_flutter/lib/main.dart
-          
-          # Записываем чистый изолированный код без аргументов в run()
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
           
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run();
+            SeriousPython.run("assets/app/app.zip");
           }
           EOF
 
@@ -66,7 +63,6 @@ jobs:
           python -c "
           import zipfile, os
           with zipfile.ZipFile('build_flutter/assets/app/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-              # Упаковываем чистый код исходного проекта
               for root, dirs, files in os.walk('.'):
                   if 'build_flutter' in root or '.github' in root or '.git' in root:
                       continue
@@ -75,7 +71,6 @@ jobs:
                           fp = os.path.join(root, file)
                           zipf.write(fp, os.path.relpath(fp, '.'))
               
-              # Упаковываем зависимости site-packages внутрь корня архива
               sp_dir = 'build_flutter/assets/app/site-packages'
               for root, dirs, files in os.walk(sp_dir):
                   for file in files:
@@ -90,10 +85,33 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf build_flutter/assets/app/site-packages
 
-      - name: 7. Инжекция архива в pubspec.yaml через sed
+      - name: 7. Полная перезапись pubspec.yaml с гарантированной регистрацией ассетов
         run: |
-          cd build_flutter
-          sed -i '/^flutter:/a \  assets:\n    - assets/app/app.zip' pubspec.yaml
+          rm -f build_flutter/pubspec.yaml
+          cat << 'EOF' > build_flutter/pubspec.yaml
+          name: build_flutter
+          description: "A new Flutter project."
+          publish_to: 'none'
+          version: 1.0.0+1
+          
+          environment:
+            sdk: ^3.41.7
+          
+          dependencies:
+            flutter:
+              sdk: flutter
+            serious_python: ^4.5.1
+          
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/app/app.zip
+          EOF
 
       - name: 8. Компиляция стабильного Android APK
         env:
