@@ -95,38 +95,34 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Корректировка окружения SDK и атомарный линк ассетов
+      - name: 7. Полная атомарная перезапись pubspec.yaml через чистый литерал
         run: |
-          python -c "
-          pub_path = 'build_flutter/pubspec.yaml'
-          with open(pub_path, 'r', encoding='utf-8') as f:
-              lines = f.readlines()
+          rm -f build_flutter/pubspec.yaml
+          cat << 'EOF' > build_flutter/pubspec.yaml
+          name: build_flutter
+          description: "A new Flutter project."
+          publish_to: 'none'
+          version: 1.0.0+1
           
-          out = []
-          skip_env = False
-          for line in lines:
-              # Корректируем версию SDK Dart
-              if 'environment:' in line:
-                  out.append(line)
-                  out.append('  sdk: \'>=3.0.0 <4.0.0\'\n')
-                  skip_env = True
-                  continue
-              if skip_env and line.strip().startswith('sdk:'):
-                  continue
-              if skip_env and not line.startswith(' ') and line.strip():
-                  skip_env = False
-              
-              out.append(line)
-              
-              # Находим существующую секцию flutter: и сразу инжектируем под неё ассет
-              if line.strip() == 'flutter:':
-                  out.append('  assets:\n')
-                  out.append('    - assets/app.zip\n')
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
           
-          with open(pub_path, 'w', encoding='utf-8') as f:
-              f.writelines(out)
-          print('[УСПЕХ] pubspec.yaml успешно модифицирован без дублирования ключей.')
-          "
+          dependencies:
+            flutter:
+              sdk: flutter
+            serious_python: ^4.5.1
+          
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/app.zip
+          EOF
+          print('[УСПЕХ] pubspec.yaml полностью перезаписан эталонной структурой.')
 
       - name: 8. Компиляция стабильного Android APK
         env:
