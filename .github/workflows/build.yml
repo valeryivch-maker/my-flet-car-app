@@ -63,11 +63,9 @@ jobs:
           python -c "
           import zipfile, os
           
-          # Определение абсолютного пути для целевого архива
           target_zip = os.path.abspath('build_flutter/assets/app.zip')
           
           with zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
-              # Шаг А: Упаковка только чистых исходников из корня проекта без создания папки '.'
               for item in os.listdir('.'):
                   if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                       continue
@@ -79,9 +77,8 @@ jobs:
                           for file in files:
                               if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
                                   fp = os.path.join(root, file)
-                                  zipf.write(fp, fp)
+                                  zipf.write(fp, os.path.relpath(fp, '.'))
               
-              # Шаг Б: Упаковка зависимостей pip в корень архива
               sp_dir = '.pip_packages'
               if os.path.exists(sp_dir):
                   for root, dirs, files in os.walk(sp_dir):
@@ -98,33 +95,38 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная перезапись pubspec.yaml с жесткой привязкой ассетов
+      - name: 7. Корректировка окружения SDK и атомарный линк ассетов
         run: |
-          rm -f build_flutter/pubspec.yaml
-          cat << 'EOF' > build_flutter/pubspec.yaml
-          name: build_flutter
-          description: "A new Flutter project."
-          publish_to: 'none'
-          version: 1.0.0+1
+          python -c "
+          pub_path = 'build_flutter/pubspec.yaml'
+          with open(pub_path, 'r', encoding='utf-8') as f:
+              lines = f.readlines()
           
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
+          out = []
+          skip_env = False
+          for line in lines:
+              # Переводим блок environment на безопасный плавающий диапазон
+              if 'environment:' in line:
+                  out.append(line)
+                  out.append('  sdk: \'>=3.0.0 <4.0.0\'\n')
+                  skip_env = True
+                  continue
+              if skip_env and line.strip().startswith('sdk:'):
+                  continue
+              if skip_env and not line.startswith(' ') and line.strip():
+                  skip_env = False
+              out.append(line)
           
-          dependencies:
-            flutter:
-              sdk: flutter
-            serious_python: ^4.5.1
+          # Намертво инжектируем блок ассетов в конец оригинального pubspec
+          out.append('\nflutter:\n')
+          out.append('  uses-material-design: true\n')
+          out.append('  assets:\n')
+          out.append('    - assets/app.zip\n')
           
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-            flutter_lints: ^3.0.0
-          
-          flutter:
-            uses-material-design: true
-            assets:
-              - assets/app.zip
-          EOF
+          with open(pub_path, 'w', encoding='utf-8') as f:
+              f.writelines(out)
+          print('[УСПЕХ] pubspec.yaml успешно модифицирован с сохранением метаданных.')
+          "
 
       - name: 8. Компиляция стабильного Android APK
         env:
