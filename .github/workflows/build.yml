@@ -34,21 +34,21 @@ jobs:
         run: |
           flutter create --template=app --platforms=android build_flutter
 
-      - name: 2. Подключаем плагин serious_python
+      - name: 2. Подключаем официальный плагин python_flet
         run: |
           cd build_flutter
-          flutter pub add serious_python
+          flutter pub add python_flet
 
       - name: 3. Тотальное затирание и перезапись main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:serious_python/serious_python.dart';
+          import 'package:python_flet/python_flet.dart';
           
-          void main() {
+          void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run(appFileName: "main.py");
+            await PythonFlet.runApp("main.py");
           }
           EOF
 
@@ -110,7 +110,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            serious_python: ^4.5.1
+            python_flet: ^0.1.0
           
           dev_dependencies:
             flutter_test:
