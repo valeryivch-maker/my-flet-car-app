@@ -122,7 +122,7 @@ jobs:
             assets:
               - assets/app.zip
           EOF
-          print('[УСПЕХ] pubspec.yaml полностью перезаписан эталонной структурой.')
+          echo "[УСПЕХ] pubspec.yaml полностью перезаписан эталонной структурой."
 
       - name: 8. Компиляция стабильного Android APK
         env:
