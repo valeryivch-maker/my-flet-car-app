@@ -30,25 +30,25 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 1. Создаем чистый Flutter проект
+      - name: 1. Создаем чистый Flutter проект с гарантированным именем пакета
         run: |
-          flutter create --template=app --platforms=android build_flutter
+          flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
-      - name: 2. Подключаем официальный плагин python_flet
+      - name: 2. Подключаем плагин serious_python
         run: |
           cd build_flutter
-          flutter pub add python_flet
+          flutter pub add serious_python
 
       - name: 3. Тотальное затирание и перезапись main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:python_flet/python_flet.dart';
+          import 'package:serious_python/serious_python.dart';
           
-          void main() async {
+          void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            await PythonFlet.runApp("main.py");
+            SeriousPython.run(appFileName: "main.py");
           }
           EOF
 
@@ -95,12 +95,12 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml через чистый литерал
+      - name: 7. Полная атомарная перезапись pubspec.yaml под имя flet_android
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
-          name: build_flutter
-          description: "A new Flutter project."
+          name: flet_android
+          description: "A new Flet Android project."
           publish_to: 'none'
           version: 1.0.0+1
           
@@ -110,7 +110,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            python_flet: ^0.1.0
+            serious_python: ^4.5.1
           
           dev_dependencies:
             flutter_test:
@@ -122,7 +122,7 @@ jobs:
             assets:
               - assets/app.zip
           EOF
-          echo "[УСПЕХ] pubspec.yaml полностью перезаписан эталонной структурой."
+          echo "[УСПЕХ] pubspec.yaml полностью перезаписан под имя flet_android."
 
       - name: 8. Компиляция стабильного Android APK
         env:
