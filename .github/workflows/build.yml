@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 1. Создаем чистый Flutter проект с гарантированным именем пакета
+      - name: 1. Создаем чистый Flutter проект
         run: |
           flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
@@ -57,45 +57,37 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Упаковка кода в гарантированный ассет Flutter
+      - name: 5. Прямое копирование исходников и модулей в плоские ассеты Flutter
         run: |
-          mkdir -p build_flutter/assets
+          mkdir -p build_flutter/assets/app
+          
+          # Копируем Python-скрипты и сопутствующие текстовые/JSON файлы проекта
           python -c "
-          import zipfile, os
+          import os, shutil
           
-          target_zip = os.path.abspath('build_flutter/assets/app.zip')
-          
-          with zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
-              for item in os.listdir('.'):
-                  if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
-                      continue
-                  if os.path.isfile(item):
-                      if item.endswith('.py') or item.endswith('.json') or item.endswith('.txt'):
-                          zipf.write(item, item)
-                  elif os.path.isdir(item):
-                      for root, dirs, files in os.walk(item):
-                          for file in files:
-                              if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
-                                  fp = os.path.join(root, file)
-                                  zipf.write(fp, os.path.relpath(fp, '.'))
-              
-              sp_dir = '.pip_packages'
-              if os.path.exists(sp_dir):
-                  for root, dirs, files in os.walk(sp_dir):
-                      for file in files:
-                          fp = os.path.join(root, file)
-                          arc_name = os.path.relpath(fp, sp_dir)
-                          zipf.write(fp, arc_name)
-                          
-          print('[УСПЕХ] Архив app.zip успешно упакован.')
+          dest_dir = 'build_flutter/assets/app'
+          for item in os.listdir('.'):
+              if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
+                  continue
+              if os.path.isfile(item):
+                  if item.endswith('.py') or item.endswith('.json') or item.endswith('.txt'):
+                      shutil.copy2(item, os.path.join(dest_dir, item))
+              elif os.path.isdir(item):
+                  shutil.copytree(item, os.path.join(dest_dir, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
+          
+          # Копируем зависимости pip напрямую в ту же плоскую директорию ресурсов
+          if [ -d ".pip_packages" ]; then
+            cp -r .pip_packages/* build_flutter/assets/app/
+          fi
+          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде без ZIP."
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml под имя flet_android
+      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой плоского каталога
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -120,9 +112,9 @@ jobs:
           flutter:
             uses-material-design: true
             assets:
-              - assets/app.zip
+              - assets/app/
           EOF
-          echo "[УСПЕХ] pubspec.yaml полностью перезаписан под имя flet_android."
+          echo "[УСПЕХ] pubspec.yaml переведен на обслуживание плоского каталога ресурсов."
 
       - name: 8. Компиляция стабильного Android APK
         env:
