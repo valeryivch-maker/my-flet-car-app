@@ -34,31 +34,30 @@ jobs:
         run: |
           flutter create --template=app --platforms=android build_flutter
 
-      - name: 2. Подключаем базовый плагин flet
+      - name: 2. Подключаем плагин serious_python
         run: |
           cd build_flutter
-          flutter pub add flet
+          flutter pub add serious_python
 
-      - name: 3. Перезапись main.dart под нативный рантайм Flet
+      - name: 3. Тотальное затирание и перезапись main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:flet/flet.dart';
+          import 'package:serious_python/serious_python.dart';
           
-          void main() async {
+          void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            await Flet.initUrlStrategy();
-            runApp(const FletApp(mainPage: "main.py"));
+            SeriousPython.run(assetPath: "assets/app.zip");
           }
           EOF
 
       - name: 4. Скачивание зависимостей Pip во временную директорию
         run: |
           mkdir -p .pip_packages
-          pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet==0.27.3 --target .pip_packages
+          pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Упаковка Python-кода в ассеты Flutter
+      - name: 5. Упаковка кода в гарантированный ассет Flutter
         run: |
           mkdir -p build_flutter/assets
           python -c "
@@ -87,7 +86,8 @@ jobs:
                           fp = os.path.join(root, file)
                           arc_name = os.path.relpath(fp, sp_dir)
                           zipf.write(fp, arc_name)
-          print('[УСПЕХ] Python-контур упакован.')
+                          
+          print('[УСПЕХ] Архив app.zip успешно упакован.')
           "
 
       - name: 6. Очистка временных папок сборщика
@@ -95,7 +95,7 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная перезапись pubspec.yaml под Flet-ресурсы
+      - name: 7. Полная атомарная перезапись pubspec.yaml через чистый литерал
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -110,7 +110,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            flet: ^0.27.3
+            serious_python: ^4.5.1
           
           dev_dependencies:
             flutter_test:
@@ -122,7 +122,7 @@ jobs:
             assets:
               - assets/app.zip
           EOF
-          echo "[УСПЕХ] pubspec.yaml настроен под Flet."
+          echo "[УСПЕХ] pubspec.yaml полностью перезаписан эталонной структурой."
 
       - name: 8. Компиляция стабильного Android APK
         env:
