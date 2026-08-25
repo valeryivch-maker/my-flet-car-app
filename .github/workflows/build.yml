@@ -105,7 +105,7 @@ jobs:
           out = []
           skip_env = False
           for line in lines:
-              # Переводим блок environment на безопасный плавающий диапазон
+              # Корректируем версию SDK Dart
               if 'environment:' in line:
                   out.append(line)
                   out.append('  sdk: \'>=3.0.0 <4.0.0\'\n')
@@ -115,17 +115,17 @@ jobs:
                   continue
               if skip_env and not line.startswith(' ') and line.strip():
                   skip_env = False
+              
               out.append(line)
-          
-          # Намертво инжектируем блок ассетов в конец оригинального pubspec
-          out.append('\nflutter:\n')
-          out.append('  uses-material-design: true\n')
-          out.append('  assets:\n')
-          out.append('    - assets/app.zip\n')
+              
+              # Находим существующую секцию flutter: и сразу инжектируем под неё ассет
+              if line.strip() == 'flutter:':
+                  out.append('  assets:\n')
+                  out.append('    - assets/app.zip\n')
           
           with open(pub_path, 'w', encoding='utf-8') as f:
               f.writelines(out)
-          print('[УСПЕХ] pubspec.yaml успешно модифицирован с сохранением метаданных.')
+          print('[УСПЕХ] pubspec.yaml успешно модифицирован без дублирования ключей.')
           "
 
       - name: 8. Компиляция стабильного Android APK
