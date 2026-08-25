@@ -48,7 +48,7 @@ jobs:
           
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run("assets/app.zip");
+            SeriousPython.run();
           }
           EOF
 
