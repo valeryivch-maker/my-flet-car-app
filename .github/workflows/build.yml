@@ -57,7 +57,7 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Упаковка кода в гарантированный ассет Flutter
+      - name: 5. Упаковка кода в гарантированный ассет Flutter (БЕЗ СЖАТИЯ)
         run: |
           mkdir -p build_flutter/assets
           python -c "
@@ -65,7 +65,8 @@ jobs:
           
           target_zip = os.path.abspath('build_flutter/assets/app.zip')
           
-          with zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+          # Жестко переводим на метод ZIP_STORED (без сжатия) для нативной совместимости с Android
+          with zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_STORED) as zipf:
               for item in os.listdir('.'):
                   if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                       continue
@@ -87,7 +88,7 @@ jobs:
                           arc_name = os.path.relpath(fp, sp_dir)
                           zipf.write(fp, arc_name)
                           
-          print('[УСПЕХ] Архив app.zip успешно упакован без корневых смещений.')
+          print('[УСПЕХ] Архив app.zip создан методом STORED без компрессии.')
           "
 
       - name: 6. Очистка временных папок сборщика
