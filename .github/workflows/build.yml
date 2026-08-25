@@ -62,22 +62,35 @@ jobs:
           mkdir -p build_flutter/assets
           python -c "
           import zipfile, os
-          with zipfile.ZipFile('build_flutter/assets/app.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-              for root, dirs, files in os.walk('.'):
-                  if 'build_flutter' in root or '.github' in root or '.git' in root or '.pip_packages' in root:
+          
+          # Определение абсолютного пути для целевого архива
+          target_zip = os.path.abspath('build_flutter/assets/app.zip')
+          
+          with zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+              # Шаг А: Упаковка только чистых исходников из корня проекта без создания папки '.'
+              for item in os.listdir('.'):
+                  if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                       continue
-                  for file in files:
-                      if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
-                          fp = os.path.join(root, file)
-                          zipf.write(fp, os.path.relpath(fp, '.'))
+                  if os.path.isfile(item):
+                      if item.endswith('.py') or item.endswith('.json') or item.endswith('.txt'):
+                          zipf.write(item, item)
+                  elif os.path.isdir(item):
+                      for root, dirs, files in os.walk(item):
+                          for file in files:
+                              if file.endswith('.py') or file.endswith('.json') or file.endswith('.txt'):
+                                  fp = os.path.join(root, file)
+                                  zipf.write(fp, fp)
               
+              # Шаг Б: Упаковка зависимостей pip в корень архива
               sp_dir = '.pip_packages'
-              for root, dirs, files in os.walk(sp_dir):
-                  for file in files:
-                      fp = os.path.join(root, file)
-                      arc_name = os.path.relpath(fp, sp_dir)
-                      zipf.write(fp, arc_name)
-          print('[УСПЕХ] Архив app.zip физически создан в build_flutter/assets/.')
+              if os.path.exists(sp_dir):
+                  for root, dirs, files in os.walk(sp_dir):
+                      for file in files:
+                          fp = os.path.join(root, file)
+                          arc_name = os.path.relpath(fp, sp_dir)
+                          zipf.write(fp, arc_name)
+                          
+          print('[УСПЕХ] Архив app.zip успешно упакован без корневых смещений.')
           "
 
       - name: 6. Очистка временных папок сборщика
