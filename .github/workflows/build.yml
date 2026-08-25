@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Чек-аут репозитория
         uses: actions/checkout@v4
@@ -49,7 +48,7 @@ jobs:
           
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run(appPath: "assets/app.zip");
+            SeriousPython.run("assets/app.zip");
           }
           EOF
 
