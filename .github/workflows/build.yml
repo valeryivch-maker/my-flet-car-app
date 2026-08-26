@@ -1,4 +1,4 @@
-﻿name: Build Android Release (100% Offline Asset Container Fixed)
+﻿name: Build Android Release (100% Offline Asset Container Clean)
 on:
   push:
     branches:
@@ -70,7 +70,7 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов без комментариев
+      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов (Абсолютно чистый код)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
