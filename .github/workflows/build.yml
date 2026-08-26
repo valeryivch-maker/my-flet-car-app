@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Native Embedded Fixed)
+﻿name: Build Android Release (Flet Native Pipeline Fixed)
 on:
   push:
     branches:
@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под канонический FletApp()
+      - name: 3. Тотальное затирание и перезапись main.dart под автономную структуру
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,8 +47,8 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            // Возвращаем пустой конструктор. Плагин автоматически поднимет сокет на localhost и свяжет порты.
-            runApp(const FletApp());
+            // Передаем точные строковые параметры, требуемые компилятором для прохождения валидации
+            runApp(const FletApp(pageUrl: "", assetsDir: "assets/flet_app"));
           }
           EOF
 
