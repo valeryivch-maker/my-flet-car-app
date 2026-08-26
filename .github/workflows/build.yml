@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Embed Native)
+﻿name: Build Android Release (Flet Native Embedded)
 on:
   push:
     branches:
@@ -33,17 +33,17 @@ jobs:
         run: |
           flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
-      - name: 2. Подключаем embedded-плагин flet
+      - name: 2. Подключаем официальный нативный плагин flet
         run: |
           cd build_flutter
-          flutter pub add flet_embed
+          flutter pub add flet
 
-      - name: 3. Тотальное затирание и перезапись main.dart под контур Embed
+      - name: 3. Тотальное затирание и перезапись main.dart под контур Flet
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:flet_embed/flet_embed.dart';
+          import 'package:flet/flet.dart';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -85,7 +85,7 @@ jobs:
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml под архитектуру Embed
+      - name: 7. Полная атомарная перезапись pubspec.yaml под официальный flet
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -100,7 +100,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            flet_embed: ^0.23.2
+            flet: ^0.23.2
 
           dev_dependencies:
             flutter_test:
@@ -112,7 +112,7 @@ jobs:
             assets:
               - assets/
           EOF
-          echo "[УСПЕХ] pubspec.yaml переведен на прямое обслуживание плоского корня ресурсов."
+          echo "[УСПЕХ] pubspec.yaml переведен на обслуживание официального flet-контура."
 
       - name: 8. Компиляция стабильного Android APK
         env:
@@ -126,3 +126,4 @@ jobs:
         with:
           name: release-apk
           path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
+
