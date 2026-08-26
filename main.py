@@ -4,35 +4,7 @@ import os
 import warnings
 import time
 import threading
-
-# Хак путей для мобильной песочницы Android (HyperOS)
-if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
-    # Заставляем Python работать во временной папке приложения, разрешенной на запись
-    base_write_dir = "/tmp"
-    if not os.path.exists(base_write_dir):
-        base_write_dir = os.getcwd()
-        
-    # Динамически перенаправляем пути создания служебных папок
-    server_config_dir = os.path.join(base_write_dir, "server_config")
-    try:
-        if not os.path.exists(server_config_dir):
-            os.makedirs(server_config_dir, exist_ok=True)
-        config_file_path = os.path.join(server_config_dir, "ru_ru.json")
-        if not os.path.exists(config_file_path):
-            with open(config_file_path, "w", encoding="utf-8") as f:
-                f.write('{"status": "fallback", "locale": "ru_RU"}')
-    except Exception as path_ex:
-        print(f"[PATH WARNING] Ошибка инициализации папок записи: {path_ex}")
-else:
-    # Обычный контур для ПК (Windows)
-    try:
-        if not os.path.exists("server_config"):
-            os.makedirs("server_config", exist_ok=True)
-        if not os.path.exists("server_config/ru_ru.json"):
-            with open("server_config/ru_ru.json", "w", encoding="utf-8") as f:
-                f.write('{"status": "fallback", "locale": "ru_RU"}')
-    except:
-        pass
+import json
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -40,7 +12,7 @@ for d in [os.path.abspath(os.path.dirname(__file__)), os.getcwd()]:
     if d not in sys.path:
         sys.path.insert(0, d)
 
-# Универсальный кроссплатформенный мост для ПК и облачного шаблона Android
+# Универсальный кроссплатформенный мост для ПК и автономного APK
 try:
     import network
 except ImportError:
@@ -86,7 +58,7 @@ def run_local_telegram_sync():
         return False
     try:
         files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(files[0], "Carjournal_database.json")
+        shutil.copy2(files, "Carjournal_database.json")
         return True
     except:
         return False
@@ -169,10 +141,23 @@ def main(page: ft.Page):
             show_message(f"[X] Ошибка импорта: {str(err)}")
     def rebuild_ui():
         page.clean()
+        
+        # Умный кроссплатформенный контур чтения базы данных в офлайн-режиме
         try:
-            current_db = engine.load_data()
+            if os.name == 'nt':
+                # На ПК считываем стандартный физический файл JSON
+                current_db = engine.load_data()
+            else:
+                # На смартфоне считываем базу из изолированной внутренней памяти LocalStorage
+                raw_cached_db = page.client_storage.get("offline_car_db")
+                if raw_cached_db:
+                    current_db = json.loads(str(raw_cached_db))
+                else:
+                    # Если память устройства пуста, пробуем подгрузить дефолтный файл или создаем структуру
+                    current_db = engine.load_data()
+                    page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
-            print(f"[CRITICAL] Сбой СУБД: {db_err}")
+            print(f"[OFFLINE DB CRITICAL] Сбой чтения СУБД: {db_err}")
             current_db = {"cars": {}}
             
         page.data["db_data"] = current_db
@@ -249,8 +234,14 @@ def main(page: ft.Page):
                 if not any(h.get("value") == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
                 car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
-                engine.save_data(current_db)
-                page.snack_bar = ft.SnackBar(ft.Text(" Данные успешно обновлены в JSON!"), open=True)
+                
+                # Умный кроссплатформенный контур сохранения базы данных в офлайн-режиме
+                if os.name == 'nt':
+                    engine.save_data(current_db)
+                else:
+                    page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
+                    
+                page.snack_bar = ft.SnackBar(ft.Text(" Данные успешно сохранены в локальную память!"), open=True)
                 page.update()
                 page.data["refresh_ui"]()
                 try:
