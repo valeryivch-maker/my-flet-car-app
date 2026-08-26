@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Web Container)
+﻿name: Build Android Release (Flet Web Container Fixed)
 on:
   push:
     branches:
@@ -33,7 +33,7 @@ jobs:
           cd build_flutter
           flutter pub add webview_flutter
 
-      - name: 3. Перезапись main.dart под высокопроизводительный веб-контейнер
+      - name: 3. Перезапись main.dart под верный жизненный цикл initState
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -52,6 +52,7 @@ jobs:
             Widget build(BuildContext context) {
               return MaterialApp(
                 title: 'Журнал ТО',
+                debugShowCheckedModeBanner: false,
                 theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.amber),
                 home: const WebViewContainer(),
               );
@@ -69,12 +70,12 @@ jobs:
             late final WebViewController _controller;
 
             @override
-            void main() {
+            void initState() {
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(const Color(0x00000000))
-                ..loadRequest(Uri.parse('https://raas.su')); // Защищенный отказоустойчивый шлюз
+                ..loadRequest(Uri.parse('https://raas.su'));
             }
 
             @override
