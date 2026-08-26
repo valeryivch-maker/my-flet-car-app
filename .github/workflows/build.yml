@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Native Embedded Fixed)
+﻿name: Build Android Release (Flet Null Safety Fixed)
 on:
   push:
     branches:
@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под автоматический FletApp
+      - name: 3. Тотальное затирание и перезапись main.dart с передачей null
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,8 +47,8 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            // Вызываем канонический конструктор. Плагин сам подставит порты и найдет assets/flet_app
-            runApp(const FletApp());
+            // Передаем null, чтобы плагин задействовал автоматический подбор портов и путей
+            runApp(const FletApp(pageUrl: null, assetsDir: null));
           }
           EOF
 
@@ -62,7 +62,7 @@ jobs:
           mkdir -p build_flutter/assets/flet_app
           mkdir -p build_flutter/assets/app
           
-          # Копируем Python-скрипты и модули в оба возможных нативных каталога для 100% совместимости
+          # Копируем Python-скрипты и модули в оба возможных нативных каталога
           python -c "
           import os, shutil
           for target in ['build_flutter/assets/flet_app', 'build_flutter/assets/app']:
@@ -81,14 +81,14 @@ jobs:
             cp -r .pip_packages/* build_flutter/assets/flet_app/
             cp -r .pip_packages/* build_flutter/assets/app/
           fi
-          echo "[УСПЕХ] Все ресурсы рантайма продублированы в плоском виде в flet_app/ и app/."
+          echo "[УСПЕХ] Все ресурсы рантайма продублированы в плоском виде."
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой обоих каталогов ресурсов
+      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой ресурсов
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
