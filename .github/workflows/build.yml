@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Настройка Java JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/status-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
 
       - name: Настройка Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/status-python@v5
         with:
           python-version: '3.12'
 
@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart с передачей pageUrl
+      - name: 3. Тотальное затирание и перезапись main.dart под верную сигнатуру
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,7 +47,7 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            runApp(const FletApp(pageUrl: ""));
+            runApp(const FletApp(pageUrl: "", assetsDir: "assets/app"));
           }
           EOF
 
@@ -78,7 +78,7 @@ jobs:
           if [ -d ".pip_packages" ]; then
             cp -r .pip_packages/* build_flutter/assets/app/
           fi
-          echo "[УСПЕХ] Все resources рантайма развернуты в плоском виде в assets/app/."
+          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в assets/app/."
 
       - name: 6. Очистка временных папок сборщика
         run: |
