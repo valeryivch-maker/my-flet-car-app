@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Native Embedded Fixed)
+﻿name: Build Android Release (Flet Canonical Paths)
 on:
   push:
     branches:
@@ -33,12 +33,12 @@ jobs:
         run: |
           flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
-      - name: 2. Подключаем совместимую версию плагина flet
+      - name: 2. Подключаем стабильную версию плагина flet
         run: |
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под верную сигнатуру
+      - name: 3. Тотальное затирание и перезапись main.dart под канонический flet_app
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,7 +47,7 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            runApp(const FletApp(pageUrl: "", assetsDir: "assets/app"));
+            runApp(const FletApp(pageUrl: "", assetsDir: "assets/flet_app"));
           }
           EOF
 
@@ -56,14 +56,14 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Прямое копирование исходников в подкаталог ресурсов app/
+      - name: 5. Прямое копирование исходников в подкаталог ресурсов flet_app/
         run: |
-          mkdir -p build_flutter/assets/app
+          mkdir -p build_flutter/assets/flet_app
           
-          # Копируем Python-скрипты и модули напрямую в плоский подкаталог assets/app
+          # Копируем Python-скрипты и модули напрямую в плоский подкаталог assets/flet_app
           python -c "
           import os, shutil
-          dest_dir = 'build_flutter/assets/app'
+          dest_dir = 'build_flutter/assets/flet_app'
           for item in os.listdir('.'):
               if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                   continue
@@ -76,16 +76,16 @@ jobs:
           
           # Разворачиваем pip-зависимости в тот же плоский подкаталог ресурсов
           if [ -d ".pip_packages" ]; then
-            cp -r .pip_packages/* build_flutter/assets/app/
+            cp -r .pip_packages/* build_flutter/assets/flet_app/
           fi
-          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в assets/app/."
+          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в assets/flet_app/."
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml под контур assets/app/
+      - name: 7. Полная атомарная перезапись pubspec.yaml под контур flet_app/
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -110,9 +110,9 @@ jobs:
           flutter:
             uses-material-design: true
             assets:
-              - assets/app/
+              - assets/flet_app/
           EOF
-          echo "[УСПЕХ] pubspec.yaml успешно переведен на обслуживание подкаталога assets/app/."
+          echo "[УСПЕХ] pubspec.yaml успешно переведен на обслуживание подкаталога assets/flet_app/."
 
       - name: 8. Компиляция стабильного Android APK
         env:
