@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Null Safety Fixed)
+﻿name: Build Android Release (Flet Native Standalone)
 on:
   push:
     branches:
@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart с передачей null
+      - name: 3. Тотальное затирание и перезапись main.dart под автономный режим
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,8 +47,8 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            // Передаем null, чтобы плагин задействовал автоматический подбор портов и путей
-            runApp(const FletApp(pageUrl: null, assetsDir: null));
+            // Относительный путь удовлетворяет Null-Safety и запускает бэкенд на дефолтном сокете
+            runApp(const FletApp(pageUrl: "about:blank", assetsDir: "assets/flet_app"));
           }
           EOF
 
