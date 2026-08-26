@@ -1,5 +1,4 @@
 ﻿name: Build Android Release (Flet Native)
-
 on:
   push:
     branches:
@@ -45,7 +44,7 @@ jobs:
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:serious_python/serious_python.dart';
-          
+
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
             SeriousPython.run(appFileName: "main.py");
@@ -57,15 +56,14 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Прямое копирование исходников и модулей в плоские ассеты Flutter
+      - name: 5. Сборка ресурсов проекта и упаковка в app.zip
         run: |
-          mkdir -p build_flutter/assets/app
+          mkdir -p .tmp_app_payload
           
-          # Копируем Python-скрипты и сопутствующие текстовые/JSON файлы проекта
+          # Копируем Python-скрипты, JSON и текстовые конфигурации
           python -c "
           import os, shutil
-          
-          dest_dir = 'build_flutter/assets/app'
+          dest_dir = '.tmp_app_payload'
           for item in os.listdir('.'):
               if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                   continue
@@ -76,18 +74,27 @@ jobs:
                   shutil.copytree(item, os.path.join(dest_dir, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           
-          # Копируем зависимости pip напрямую в ту же плоскую директорию ресурсов
+          # Копируем внешние pip-пакеты в корень будущего архива
           if [ -d ".pip_packages" ]; then
-            cp -r .pip_packages/* build_flutter/assets/app/
+            cp -r .pip_packages/* .tmp_app_payload/
           fi
-          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде без ZIP."
+          
+          # Архивируем контур для интеграции в ассеты serious_python
+          mkdir -p build_flutter/assets
+          cd .tmp_app_payload
+          zip -r ../build_flutter/assets/app.zip ./*
+          cd ..
+          
+          # Очищаем рабочий след
+          rm -rf .tmp_app_payload
+          echo "[УСПЕХ] Контур приложения запакован в валидный assets/app.zip"
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой плоского каталога
+      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой архива
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -95,26 +102,26 @@ jobs:
           description: "A new Flet Android project."
           publish_to: 'none'
           version: 1.0.0+1
-          
+
           environment:
             sdk: '>=3.0.0 <4.0.0'
-          
+
           dependencies:
             flutter:
               sdk: flutter
             serious_python: ^4.5.1
-          
+
           dev_dependencies:
             flutter_test:
               sdk: flutter
             flutter_lints: ^3.0.0
-          
+
           flutter:
             uses-material-design: true
             assets:
-              - assets/app/
+              - assets/app.zip
           EOF
-          echo "[УСПЕХ] pubspec.yaml переведен на обслуживание плоского каталога ресурсов."
+          echo "[УСПЕХ] pubspec.yaml переведен на обслуживание архивного контура."
 
       - name: 8. Компиляция стабильного Android APK
         env:
