@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Native Standalone)
+﻿name: Build Android Release (Flet Native Embedded Fixed)
 on:
   push:
     branches:
@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под автономный режим
+      - name: 3. Тотальное затирание и перезапись main.dart под канонический FletApp()
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,8 +47,8 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            // Относительный путь удовлетворяет Null-Safety и запускает бэкенд на дефолтном сокете
-            runApp(const FletApp(pageUrl: "about:blank", assetsDir: "assets/flet_app"));
+            // Возвращаем пустой конструктор. Плагин автоматически поднимет сокет на localhost и свяжет порты.
+            runApp(const FletApp());
           }
           EOF
 
