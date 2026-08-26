@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Native)
+﻿name: Build Android Release (Flet Embed Native)
 on:
   push:
     branches:
@@ -33,21 +33,21 @@ jobs:
         run: |
           flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
-      - name: 2. Подключаем плагин serious_python
+      - name: 2. Подключаем embedded-плагин flet
         run: |
           cd build_flutter
-          flutter pub add serious_python
+          flutter pub add flet_embed
 
-      - name: 3. Тотальное затирание и перезапись main.dart
+      - name: 3. Тотальное затирание и перезапись main.dart под контур Embed
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:serious_python/serious_python.dart';
+          import 'package:flet_embed/flet_embed.dart';
 
-          void main() {
+          void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            SeriousPython.run(appFileName: "main.py");
+            runApp(const FletApp(mainScriptPath: "assets/main.py"));
           }
           EOF
 
@@ -56,14 +56,14 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Сборка ресурсов проекта и упаковка в app.zip
+      - name: 5. Прямое копирование исходников в корневой каталог ресурсов
         run: |
-          mkdir -p .tmp_app_payload
+          mkdir -p build_flutter/assets
           
-          # Копируем Python-скрипты, JSON и текстовые конфигурации
+          # Копируем Python-скрипты и модули напрямую в корень ассетов
           python -c "
           import os, shutil
-          dest_dir = '.tmp_app_payload'
+          dest_dir = 'build_flutter/assets'
           for item in os.listdir('.'):
               if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
                   continue
@@ -74,32 +74,23 @@ jobs:
                   shutil.copytree(item, os.path.join(dest_dir, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           
-          # Копируем внешние pip-пакеты в корень будущего архива
+          # Разворачиваем pip-зависимости в тот же плоский каталог ресурсов
           if [ -d ".pip_packages" ]; then
-            cp -r .pip_packages/* .tmp_app_payload/
+            cp -r .pip_packages/* build_flutter/assets/
           fi
-          
-          # Архивируем контур для интеграции в ассеты serious_python
-          mkdir -p build_flutter/assets
-          cd .tmp_app_payload
-          zip -r ../build_flutter/assets/app.zip ./*
-          cd ..
-          
-          # Очищаем рабочий след
-          rm -rf .tmp_app_payload
-          echo "[УСПЕХ] Контур приложения запакован в валидный assets/app.zip"
+          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в корне ассетов."
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой архива
+      - name: 7. Полная атомарная перезапись pubspec.yaml под архитектуру Embed
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
           name: flet_android
-          description: "A new Flet Android project."
+          description: "A new Flet Embedded Android project."
           publish_to: 'none'
           version: 1.0.0+1
 
@@ -109,7 +100,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            serious_python: ^4.5.1
+            flet_embed: ^0.23.2
 
           dev_dependencies:
             flutter_test:
@@ -119,9 +110,9 @@ jobs:
           flutter:
             uses-material-design: true
             assets:
-              - assets/app.zip
+              - assets/
           EOF
-          echo "[УСПЕХ] pubspec.yaml переведен на обслуживание архивного контура."
+          echo "[УСПЕХ] pubspec.yaml переведен на прямое обслуживание плоского корня ресурсов."
 
       - name: 8. Компиляция стабильного Android APK
         env:
