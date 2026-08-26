@@ -53,9 +53,9 @@ jobs:
           rm -rf .tmp_web_payload
           echo "[УСПЕХ] Python-контур успешно скомпилирован."
 
-      - name: 3. Создаем чистый Flutter проект
+      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
-          flutter create --template=app --project-name=flet_android --platforms=android build_flutter
+          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
       - name: 4. Подключаем официальный стабильный плагин WebView
         run: |
