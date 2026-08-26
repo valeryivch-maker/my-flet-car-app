@@ -38,7 +38,7 @@ jobs:
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под канонический FletApp
+      - name: 3. Тотальное затирание и перезапись main.dart с передачей pageUrl
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,7 +47,7 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            runApp(const FletApp());
+            runApp(const FletApp(pageUrl: ""));
           }
           EOF
 
@@ -78,7 +78,7 @@ jobs:
           if [ -d ".pip_packages" ]; then
             cp -r .pip_packages/* build_flutter/assets/app/
           fi
-          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в assets/app/."
+          echo "[УСПЕХ] Все resources рантайма развернуты в плоском виде в assets/app/."
 
       - name: 6. Очистка временных папок сборщика
         run: |
