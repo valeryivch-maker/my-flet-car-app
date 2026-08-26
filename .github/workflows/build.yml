@@ -1,4 +1,4 @@
-﻿name: Build Android Release (Flet Canonical Paths)
+﻿name: Build Android Release (Flet Native Embedded Fixed)
 on:
   push:
     branches:
@@ -33,12 +33,12 @@ jobs:
         run: |
           flutter create --template=app --project-name=flet_android --platforms=android build_flutter
 
-      - name: 2. Подключаем стабильную версию плагина flet
+      - name: 2. Подключаем совместимую версию плагина flet
         run: |
           cd build_flutter
           flutter pub add flet:0.86.5
 
-      - name: 3. Тотальное затирание и перезапись main.dart под канонический flet_app
+      - name: 3. Тотальное затирание и перезапись main.dart под автоматический FletApp
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -47,7 +47,8 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            runApp(const FletApp(pageUrl: "", assetsDir: "assets/flet_app"));
+            // Вызываем канонический конструктор. Плагин сам подставит порты и найдет assets/flet_app
+            runApp(const FletApp());
           }
           EOF
 
@@ -56,36 +57,38 @@ jobs:
           mkdir -p .pip_packages
           pip install requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 flet-embed==0.23.2 --target .pip_packages
 
-      - name: 5. Прямое копирование исходников в подкаталог ресурсов flet_app/
+      - name: 5. Прямое копирование исходников в подкаталоги ресурсов flet_app/ и app/
         run: |
           mkdir -p build_flutter/assets/flet_app
+          mkdir -p build_flutter/assets/app
           
-          # Копируем Python-скрипты и модули напрямую в плоский подкаталог assets/flet_app
+          # Копируем Python-скрипты и модули в оба возможных нативных каталога для 100% совместимости
           python -c "
           import os, shutil
-          dest_dir = 'build_flutter/assets/flet_app'
-          for item in os.listdir('.'):
-              if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
-                  continue
-              if os.path.isfile(item):
-                  if item.endswith('.py') or item.endswith('.json') or item.endswith('.txt'):
-                      shutil.copy2(item, os.path.join(dest_dir, item))
-              elif os.path.isdir(item):
-                  shutil.copytree(item, os.path.join(dest_dir, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
+          for target in ['build_flutter/assets/flet_app', 'build_flutter/assets/app']:
+              for item in os.listdir('.'):
+                  if item in ['build_flutter', '.github', '.git', '.pip_packages', 'gradle_pip_placeholder']:
+                      continue
+                  if os.path.isfile(item):
+                      if item.endswith('.py') or item.endswith('.json') or item.endswith('.txt'):
+                          shutil.copy2(item, os.path.join(target, item))
+                  elif os.path.isdir(item):
+                      shutil.copytree(item, os.path.join(target, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           
-          # Разворачиваем pip-зависимости в тот же плоский подкаталог ресурсов
+          # Разворачиваем pip-зависимости в оба каталога ресурсов
           if [ -d ".pip_packages" ]; then
             cp -r .pip_packages/* build_flutter/assets/flet_app/
+            cp -r .pip_packages/* build_flutter/assets/app/
           fi
-          echo "[УСПЕХ] Все ресурсы рантайма развернуты в плоском виде в assets/flet_app/."
+          echo "[УСПЕХ] Все ресурсы рантайма продублированы в плоском виде в flet_app/ и app/."
 
       - name: 6. Очистка временных папок сборщика
         run: |
           mkdir -p gradle_pip_placeholder
           rm -rf .pip_packages
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml под контур flet_app/
+      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой обоих каталогов ресурсов
         run: |
           rm -f build_flutter/pubspec.yaml
           cat << 'EOF' > build_flutter/pubspec.yaml
@@ -111,8 +114,9 @@ jobs:
             uses-material-design: true
             assets:
               - assets/flet_app/
+              - assets/app/
           EOF
-          echo "[УСПЕХ] pubspec.yaml успешно переведен на обслуживание подкаталога assets/flet_app/."
+          echo "[УСПЕХ] pubspec.yaml успешно переведен на обслуживание гибридных плоских каталогов."
 
       - name: 8. Компиляция стабильного Android APK
         env:
