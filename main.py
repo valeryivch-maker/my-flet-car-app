@@ -5,14 +5,34 @@ import warnings
 import time
 import threading
 
-try:
-    if not os.path.exists("server_config"):
-        os.makedirs("server_config", exist_ok=True)
-    if not os.path.exists("server_config/ru_ru.json"):
-        with open("server_config/ru_ru.json", "w", encoding="utf-8") as f:
-            f.write('{"status": "fallback", "locale": "ru_RU"}')
-except:
-    pass
+# Хак путей для мобильной песочницы Android (HyperOS)
+if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
+    # Заставляем Python работать во временной папке приложения, разрешенной на запись
+    base_write_dir = "/tmp"
+    if not os.path.exists(base_write_dir):
+        base_write_dir = os.getcwd()
+        
+    # Динамически перенаправляем пути создания служебных папок
+    server_config_dir = os.path.join(base_write_dir, "server_config")
+    try:
+        if not os.path.exists(server_config_dir):
+            os.makedirs(server_config_dir, exist_ok=True)
+        config_file_path = os.path.join(server_config_dir, "ru_ru.json")
+        if not os.path.exists(config_file_path):
+            with open(config_file_path, "w", encoding="utf-8") as f:
+                f.write('{"status": "fallback", "locale": "ru_RU"}')
+    except Exception as path_ex:
+        print(f"[PATH WARNING] Ошибка инициализации папок записи: {path_ex}")
+else:
+    # Обычный контур для ПК (Windows)
+    try:
+        if not os.path.exists("server_config"):
+            os.makedirs("server_config", exist_ok=True)
+        if not os.path.exists("server_config/ru_ru.json"):
+            with open("server_config/ru_ru.json", "w", encoding="utf-8") as f:
+                f.write('{"status": "fallback", "locale": "ru_RU"}')
+    except:
+        pass
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
