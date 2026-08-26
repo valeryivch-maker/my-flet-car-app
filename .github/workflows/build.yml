@@ -1,4 +1,4 @@
-﻿name: Build Android Release (100% Offline Asset Container)
+﻿name: Build Android Release (100% Offline Asset Container Fixed)
 on:
   push:
     branches:
@@ -35,10 +35,8 @@ jobs:
 
       - name: 2. Подготовка и локальная компиляция Python-кода в HTML5/JS
         run: |
-          # Создаем чистую временную папку сборки веб-дистрибутива
           mkdir -p .tmp_web_payload
           
-          # Копируем исходный код, исключая папки фреймворка
           python -c "
           import os, shutil
           dest = '.tmp_web_payload'
@@ -51,12 +49,11 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           
-          # Компилируем проект в веб-дистрибутив, используя верный параметр --distpath
           cd .tmp_web_payload
           flet publish main.py --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур успешно скомпилирован в автономный веб-пакет."
+          echo "[УСПЕХ] Python-контур успешно скомпилирован."
 
       - name: 3. Создаем чистый Flutter проект
         run: |
@@ -73,7 +70,7 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов (Офлайн-режим)
+      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов без комментариев
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -115,7 +112,6 @@ jobs:
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(const Color(0x00000000))
-                # Вызываем локальную точку входа из внутренней памяти APK без использования сотовой сети
                 ..loadFlutterAsset('assets/www/index.html');
             }
 
