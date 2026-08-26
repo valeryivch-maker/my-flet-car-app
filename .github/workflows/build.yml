@@ -51,11 +51,11 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           
-          # Компилируем проект в веб-дистрибутив
+          # Компилируем проект в веб-дистрибутив, используя верный параметр --distpath
           cd .tmp_web_payload
-          flet publish main.py --dist-dir ../flet_web_dist
+          flet publish main.py --distpath ../flet_web_dist
           cd ..
-          rm -rf .tmp_app_payload
+          rm -rf .tmp_web_payload
           echo "[УСПЕХ] Python-контур успешно скомпилирован в автономный веб-пакет."
 
       - name: 3. Создаем чистый Flutter проект
