@@ -36,7 +36,6 @@ jobs:
       - name: 2. Подготовка и локальная компиляция Python-кода в HTML5/JS
         run: |
           mkdir -p .tmp_web_payload
-          
           python -c "
           import os, shutil
           dest = '.tmp_web_payload'
@@ -48,7 +47,6 @@ jobs:
               elif os.path.isdir(item):
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
-          
           cd .tmp_web_payload
           flet publish main.py --distpath ../flet_web_dist
           cd ..
@@ -76,15 +74,12 @@ jobs:
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
             runApp(const MyApp());
           }
-
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
-
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
@@ -95,17 +90,13 @@ jobs:
               );
             }
           }
-
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
-
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
-
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
-
             @override
             void initState() {
               super.initState();
@@ -114,7 +105,6 @@ jobs:
                 ..setBackgroundColor(const Color(0x00000000))
                 ..loadFlutterAsset('assets/www/index.html');
             }
-
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -126,35 +116,43 @@ jobs:
           }
           EOF
 
-      - name: 7. Полная атомарная перезапись pubspec.yaml с линковкой веб-ресурсов
+      - name: 7. Динамическая генерация pubspec.yaml с рекурсивной линковкой веб-ресурсов
         run: |
-          rm -f build_flutter/pubspec.yaml
-          cat << 'EOF' > build_flutter/pubspec.yaml
+          cd build_flutter
+          rm -f pubspec.yaml
+          
+          # Базовый манифест
+          cat << 'EOF' > pubspec.yaml
           name: flet_android
           description: "An offline Flet Asset project."
           publish_to: 'none'
           version: 1.0.0+1
-
           environment:
             sdk: '>=3.0.0 <4.0.0'
-
           dependencies:
             flutter:
               sdk: flutter
             webview_flutter: ^4.10.0
-
           dev_dependencies:
             flutter_test:
               sdk: flutter
             flutter_lints: ^3.0.0
-
           flutter:
             uses-material-design: true
             assets:
               - assets/www/
-              - assets/www/assets/
           EOF
-          echo "[УСПЕХ] Манифест pubspec.yaml переведен на автономный контур."
+          
+          # Автоматический поиск всех вложенных каталогов внутри assets/www и запись их в pubspec
+          find assets/www -type d | while read -r dir; do
+            # Пропускаем корневой, так как он уже добавлен
+            if [ "$dir" != "assets/www" ]; then
+              echo "              - ${dir}/" >> pubspec.yaml
+            fi
+          done
+          
+          echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и включает все подкаталоги WASM."
+          cat pubspec.yaml
 
       - name: 8. Компиляция стабильного Android APK
         run: |

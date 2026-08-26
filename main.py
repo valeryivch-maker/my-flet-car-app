@@ -68,7 +68,7 @@ def main(page: ft.Page):
     _current_page_ref = page
     orig_update = page.update
     state_holder = {'last_time': 0.0}
-
+    
     def throttled_update(*args, **kwargs):
         if os.name == 'nt':
             orig_update(*args, **kwargs)
@@ -79,7 +79,7 @@ def main(page: ft.Page):
             return
         state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
-
+        
     page.update = throttled_update
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -99,19 +99,19 @@ def main(page: ft.Page):
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
-
+    
     def refresh_ui_sync():
         page.controls.clear()
         rebuild_ui()
         page.update()
-
+        
     def on_pubsub_refresh_message(message):
         if message == "trigger_refresh_ui":
             refresh_ui_sync()
-
+            
     page.pubsub.on_message = on_pubsub_refresh_message
     page.data = {"refresh_ui": lambda: page.pubsub.send_all("trigger_refresh_ui")}
-
+    
     def async_mobile_import(e=None):
         try:
             net_mod = sys.modules.get("network", __import__("network"))
@@ -126,9 +126,9 @@ def main(page: ft.Page):
                 show_message("[Х] Модуль сети не поддерживает диалоги")
         except Exception as err:
             show_message(f"[Х] Ошибка вызова окна: {str(err)}")
-
+            
     def async_pc_import(e=None):
-        show_message(" Сканирование локальных загрузок...")
+        show_message("Сканирование локальных загрузок...")
         try:
             if run_local_telegram_sync():
                 page.data.pop("db_data", None)
@@ -189,7 +189,8 @@ def main(page: ft.Page):
             def make_click_handler(car_name_to_select=name):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
             car_buttons_row.controls.append(ft.Container(
-                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
+                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
+                                weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
                 bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
                 padding=ft.Padding(16, 8, 16, 8),
                 border_radius=8,
@@ -218,11 +219,11 @@ def main(page: ft.Page):
             filled=True,
             border_radius=ft.BorderRadius(8, 8, 8, 8)
         )
- 
+        
         def update_forecast_click(e):
             try:
                 if not current_odo_input.value or not daily_input.value:
-                    page.snack_bar = ft.SnackBar(ft.Text(" Поля не могут быть пустыми!"), open=True)
+                    page.snack_bar = ft.SnackBar(ft.Text("Поля не могут быть пустыми!"), open=True)
                     page.update()
                     return
                 val = int(str(current_odo_input.value).strip())
@@ -241,9 +242,10 @@ def main(page: ft.Page):
                 else:
                     page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
                     
-                page.snack_bar = ft.SnackBar(ft.Text(" Данные успешно сохранены в локальную память!"), open=True)
+                page.snack_bar = ft.SnackBar(ft.Text("Данные успешно сохранены в локальную память!"), open=True)
                 page.update()
                 page.data["refresh_ui"]()
+                
                 try:
                     if hasattr(network, "LAST_SENT_ALERTS") and selected_car in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[selected_car] = None
@@ -251,9 +253,9 @@ def main(page: ft.Page):
                 except Exception as t_err:
                     print(f"[ALERT ERROR]: {t_err}")
             except Exception as ex:
-                page.snack_bar = ft.SnackBar(ft.Text(f" Ошибка СУБД: {str(ex)}"), open=True)
+                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка СУБД: {str(ex)}"), open=True)
                 page.update()
- 
+                
         action_panel = views.build_action_panel(
             page, current_db, selected_car, async_mobile_import, async_pc_import,
             lambda e: [engine.app_state.update({"view_mode": "analytics" if engine.app_state.get("view_mode", "list") != "analytics" else "list"}), rebuild_ui()],
