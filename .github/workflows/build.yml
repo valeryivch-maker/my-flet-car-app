@@ -47,9 +47,7 @@ jobs:
               elif os.path.isdir(item):
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
-          
           cd .tmp_web_payload
-          # Паблишим веб-версию с явным указанием относительного базового пути
           flet publish main.py --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -70,12 +68,13 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под обслуживание локального сервера Localhost (Абсолютно чистый код)
+      - name: 6. Перезапись main.dart под локальный сервер (Исправление конфликта имен Router)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'dart:convert';
-          import 'package:flutter/material.dart';
+          // Фикс: скрываем встроенный Router из Flutter, чтобы не было конфликта с shelf_router
+          import 'package:flutter/material.dart' hide Router;
           import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:shelf/shelf.dart';
@@ -87,7 +86,7 @@ jobs:
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Запуск локального HTTP-сервера для обхода CORS ограничений Android
+            // Инициализация роутера из пакета shelf_router
             final router = Router();
             
             router.all('/<p.*>', (Request request) async {
@@ -101,7 +100,6 @@ jobs:
                 final bytes = await rootBundle.load(assetPath);
                 final body = bytes.buffer.asUint8List();
                 
-                // Определение MIME-типов для корректного парсинга WASM
                 String mimeType = 'application/octet-stream';
                 if (path.endsWith('.html')) mimeType = 'text/html; charset=utf-8';
                 else if (path.endsWith('.js')) mimeType = 'application/javascript';
