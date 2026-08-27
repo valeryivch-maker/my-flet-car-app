@@ -68,13 +68,12 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под нативный обход ограничений CORS (Абсолютно чистый код)
+      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов (Абсолютно чистый и стабильный код)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:webview_flutter_android/webview_flutter_android.dart';
 
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
@@ -106,28 +105,10 @@ jobs:
             @override
             void initState() {
               super.initState();
-              
-              final PlatformWebViewControllerCreationParams params;
-              params = const PlatformWebViewControllerCreationParams();
-              
-              final WebViewController controller = WebViewController.fromPlatformCreationParams(params);
-              
-              controller
+              _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000));
-
-              if (controller.platform is AndroidWebViewController) {
-                AndroidWebViewController.registerWith();
-                final androidController = controller.platform as AndroidWebViewController;
-                androidController.setMediaPlaybackRequiresUserGesture(false);
-                
-                androidController.setOnPlatformPermissionRequest((request) {
-                  request.grant();
-                });
-              }
-
-              controller.loadFlutterAsset('assets/www/index.html');
-              _controller = controller;
+                ..setBackgroundColor(const Color(0x00000000))
+                ..loadFlutterAsset('assets/www/index.html');
             }
 
             @override
@@ -146,7 +127,7 @@ jobs:
           cd build_flutter
           rm -f pubspec.yaml
           
-          # Базовый манифест — убрана конфликтная строка webview_flutter_android
+          # Базовый манифест
           cat << 'EOF' > pubspec.yaml
           name: flet_android
           description: "An offline Flet Asset project."
