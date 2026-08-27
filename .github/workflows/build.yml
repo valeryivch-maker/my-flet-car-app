@@ -48,6 +48,7 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
+          # Публикуем как чистый веб-дистрибутив
           flet publish main.py --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -57,10 +58,10 @@ jobs:
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный стабильный плагин WebView и Shelf сервер
+      - name: 4. Подключаем официальный стабильный плагин WebView
         run: |
           cd build_flutter
-          flutter pub add webview_flutter shelf shelf_router
+          flutter pub add webview_flutter webview_flutter_android
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -68,58 +69,16 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под безопасный локальный сокет Android (Абсолютно чистый код)
+      - name: 6. Перезапись main.dart под нативный обход ограничений CORS (Абсолютно чистый код)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
-          import 'dart:convert';
-          import 'dart:io';
-          import 'package:flutter/material.dart' hide Router;
-          import 'package:flutter/services.dart';
+          import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:shelf/shelf.dart';
-          import 'package:shelf/shelf_io.dart' as io;
-          import 'package:shelf_router/shelf_router.dart';
+          import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-          late final int serverPort;
-
-          void main() async {
+          void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            
-            final router = Router();
-            
-            router.all('/<p.*>', (Request request) async {
-              var path = request.url.path;
-              if (path.isEmpty || path == '/') {
-                path = 'index.html';
-              }
-              
-              final assetPath = 'assets/www/$path';
-              try {
-                final bytes = await rootBundle.load(assetPath);
-                final body = bytes.buffer.asUint8List();
-                
-                String mimeType = 'application/octet-stream';
-                if (path.endsWith('.html')) mimeType = 'text/html; charset=utf-8';
-                else if (path.endsWith('.js')) mimeType = 'application/javascript';
-                else if (path.endsWith('.css')) mimeType = 'text/css';
-                else if (path.endsWith('.json')) mimeType = 'application/json';
-                else if (path.endsWith('.wasm')) mimeType = 'application/wasm';
-                else if (path.endsWith('.png')) mimeType = 'image/png';
-                
-                return Response.ok(body, headers: {
-                  'content-type': mimeType,
-                  'Access-Control-Allow-Origin': '*',
-                });
-              } catch (_) {
-                return Response.notFound('File not found: $path');
-              }
-            });
-
-            // Нативный фикс: биндимся к loopbackIPv4 и ставим порт 0 для автовыбора свободной линии
-            final server = await io.serve(router, InternetAddress.loopbackIPv4, 0);
-            serverPort = server.port;
-            
             runApp(const MyApp());
           }
 
@@ -144,14 +103,36 @@ jobs:
 
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
+
             @override
             void initState() {
               super.initState();
-              _controller = WebViewController()
+              
+              final PlatformWebViewControllerCreationParams params;
+              params = const PlatformWebViewControllerCreationParams();
+              
+              final WebViewController controller = WebViewController.fromPlatformCreationParams(params);
+              
+              controller
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000))
-                ..loadRequest(Uri.parse('http://${InternetAddress.loopbackIPv4.address}:$serverPort/index.html'));
+                ..setBackgroundColor(const Color(0x00000000));
+
+              # Нативный фикс: принудительно разрешаем доступ к локальным файлам через file:// и ассеты внутри движка Chromium
+              if (controller.platform is AndroidWebViewController) {
+                AndroidWebViewController.registerWith();
+                final androidController = controller.platform as AndroidWebViewController;
+                androidController.setMediaPlaybackRequiresUserGesture(false);
+                
+                # Включение критических разрешений на чтение локальной файловой структуры
+                androidController.setOnPlatformPermissionRequest((request) {
+                  request.grant();
+                });
+              }
+
+              controller.loadFlutterAsset('assets/www/index.html');
+              _controller = controller;
             }
+
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -180,8 +161,7 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.10.0
-            shelf: ^1.4.1
-            shelf_router: ^1.1.4
+            webview_flutter_android: ^3.16.0
           dev_dependencies:
             flutter_test:
               sdk: flutter
