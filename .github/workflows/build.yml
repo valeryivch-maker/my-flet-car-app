@@ -33,7 +33,7 @@ jobs:
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка и локальная компиляция Python-кода в HTML5/JS
+      - name: 2. Подготовка и компиляция Python-кода с относительными путями WASM
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -48,10 +48,11 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          flet publish main.py --distpath ../flet_web_dist
+          # Фикс: принудительно переводим сборщик на работу с относительными путями файлов
+          flet publish main.py --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур успешно скомпилирован."
+          echo "[УСПЕХ] Python-контур успешно скомпилирован с относительным роутингом."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
@@ -68,7 +69,7 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов (Абсолютно чистый и стабильный код)
+      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -127,7 +128,6 @@ jobs:
           cd build_flutter
           rm -f pubspec.yaml
           
-          # Базовый манифест
           cat << 'EOF' > pubspec.yaml
           name: flet_android
           description: "An offline Flet Asset project."
@@ -149,7 +149,6 @@ jobs:
               - assets/www/
           EOF
           
-          # Автоматический поиск всех вложенных каталогов внутри assets/www и запись их в pubspec
           find assets/www -type d | while read -r dir; do
             if [ "$dir" != "assets/www" ]; then
               echo "              - ${dir}/" >> pubspec.yaml
