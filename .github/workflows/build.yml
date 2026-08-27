@@ -47,7 +47,9 @@ jobs:
               elif os.path.isdir(item):
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
+          
           cd .tmp_web_payload
+          # Паблишим веб-версию с явным указанием относительного базового пути
           flet publish main.py --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -57,10 +59,10 @@ jobs:
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный стабильный плагин WebView
+      - name: 4. Подключаем официальный стабильный плагин WebView и Shelf сервер
         run: |
           cd build_flutter
-          flutter pub add webview_flutter
+          flutter pub add webview_flutter shelf shelf_router
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -68,16 +70,61 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов (Абсолютно чистый код)
+      - name: 6. Перезапись main.dart под обслуживание локального сервера Localhost (Абсолютно чистый код)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
+          import 'dart:convert';
           import 'package:flutter/material.dart';
+          import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          void main() {
+          import 'package:shelf/shelf.dart';
+          import 'package:shelf/shelf_io.dart' as io;
+          import 'package:shelf_router/shelf_router.dart';
+
+          late final int serverPort;
+
+          void main() async {
             WidgetsFlutterBinding.ensureInitialized();
+            
+            // Запуск локального HTTP-сервера для обхода CORS ограничений Android
+            final router = Router();
+            
+            router.all('/<p.*>', (Request request) async {
+              var path = request.url.path;
+              if (path.isEmpty || path == '/') {
+                path = 'index.html';
+              }
+              
+              final assetPath = 'assets/www/$path';
+              try {
+                final bytes = await rootBundle.load(assetPath);
+                final body = bytes.buffer.asUint8List();
+                
+                // Определение MIME-типов для корректного парсинга WASM
+                String mimeType = 'application/octet-stream';
+                if (path.endsWith('.html')) mimeType = 'text/html; charset=utf-8';
+                else if (path.endsWith('.js')) mimeType = 'application/javascript';
+                else if (path.endsWith('.css')) mimeType = 'text/css';
+                else if (path.endsWith('.json')) mimeType = 'application/json';
+                else if (path.endsWith('.wasm')) mimeType = 'application/wasm';
+                else if (path.endsWith('.png')) mimeType = 'image/png';
+                
+                return Response.ok(body, headers: {
+                  'content-type': mimeType,
+                  'Access-Control-Allow-Origin': '*',
+                });
+              } catch (_) {
+                return Response.notFound('File not found: $path');
+              }
+            });
+
+            final server = await io.serve(router, '127.0.0.1', 8080);
+            serverPort = server.port;
+            
             runApp(const MyApp());
           }
+
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
             @override
@@ -90,11 +137,13 @@ jobs:
               );
             }
           }
+
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
+
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
             @override
@@ -103,7 +152,7 @@ jobs:
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(const Color(0x00000000))
-                ..loadFlutterAsset('assets/www/index.html');
+                ..loadRequest(Uri.parse('http://127.0.0'));
             }
             @override
             Widget build(BuildContext context) {
@@ -133,6 +182,8 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.10.0
+            shelf: ^1.4.1
+            shelf_router: ^1.1.4
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -145,14 +196,12 @@ jobs:
           
           # Автоматический поиск всех вложенных каталогов внутри assets/www и запись их в pubspec
           find assets/www -type d | while read -r dir; do
-            # Пропускаем корневой, так как он уже добавлен
             if [ "$dir" != "assets/www" ]; then
               echo "              - ${dir}/" >> pubspec.yaml
             fi
           done
           
           echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и включает все подкаталоги WASM."
-          cat pubspec.yaml
 
       - name: 8. Компиляция стабильного Android APK
         run: |
