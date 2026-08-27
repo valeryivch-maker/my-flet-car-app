@@ -68,12 +68,12 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Перезапись main.dart под локальный сервер (Исправление конфликта имен Router)
+      - name: 6. Перезапись main.dart под безопасный локальный сокет Android (Абсолютно чистый код)
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'dart:convert';
-          // Фикс: скрываем встроенный Router из Flutter, чтобы не было конфликта с shelf_router
+          import 'dart:io';
           import 'package:flutter/material.dart' hide Router;
           import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
@@ -86,7 +86,6 @@ jobs:
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Инициализация роутера из пакета shelf_router
             final router = Router();
             
             router.all('/<p.*>', (Request request) async {
@@ -117,7 +116,8 @@ jobs:
               }
             });
 
-            final server = await io.serve(router, '127.0.0.1', 8080);
+            // Нативный фикс: биндимся к loopbackIPv4 и ставим порт 0 для автовыбора свободной линии
+            final server = await io.serve(router, InternetAddress.loopbackIPv4, 0);
             serverPort = server.port;
             
             runApp(const MyApp());
@@ -150,7 +150,7 @@ jobs:
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(const Color(0x00000000))
-                ..loadRequest(Uri.parse('http://127.0.0'));
+                ..loadRequest(Uri.parse('http://${InternetAddress.loopbackIPv4.address}:$serverPort/index.html'));
             }
             @override
             Widget build(BuildContext context) {
