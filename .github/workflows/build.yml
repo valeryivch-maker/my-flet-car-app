@@ -48,7 +48,6 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Публикуем как чистый веб-дистрибутив
           flet publish main.py --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -61,7 +60,7 @@ jobs:
       - name: 4. Подключаем официальный стабильный плагин WebView
         run: |
           cd build_flutter
-          flutter pub add webview_flutter webview_flutter_android
+          flutter pub add webview_flutter
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -117,13 +116,11 @@ jobs:
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(const Color(0x00000000));
 
-              # Нативный фикс: принудительно разрешаем доступ к локальным файлам через file:// и ассеты внутри движка Chromium
               if (controller.platform is AndroidWebViewController) {
                 AndroidWebViewController.registerWith();
                 final androidController = controller.platform as AndroidWebViewController;
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 
-                # Включение критических разрешений на чтение локальной файловой структуры
                 androidController.setOnPlatformPermissionRequest((request) {
                   request.grant();
                 });
@@ -149,7 +146,7 @@ jobs:
           cd build_flutter
           rm -f pubspec.yaml
           
-          # Базовый манифест
+          # Базовый манифест — убрана конфликтная строка webview_flutter_android
           cat << 'EOF' > pubspec.yaml
           name: flet_android
           description: "An offline Flet Asset project."
@@ -161,7 +158,6 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.10.0
-            webview_flutter_android: ^3.16.0
           dev_dependencies:
             flutter_test:
               sdk: flutter
