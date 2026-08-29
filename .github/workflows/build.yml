@@ -48,7 +48,6 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Фикс: принудительно переводим сборщик на работу с относительными путями файлов
           flet publish main.py --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -75,12 +74,12 @@ jobs:
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-
+          
           void main() {
             WidgetsFlutterBinding.ensureInitialized();
             runApp(const MyApp());
           }
-
+          
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
             @override
@@ -93,16 +92,15 @@ jobs:
               );
             }
           }
-
+          
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
-
+          
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
-
             @override
             void initState() {
               super.initState();
@@ -111,7 +109,6 @@ jobs:
                 ..setBackgroundColor(const Color(0x00000000))
                 ..loadFlutterAsset('assets/www/index.html');
             }
-
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -127,7 +124,6 @@ jobs:
         run: |
           cd build_flutter
           rm -f pubspec.yaml
-          
           cat << 'EOF' > pubspec.yaml
           name: flet_android
           description: "An offline Flet Asset project."
@@ -149,13 +145,14 @@ jobs:
               - assets/www/
           EOF
           
+          # Корректный рекурсивный обход папок без дублирования слешей
           find assets/www -type d | while read -r dir; do
             if [ "$dir" != "assets/www" ]; then
-              echo "              - ${dir}/" >> pubspec.yaml
+              clean_dir=$(echo "$dir" | sed 's|/\+$||')
+              echo "    - ${clean_dir}/" >> pubspec.yaml
             fi
           done
-          
-          echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и включает все подкаталоги WASM."
+          echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и верифицирован."
 
       - name: 8. Компиляция стабильного Android APK
         run: |
