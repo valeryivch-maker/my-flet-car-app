@@ -62,7 +62,6 @@ def run_local_telegram_sync():
         return True
     except:
         return False
-
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
@@ -139,6 +138,7 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
+
     def rebuild_ui():
         page.clean()
         try:
@@ -172,12 +172,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # ЖЕСТКИЙ ФИКС: Извлекаем именно строку из списка совпадений
+                selected_car = match[0]
                 engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
-            
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
             is_selected = (name == selected_car)
