@@ -73,7 +73,7 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        if now - state_holder['last_time'] < 0.1:
+        if now - state_holder['last_time'] < 0.12:
             return
         state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
@@ -81,7 +81,7 @@ def main(page: ft.Page):
     page.update = throttled_update
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
+    page.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
     
     page.theme = ft.Theme(
         color_scheme_seed=ft.Colors.AMBER,
