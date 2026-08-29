@@ -5,6 +5,7 @@ import warnings
 import time
 import threading
 import json
+from datetime import datetime
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -27,7 +28,6 @@ except ImportError:
         sys.modules['network'] = network
 
 import flet as ft
-from datetime import datetime
 import engine
 import views
 
@@ -141,19 +141,14 @@ def main(page: ft.Page):
             show_message(f"[X] Ошибка импорта: {str(err)}")
     def rebuild_ui():
         page.clean()
-        
-        # Умный кроссплатформенный контур чтения базы данных в офлайн-режиме
         try:
             if os.name == 'nt':
-                # На ПК считываем стандартный физический файл JSON
                 current_db = engine.load_data()
             else:
-                # На смартфоне считываем базу из изолированной внутренней памяти LocalStorage
                 raw_cached_db = page.client_storage.get("offline_car_db")
                 if raw_cached_db:
                     current_db = json.loads(str(raw_cached_db))
                 else:
-                    # Если память устройства пуста, пробуем подгрузить дефолтный файл или создаем структуру
                     current_db = engine.load_data()
                     page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
@@ -177,7 +172,7 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # Исправлено: извлекаем строку из списка совпадений
+                selected_car = match[0] # ФИКС: Извлекаем чистую строку из отфильтрованного списка совпадений
                 engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
@@ -189,8 +184,7 @@ def main(page: ft.Page):
             def make_click_handler(car_name_to_select=name):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
             car_buttons_row.controls.append(ft.Container(
-                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
-                                weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
+                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
                 bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
                 padding=ft.Padding(16, 8, 16, 8),
                 border_radius=8,
@@ -236,7 +230,6 @@ def main(page: ft.Page):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
                 car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
                 
-                # Умный кроссплатформенный контур сохранения базы данных в офлайн-режиме
                 if os.name == 'nt':
                     engine.save_data(current_db)
                 else:
@@ -249,7 +242,8 @@ def main(page: ft.Page):
                 try:
                     if hasattr(network, "LAST_SENT_ALERTS") and selected_car in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[selected_car] = None
-                    threading.Thread(target=lambda: network.check_and_send_alerts(car_profile, car_name=selected_car) if hasattr(network, "check_and_send_alerts") else None, daemon=True).start()
+                    if hasattr(network, "check_and_send_alerts"):
+                        network.check_and_send_alerts(car_profile, car_name=selected_car)
                 except Exception as t_err:
                     print(f"[ALERT ERROR]: {t_err}")
             except Exception as ex:
@@ -294,15 +288,22 @@ def main(page: ft.Page):
 
     rebuild_ui()
     
+    # Исправленный запуск воркера (Selected car теперь гарантированно строка)
     try:
-        def start_worker():
-            c_data = engine.load_data()
-            sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-            if c_data and "cars" in c_data and sc in c_data["cars"]:
-                net_mod = sys.modules.get("network", __import__("network"))
-                if hasattr(net_mod, "check_and_send_alerts"):
-                    net_mod.check_and_send_alerts(c_data["cars"][sc], car_name=sc)
-        threading.Thread(target=start_worker, daemon=True).start()
+        if not page.data.get("worker_initialized"):
+            def start_worker():
+                time.sleep(1.0)
+                c_data = engine.load_data()
+                sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
+                if isinstance(sc, list) and len(sc) > 0:
+                    sc = sc[0]
+                if c_data and "cars" in c_data and sc in c_data["cars"]:
+                    net_mod = sys.modules.get("network", __import__("network"))
+                    if hasattr(net_mod, "check_and_send_alerts"):
+                        net_mod.check_and_send_alerts(c_data["cars"][sc], car_name=sc)
+            
+            threading.Thread(target=start_worker, daemon=True).start()
+            page.data["worker_initialized"] = True
     except Exception as e:
         print(f"Ошибка запуска алертов: {e}")
 
