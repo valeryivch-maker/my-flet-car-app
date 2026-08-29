@@ -73,8 +73,7 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        if now - state_holder['last_time'] < 0.25:
-            time.sleep(0.1)
+        if now - state_holder['last_time'] < 0.1:
             return
         state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
@@ -172,10 +171,10 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]
+                selected_car = match[0]  # ЖЕСТКИЙ ФИКС: Извлекаем строку из списка совпадений
                 engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None
+            selected_car = car_names[0] if car_names else None  # ЖЕСТКИЙ ФИКС: Извлекаем строку по индексу 0
             engine.app_state["selected_car"] = selected_car
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
