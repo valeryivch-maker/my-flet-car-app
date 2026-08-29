@@ -172,7 +172,7 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0] # ФИКС: Извлекаем чистую строку из отфильтрованного списка совпадений
+                selected_car = match[0]  # ЖЕСТКИЙ ФИКС: Извлекаем именно строку из списка совпадений
                 engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
@@ -288,15 +288,12 @@ def main(page: ft.Page):
 
     rebuild_ui()
     
-    # Исправленный запуск воркера (Selected car теперь гарантированно строка)
     try:
         if not page.data.get("worker_initialized"):
             def start_worker():
                 time.sleep(1.0)
                 c_data = engine.load_data()
                 sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-                if isinstance(sc, list) and len(sc) > 0:
-                    sc = sc[0]
                 if c_data and "cars" in c_data and sc in c_data["cars"]:
                     net_mod = sys.modules.get("network", __import__("network"))
                     if hasattr(net_mod, "check_and_send_alerts"):
