@@ -170,14 +170,12 @@ def main(page: ft.Page):
             
         selected_car = engine.app_state.get("selected_car")
         if selected_car:
-            if isinstance(selected_car, list) and len(selected_car) > 0:
-                selected_car = selected_car[0]
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]
+                selected_car = match[0]  # СТРОГИЙ ФИКС: Извлекаем строку по индексу 0
                 engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None
+            selected_car = car_names[0] if car_names else None  # СТРОГИЙ ФИКС: Извлекаем строку по индексу 0
             engine.app_state["selected_car"] = selected_car
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
@@ -295,8 +293,6 @@ def main(page: ft.Page):
                 time.sleep(1.0)
                 c_data = engine.load_data()
                 sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-                if isinstance(sc, list) and len(sc) > 0:
-                    sc = sc[0]
                 if c_data and "cars" in c_data and sc in c_data["cars"]:
                     net_mod = sys.modules.get("network", __import__("network"))
                     if hasattr(net_mod, "check_and_send_alerts"):
@@ -309,4 +305,3 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
-
