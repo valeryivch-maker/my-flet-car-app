@@ -173,11 +173,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = str(match[0])  # Исправлено: строковое извлечение по индексу ноль
+                selected_car = str(match[0])  # Тщательный фикс: берем строковый элемент по индексу 0
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = str(car_names[0]) if car_names else None  # Исправлено: дефолтная индексация строки
+            selected_car = str(car_names[0]) if car_names else None  # Тщательный фикс: дефолтная индексация строки
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
