@@ -1,4 +1,4 @@
-﻿# main.py - Часть 1
+﻿# main.py - Часть 1 из 3
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -59,7 +59,7 @@ def run_local_telegram_sync():
         return False
     try:
         files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(files, "Carjournal_database.json")
+        shutil.copy2(files[0], "Carjournal_database.json")
         return True
     except:
         return False
@@ -75,7 +75,7 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        # Ограничиваем троттлинг до 0.25с для защиты тайл-менеджера Chromium
+        # Ограничиваем троттлинг до 0.25с для защиты тайл-менеджера Chromium на HyperOS
         if now - state_holder['last_time'] < 0.25:
             return
         state_holder.update({'last_time': now})
@@ -140,9 +140,9 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
-# main.py - Часть 2, Блок А
+# main.py - Часть 2 из 3
     def rebuild_ui():
-        # Отключаем рендеринг текстур во время пересчета дерева виджетов
+        # Отключаем рендеринг текстур во время пересчета дерева виджетов (защита RenderThread)
         if os.name != 'nt':
             page.views_detached = True
             
@@ -158,7 +158,7 @@ def main(page: ft.Page):
                     else:
                         current_db = engine.load_data()
                 except Exception as cache_err:
-                    # Очистка поврежденного или старого offline-кэша при сбое приведения типов
+                    # Очистка поврежденного локального кэша при сбое приведения типов Android Bundle
                     print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
                     page.client_storage.remove("offline_car_db")
                     current_db = engine.load_data()
@@ -187,11 +187,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # Фикс индексации чистой строки
+                selected_car = match[0]  # Жесткий фикс: извлекаем чистую строку по индексу 0
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None  # Фикс индексации дефолтной строки
+            selected_car = car_names[0] if car_names else None  # Жесткий фикс: берем первую доступную строку
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -207,7 +207,7 @@ def main(page: ft.Page):
                 border_radius=8,
                 on_click=make_click_handler()
             ))
-# main.py - Часть 2, Блок Б
+# main.py - Часть 3 из 3
         car_profile = cars_dict[selected_car]
         odo_dict = car_profile.get("odometer") or {}
         
@@ -303,7 +303,7 @@ def main(page: ft.Page):
             main_layout
         ])))
 
-        # Включаем рендеринг обратно и пушим итоговый кадр
+        # Включаем рендеринг обратно и пушим итоговый кадр на экран смартфона
         if os.name != 'nt':
             page.views_detached = False
         page.update()
