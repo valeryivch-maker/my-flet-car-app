@@ -140,7 +140,7 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
-# main.py - Часть 2
+# main.py - Часть 2, Блок А
     def rebuild_ui():
         # Отключаем рендеринг текстур во время пересчета дерева виджетов
         if os.name != 'nt':
@@ -151,11 +151,18 @@ def main(page: ft.Page):
             if os.name == 'nt':
                 current_db = engine.load_data()
             else:
-                raw_cached_db = page.client_storage.get("offline_car_db")
-                if raw_cached_db:
-                    current_db = json.loads(str(raw_cached_db))
-                else:
+                try:
+                    raw_cached_db = page.client_storage.get("offline_car_db")
+                    if raw_cached_db:
+                        current_db = json.loads(str(raw_cached_db))
+                    else:
+                        current_db = engine.load_data()
+                except Exception as cache_err:
+                    # Очистка поврежденного или старого offline-кэша при сбое приведения типов
+                    print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
+                    page.client_storage.remove("offline_car_db")
                     current_db = engine.load_data()
+                    
                 page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
             print(f"[OFFLINE DB CRITICAL] Сбой чтения СУБД: {db_err}")
@@ -180,11 +187,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # Фикс: извлекаем чистую строку по индексу ноль
+                selected_car = match[0]  # Фикс индексации чистой строки
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None  # Фикс: дефолтная индексация строки
+            selected_car = car_names[0] if car_names else None  # Фикс индексации дефолтной строки
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -200,7 +207,7 @@ def main(page: ft.Page):
                 border_radius=8,
                 on_click=make_click_handler()
             ))
-            
+# main.py - Часть 2, Блок Б
         car_profile = cars_dict[selected_car]
         odo_dict = car_profile.get("odometer") or {}
         
@@ -296,7 +303,7 @@ def main(page: ft.Page):
             main_layout
         ])))
 
-        # Включаем рендеринг текстур обратно и форсируем перерисовку экрана
+        # Включаем рендеринг обратно и пушим итоговый кадр
         if os.name != 'nt':
             page.views_detached = False
         page.update()
