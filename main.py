@@ -75,7 +75,8 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        if now - state_holder['last_time'] < 0.12:
+        # Фикс: увеличиваем троттлинг до 0.25с, чтобы не переполнять tile_manager в Chromium
+        if now - state_holder['last_time'] < 0.25:
             return
         state_holder.update({'last_time': now})
         orig_update(*args, **kwargs)
@@ -141,6 +142,10 @@ def main(page: ft.Page):
             show_message(f"[X] Ошибка импорта: {str(err)}")
 # main.py - Часть 2
     def rebuild_ui():
+        # Включаем детач отрисовки на мобильных устройствах, чтобы разгрузить RenderThread
+        if os.name != 'nt':
+            page.views_detached = True
+            
         page.clean()
         try:
             if os.name == 'nt':
@@ -166,6 +171,8 @@ def main(page: ft.Page):
                 alignment=ft.alignment.center,
                 padding=50
             ))
+            if os.name != 'nt':
+                page.views_detached = False
             page.update()
             return
             
@@ -173,11 +180,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = str(match[0])  # Тщательный фикс: берем строковый элемент по индексу 0
+                selected_car = match[0]
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = str(car_names[0]) if car_names else None  # Тщательный фикс: дефолтная индексация строки
+            selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -288,6 +295,11 @@ def main(page: ft.Page):
             ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)),
             main_layout
         ])))
+
+        # Возвращаем отрисовку графического контекста в нормальный режим и пушим кадр
+        if os.name != 'nt':
+            page.views_detached = False
+        page.update()
 
     # Первичный запуск отрисовки при старте сессии
     rebuild_ui()
