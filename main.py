@@ -1,4 +1,5 @@
-﻿# -*- coding: utf-8 -*-
+﻿# main.py - Часть 1
+# -*- coding: utf-8 -*-
 import sys
 import os
 import warnings
@@ -58,10 +59,11 @@ def run_local_telegram_sync():
         return False
     try:
         files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(files, "Carjournal_database.json")
+        shutil.copy2(files[0], "Carjournal_database.json")
         return True
     except:
         return False
+
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
@@ -137,7 +139,7 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
-
+# main.py - Часть 2
     def rebuild_ui():
         page.clean()
         try:
@@ -149,7 +151,7 @@ def main(page: ft.Page):
                     current_db = json.loads(str(raw_cached_db))
                 else:
                     current_db = engine.load_data()
-                    page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
+                page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
             print(f"[OFFLINE DB CRITICAL] Сбой чтения СУБД: {db_err}")
             current_db = {"cars": {}}
@@ -173,16 +175,19 @@ def main(page: ft.Page):
             if match:
                 selected_car = match[0]
                 engine.app_state["selected_car"] = selected_car
+                
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
+            
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
         for name in car_names:
             is_selected = (name == selected_car)
             def make_click_handler(car_name_to_select=name):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
             car_buttons_row.controls.append(ft.Container(
-                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
+                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
+                                weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
                 bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
                 padding=ft.Padding(16, 8, 16, 8),
                 border_radius=8,
@@ -284,6 +289,7 @@ def main(page: ft.Page):
             main_layout
         ])))
 
+    # Первичный запуск отрисовки при старте сессии
     rebuild_ui()
     
     try:
@@ -296,7 +302,6 @@ def main(page: ft.Page):
                     net_mod = sys.modules.get("network", __import__("network"))
                     if hasattr(net_mod, "check_and_send_alerts"):
                         net_mod.check_and_send_alerts(c_data["cars"][sc], car_name=sc)
-            
             threading.Thread(target=start_worker, daemon=True).start()
             page.data["worker_initialized"] = True
     except Exception as e:
@@ -304,3 +309,4 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
+
