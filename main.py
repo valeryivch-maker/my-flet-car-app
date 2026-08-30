@@ -75,7 +75,7 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        # Фикс: увеличиваем троттлинг до 0.25с, чтобы не переполнять tile_manager в Chromium
+        # Ограничиваем троттлинг до 0.25с для защиты тайл-менеджера Chromium
         if now - state_holder['last_time'] < 0.25:
             return
         state_holder.update({'last_time': now})
@@ -142,7 +142,7 @@ def main(page: ft.Page):
             show_message(f"[X] Ошибка импорта: {str(err)}")
 # main.py - Часть 2
     def rebuild_ui():
-        # Включаем детач отрисовки на мобильных устройствах, чтобы разгрузить RenderThread
+        # Отключаем рендеринг текстур во время пересчета дерева виджетов
         if os.name != 'nt':
             page.views_detached = True
             
@@ -180,11 +180,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]
+                selected_car = match[0]  # Фикс: извлекаем чистую строку по индексу ноль
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None
+            selected_car = car_names[0] if car_names else None  # Фикс: дефолтная индексация строки
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -296,7 +296,7 @@ def main(page: ft.Page):
             main_layout
         ])))
 
-        # Возвращаем отрисовку графического контекста в нормальный режим и пушим кадр
+        # Включаем рендеринг текстур обратно и форсируем перерисовку экрана
         if os.name != 'nt':
             page.views_detached = False
         page.update()
