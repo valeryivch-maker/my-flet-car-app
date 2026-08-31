@@ -1,17 +1,12 @@
-﻿
+﻿# engine.py - Часть 1 из 2
+# -*- coding: utf-8 -*-
 import json
 import os
-import sys
 from datetime import datetime, timedelta
 
-if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
-    DB_FILE = 'Carjournal_database.json'
-    CONFIG_FILE = 'app_config.txt'
-else:
-    DB_FILE = 'Carjournal_database.json'
-    CONFIG_FILE = 'app_config.txt'
-
+DB_FILE = "Carjournal_database.json"
 DB_PATH = DB_FILE
+CONFIG_FILE = "app_config.txt"
 
 def save_config_to_disk(file_id):
     """Принудительно записывает file_id на диск."""
@@ -37,12 +32,12 @@ class SmartAppState(dict):
     """Умный класс-обертка для app_state, перехватывающий запись ключей."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+        
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
         if key == "last_file_id" and value is not None:
             save_config_to_disk(value)
- 
+            
     def get(self, key, default=None):
         if key == "last_file_id":
             val = super().get(key, default)
@@ -74,10 +69,10 @@ def get_default_car_data():
             {"value": 125000, "date": current_date}
         ],
         "maintenance_data": {
-            "Замена масла + фильтры": {"last_service": 120000, "interval": 10000, "date": current_date},
-            "Замена ГРМ (ремень, помпа)": {"last_service": 90000, "interval": 60000, "date": current_date},
+            "Замена масла + филтры": {"last_service": 120000, "interval": 10000, "date": current_date},
+            "Замена ГРМ (ремен, помпа)": {"last_service": 90000, "interval": 60000, "date": current_date},
             "Замена антифриза": {"last_service": 100000, "interval": 50000, "date": current_date},
-            "Тормозная жидкость": {"last_service": 100000, "interval": 40000, "date": current_date},
+            "Тормозна жидкост": {"last_service": 100000, "interval": 40000, "date": current_date},
             "Обслуживание кондиционера": {"last_service": 110000, "interval": 30000, "date": current_date}
         },
         "history": []
@@ -95,26 +90,20 @@ def recalculate_auto_daily_mileage(car_profile):
     history = car_profile.get("odometer_history", [])
     if len(history) < 2:
         return int(car_profile.get("daily_mileage", 45))
- 
     try:
         sorted_hist = sorted(history, key=lambda x: datetime.strptime(x.get("date", "01.01.2000"), "%d.%m.%Y") if x.get("date") else datetime.min)
         rates = []
         for i in range(1, len(sorted_hist)):
             prev_entry = sorted_hist[i-1]
             curr_entry = sorted_hist[i]
- 
             d1 = datetime.strptime(prev_entry["date"], "%d.%m.%Y")
             d2 = datetime.strptime(curr_entry["date"], "%d.%m.%Y")
- 
             days = (d2 - d1).days
             km = int(curr_entry["value"]) - int(prev_entry["value"])
- 
             if days == 0 and km > 0:
                 days = 1
- 
             if days > 0 and km > 0:
                 rates.append(km / days)
- 
         if rates:
             recent_rates = rates[-4:]
             calculated_rate = int(sum(recent_rates) / len(recent_rates))
@@ -123,9 +112,8 @@ def recalculate_auto_daily_mileage(car_profile):
             return max(1, calculated_rate)
     except Exception:
         pass
- 
     return int(car_profile.get("daily_mileage", 45))
-
+# engine.py - Часть 2 из 2
 def calculate_task_status(task_info, current_odometer, daily_mileage):
     """Вычисляет остаток ресурса до ТО в километрах и днях."""
     last_service = task_info.get("last_service", current_odometer)
@@ -162,7 +150,6 @@ def load_data():
             data = json.load(f)
         if not data or "cars" not in data or not data["cars"]:
             data = {"cars": {"Chevrolet lacetti": get_default_car_data()}}
- 
         for car_name, car_profile in list(data["cars"].items()):
             try:
                 if "odometer" not in car_profile:
@@ -179,9 +166,8 @@ def load_data():
                     car_profile["fuel_history"] = []
                 try:
                     car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
-                except Exception:
+                except:
                     car_profile["daily_mileage"] = 45
- 
                 for task_name, task_info in car_profile["maintenance_data"].items():
                     if "last_service" not in task_info:
                         task_info["last_service"] = car_profile["odometer"]["value"]
@@ -191,9 +177,9 @@ def load_data():
                         task_info["date"] = datetime.now().strftime("%d.%m.%Y")
                 try:
                     car_profile["predictions"] = get_maintenance_predictions(car_profile)
-                except Exception:
+                except:
                     car_profile["predictions"] = {}
-            except Exception:
+            except:
                 pass
         return data
     except Exception:
@@ -208,10 +194,8 @@ def save_data(data):
         os.replace(tmp_file, DB_FILE)
     except Exception as e:
         if os.path.exists(tmp_file):
-            try:
-                os.remove(tmp_file)
-            except:
-                pass
+            try: os.remove(tmp_file)
+            except: pass
         print(f"Ошибка записи на диск: {e}")
 
 def calculate_cost_per_km_brsm(car_profile):
@@ -307,7 +291,6 @@ def calculate_gbo_economy_points(car_profile):
     return points
 
 def rename_car_profile(current_db, old_name, new_name):
-    """Переименовывает профиль автомобиля в базе данных."""
     if not new_name or new_name in current_db.get("cars", {}):
         return False, "Недопустимое имя или профиль уже существует"
     if old_name in current_db.get("cars", {}):
@@ -317,24 +300,15 @@ def rename_car_profile(current_db, old_name, new_name):
     return False, "Профиль не найден"
 
 def add_fuel_record(car_profile, f_type, liters, cost, odo, date_str, comment):
-    """Добавляет запись о заправке и рассчитывает расход относительно прошлой точки."""
     if "fuel_history" not in car_profile:
         car_profile["fuel_history"] = []
-    
     price = round(cost / liters, 2) if liters > 0 else 0.0
     record = {
-        "type": f_type,
-        "liters": liters,
-        "cost": cost,
-        "odometer": odo,
-        "date": date_str,
-        "comment": comment,
-        "price": price,
-        "consumption": 0.0
+        "type": f_type, "liters": liters, "cost": cost, "odometer": odo,
+        "date": date_str, "comment": comment, "price": price, "consumption": 0.0
     }
     car_profile["fuel_history"].append(record)
     car_profile["fuel_history"].sort(key=lambda x: int(x.get("odometer", 0)))
-    
     same_type_logs = [log for log in car_profile["fuel_history"] if log.get("type") == f_type]
     for idx, log in enumerate(same_type_logs):
         if idx == 0:

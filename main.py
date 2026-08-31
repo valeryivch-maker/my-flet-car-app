@@ -14,7 +14,6 @@ for d in [os.path.abspath(os.path.dirname(__file__)), os.getcwd()]:
     if d not in sys.path:
         sys.path.insert(0, d)
 
-# Универсальный кроссплатформенный мост для ПК и автономного APK
 try:
     import network
 except ImportError:
@@ -75,7 +74,6 @@ def main(page: ft.Page):
             orig_update(*args, **kwargs)
             return
         now = time.time()
-        # Ограничиваем троттлинг до 0.25с для защиты тайл-менеджера Chromium на HyperOS
         if now - state_holder['last_time'] < 0.25:
             return
         state_holder.update({'last_time': now})
@@ -85,7 +83,7 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
-    
+# main.py - Часть 2 из 3
     page.theme = ft.Theme(
         color_scheme_seed=ft.Colors.AMBER,
         scrollbar_theme=ft.ScrollbarTheme(
@@ -140,15 +138,14 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
-# main.py - Часть 2 из 3
+
     def rebuild_ui():
-        # Отключаем рендеринг текстур во время пересчета дерева виджетов (защита RenderThread)
         if os.name != 'nt':
             page.views_detached = True
             
         page.clean()
         try:
-            if os.name == 'nt':
+            if os.name == 'nt' or not hasattr(page, "client_storage"):
                 current_db = engine.load_data()
             else:
                 try:
@@ -158,11 +155,12 @@ def main(page: ft.Page):
                     else:
                         current_db = engine.load_data()
                 except Exception as cache_err:
-                    # Очистка поврежденного локального кэша при сбое приведения типов Android Bundle
                     print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
-                    page.client_storage.remove("offline_car_db")
+                    if hasattr(page, "client_storage"):
+                        page.client_storage.remove("offline_car_db")
                     current_db = engine.load_data()
-                    
+            
+            if hasattr(page, "client_storage") and os.name != 'nt':
                 page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
             print(f"[OFFLINE DB CRITICAL] Сбой чтения СУБД: {db_err}")
@@ -175,7 +173,7 @@ def main(page: ft.Page):
         if not cars_dict or not car_names:
             page.add(ft.Container(
                 content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD),
-                alignment=ft.alignment.center,
+                alignment=ft.alignment.CENTER,
                 padding=50
             ))
             if os.name != 'nt':
@@ -187,11 +185,11 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # Жесткий фикс: извлекаем чистую строку по индексу 0
+                selected_car = match[0]
                 engine.app_state["selected_car"] = selected_car
                 
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None  # Жесткий фикс: берем первую доступную строку
+            selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -200,8 +198,7 @@ def main(page: ft.Page):
             def make_click_handler(car_name_to_select=name):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
             car_buttons_row.controls.append(ft.Container(
-                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK,
-                                weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
+                content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
                 bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
                 padding=ft.Padding(16, 8, 16, 8),
                 border_radius=8,
@@ -247,7 +244,7 @@ def main(page: ft.Page):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
                 car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
                 
-                if os.name == 'nt':
+                if os.name == 'nt' or not hasattr(page, "client_storage"):
                     engine.save_data(current_db)
                 else:
                     page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
@@ -294,7 +291,8 @@ def main(page: ft.Page):
         ], spacing=12), padding=12))
         
         if engine.app_state.get("view_mode") == "analytics":
-            main_layout = ft.Column([header_card, views.generate_analytics_view(page, car_profile)], expand=False, scroll=ft.ScrollMode.AUTO)
+            analytics_view = views.generate_analytics_view(page, car_profile)
+            main_layout = ft.Column([header_card, analytics_view], expand=False, scroll=ft.ScrollMode.AUTO)
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
             
@@ -302,13 +300,11 @@ def main(page: ft.Page):
             ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)),
             main_layout
         ])))
-
-        # Включаем рендеринг обратно и пушим итоговый кадр на экран смартфона
+        
         if os.name != 'nt':
             page.views_detached = False
-        page.update()
+            page.update()
 
-    # Первичный запуск отрисовки при старте сессии
     rebuild_ui()
     
     try:
