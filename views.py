@@ -1,12 +1,12 @@
-﻿# -*- coding: utf-8 -*-
+﻿# views.py - Часть 1 из 3
+# -*- coding: utf-8 -*-
 import os
 import flet as ft
 from datetime import datetime, timedelta
 import engine
 
 def generate_analytics_view(page, car_profile):
-    # Оптимизация Layout: удален внутренний scroll и expand для исключения Layout Thrashing
-    view_column = ft.Column(spacing=15)
+    view_column = ft.Column(spacing=15, scroll=ft.ScrollMode.AUTO)
     current_km = car_profile.get("odometer", {}).get("value", 0)
     tasks = car_profile.get("maintenance_data", {})
     stats_30 = engine.calculate_fuel_stats(car_profile, days=30)
@@ -65,8 +65,7 @@ def generate_analytics_view(page, car_profile):
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Row([
                     ft.Text(" Чистая экономия бюджета:", size=13, expand=True),
-                    ft.Text(f"{last_econ} грн" if last_econ < 0 else f"+{last_econ} грн", size=13, weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.GREEN_700 if last_econ >= 0 else ft.Colors.RED_600)
+                    ft.Text(f"{last_econ} грн" if last_econ < 0 else f"+{last_econ} грн", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700 if last_econ >= 0 else ft.Colors.RED_600)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Column([
                     ft.Row([
@@ -84,7 +83,7 @@ def generate_analytics_view(page, car_profile):
     
     if not tasks:
         view_column.controls.append(ft.Text("Нет данных по регламентам", color=ft.Colors.GREY_500, italic=True))
-        return view_column
+        return ft.Container(content=view_column, clip_behavior=ft.ClipBehavior.ANTI_ALIAS)
         
     for t_name, t_data in tasks.items():
         interval = t_data.get("interval", 1)
@@ -100,8 +99,8 @@ def generate_analytics_view(page, car_profile):
             ft.Text(st_text, size=12, color=ft.Colors.GREY_600, italic=True)
         ], spacing=4), padding=12)))
         
-    return view_column
-
+    return ft.Container(content=view_column, clip_behavior=ft.ClipBehavior.ANTI_ALIAS)
+# views.py - Часть 2 из 3
 def show_task_history_dialog(page, db_data, task_name, car_profile, rebuild, show_msg):
     h_col = ft.Column(scroll=ft.ScrollMode.ALWAYS, height=350, spacing=8)
     def refresh():
@@ -242,7 +241,7 @@ def create_task_actions(page, db_data, p, t, current_km, rebuild, show_msg):
             p["history"] = [h for h in p.get("history", []) if h["task"] != t]
         engine.save_data(db_data); rebuild(); show_msg("Регламент полностью удален")
     return reset_click, change_click, delete_click
-
+# views.py - Часть 3.1 из 3.3
 def build_maintenance_list(page, db_data, car_name, car_profile, header_card, rebuild, show_msg, add_task_fn=None):
     c_list = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=10)
     c_list.controls.append(header_card)
@@ -279,10 +278,10 @@ def build_maintenance_list(page, db_data, car_name, car_profile, header_card, re
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                             ft.Row([
                                 ft.Button("История ТО", icon=ft.Icons.HISTORY, tooltip="Просмотр и удаление истории записей", on_click=lambda e, tn=t_name: show_task_history_dialog(page, db_data, tn, car_profile, rebuild, show_msg)),
-                                ft.IconButton(ft.Icons.POST_ADD, tooltip="Внести запись в историю вручную (кастомная дата/пробег)", icon_color=ft.Colors.GREEN_700, on_click=lambda e, tn=t_name: show_add_task_history_dialog(page, db_data, tn, car_profile, rebuild, show_msg)),
-                                ft.IconButton(ft.Icons.CHECK_CIRCLE, tooltip="Выполнено сейчас (Быстрый сброс на текущий пробег)", icon_color=ft.Colors.BLUE_600, on_click=r_fn),
-                                ft.IconButton(ft.Icons.SETTINGS, tooltip="Настройки (Изменить имя регламента или интервал)", icon_color=ft.Colors.BLUE_GREY_600, on_click=c_fn),
-                                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Полностью удалить этот регламент", icon_color=ft.Colors.RED_400, on_click=d_fn)
+                                ft.IconButton(ft.Icons.POST_ADD, tooltip="Внести запись в историю вручную", icon_color=ft.Colors.GREEN_700, on_click=lambda e, tn=t_name: show_add_task_history_dialog(page, db_data, tn, car_profile, rebuild, show_msg)),
+                                ft.IconButton(ft.Icons.CHECK_CIRCLE, tooltip="Выполнено сейчас", icon_color=ft.Colors.BLUE_600, on_click=r_fn),
+                                ft.IconButton(ft.Icons.SETTINGS, tooltip="Настройки", icon_color=ft.Colors.BLUE_GREY_600, on_click=c_fn),
+                                ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Полностью удалить", icon_color=ft.Colors.RED_400, on_click=d_fn)
                             ], alignment=ft.MainAxisAlignment.END)
                         ]), padding=12, bgcolor=ft.Colors.with_opacity(0.4, ft.Colors.SURFACE_CONTAINER_LOW)
                     )
@@ -291,7 +290,7 @@ def build_maintenance_list(page, db_data, car_name, car_profile, header_card, re
         )
         c_list.controls.append(item_card)
     return c_list
-
+# views.py - Часть 3.2 из 3.3
 def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_msg):
     h_cont = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, height=240)
     def render():
@@ -311,24 +310,18 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
         def save(_):
             try:
                 v = int(a_km.value); d = a_dt.value.strip(); datetime.strptime(d, '%d.%m.%Y')
-                if "odometer_history" not in car_profile:
-                    car_profile["odometer_history"] = []
+                if "odometer_history" not in car_profile: car_profile["odometer_history"] = []
                 car_profile["odometer_history"].append({"value": v, "date": d})
-                if v >= car_profile["odometer"].get("value", 0):
-                    car_profile["odometer"] = {"value": v, "date": d}
+                if v >= car_profile["odometer"].get("value", 0): car_profile["odometer"] = {"value": v, "date": d}
                 car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
                 engine.save_data(db_data); adlg.open = False; render(); rebuild(); show_msg("Добавлено!")
-            except Exception:
-                show_msg("Ошибка формата!")
+            except Exception: show_msg("Ошибка формата!")
         adlg = ft.AlertDialog(title=ft.Text("Добавить пробег"), content=ft.Column([a_km, a_dt], tight=True), actions=[ft.TextButton("OK", on_click=save)])
         page.overlay.append(adlg); adlg.open = True; page.update()
     total_count = len(car_profile.get("odometer_history", []))
     dlg = ft.AlertDialog(
         bgcolor=ft.Colors.WHITE, title=ft.Text(f"History пробега (записей: {total_count})"),
-        content=ft.Column([
-            ft.Button("Добавить запись", icon=ft.Icons.ADD, on_click=add_click),
-            ft.Divider(height=1, color=ft.Colors.BLACK_12), h_cont
-        ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=360),
+        content=ft.Column([ft.Button("Добавить запись", icon=ft.Icons.ADD, on_click=add_click), ft.Divider(height=1, color=ft.Colors.BLACK_12), h_cont], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=360),
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
     page.overlay.append(dlg); dlg.open = True; page.update(); render(); dlg.update()
@@ -342,8 +335,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
             h_col.controls.append(ft.Text("История заправок пуста", italic=True))
         else:
             for rec in sorted(f_hist, key=lambda x: int(float(str(x.get("odometer", 0)).strip() or 0)), reverse=True):
-                def make_del(r=rec):
-                    return lambda _: [car_profile["fuel_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Запись удалена")]
+                def make_del(r=rec): return lambda _: [car_profile["fuel_history"].remove(r), engine.save_data(db_data), refresh(), rebuild(), show_msg("Запись удалена")]
                 def make_edit(r=rec):
                     def open_edit_fuel_dialog(_):
                         e_liters = ft.TextField(label="Количество литров", value=str(r.get("liters", "")))
@@ -366,7 +358,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 engine.save_data(db_data); edit_fuel_dlg.open = False; page.update(); refresh(); rebuild(); show_msg("Заправка успешно изменена!")
                             except Exception: show_msg("Ошибка формата!")
                         edit_fuel_dlg = ft.AlertDialog(title=ft.Text("Правка записи заправки"), content=ft.Column([e_liters, e_cost, e_odo, e_date, e_comm], tight=True, spacing=10), actions=[ft.TextButton("Сохранить", on_click=save_edited_fuel)])
-                    return open_edit_fuel_dialog
+                        return edit_fuel_dlg
                 cons_text = f" | Расход: {rec.get('consumption')} л/100км" if rec.get("consumption", 0) > 0 else ""
                 info_line = f" {rec.get('type')} | {rec.get('liters')} л | {rec.get('price')} грн/л"
                 cost_line = f" Сумма: {rec.get('cost')} грн{cons_text}"
@@ -383,12 +375,9 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                             ], spacing=6),
                             ft.Text(info_line, size=13),
                             ft.Text(cost_line, size=13, color=ft.Colors.BLUE_GREY_700, weight=ft.FontWeight.W_500),
-                            ft.Text(str(rec.get('comment', '')), size=11, color=ft.Colors.GREY_500, italic=True) if str(rec.get('comment', '')).strip() else ft.Container(visible=False)
+                            ft.Text(str(rec.get('comment', '')) if str(rec.get('comment', '')).strip() else "", size=11, color=ft.Colors.GREY_500, italic=True)
                         ], spacing=2, expand=True),
-                        ft.Row([
-                            ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()),
-                            ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, hover_color=ft.Colors.RED_100, tooltip='Удалить запись', on_click=make_del())
-                        ], spacing=0)
+                        ft.Row([ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=18, on_click=make_edit()), ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, hover_color=ft.Colors.RED_100, on_click=make_del())], spacing=0)
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
                 ))
     total_count = len(car_profile.get("fuel_history", []))
@@ -398,34 +387,12 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
     )
     page.overlay.append(dlg); dlg.open = True; page.update(); refresh(); dlg.update()
-
-def show_add_fuel_dialog(page, db_data, car_profile, rebuild, show_msg):
-    f_type = ft.RadioGroup(content=ft.Row([ft.Radio(value="Бензин", label="Бензин"), ft.Radio(value="Газ", label="Газ")], alignment=ft.MainAxisAlignment.SPACE_AROUND), value="Бензин")
-    in_liters = ft.TextField(label="Количество литров", keyboard_type=ft.KeyboardType.NUMBER)
-    in_cost = ft.TextField(label="Общая сумма (грн)", keyboard_type=ft.KeyboardType.NUMBER)
-    in_odo = ft.TextField(label="Текущий пробег (км)", keyboard_type=ft.KeyboardType.NUMBER, value=str(car_profile.get("odometer", {}).get("value", "")))
-    in_date = ft.TextField(label="Дата заправки", value=datetime.now().strftime("%d.%m.%Y"))
-    in_comm = ft.TextField(label="Комментарий (АЗС, марка)", value="БРСМ")
-    def save_click(_):
-        try:
-            liters = float(in_liters.value); cost = float(in_cost.value); odo = int(in_odo.value); dt_str = in_date.value.strip(); datetime.strptime(dt_str, "%d.%m.%Y")
-            if liters <= 0 or cost <= 0 or odo <= 0: raise ValueError
-            engine.add_fuel_record(car_profile, f_type.value, liters, cost, odo, dt_str, in_comm.value.strip())
-            if odo >= car_profile["odometer"].get("value", 0): car_profile["odometer"] = {"value": odo, "date": dt_str}
-            car_profile["daily_mileage"] = engine.recalculate_auto_daily_mileage(car_profile)
-            engine.save_data(db_data); dlg.open = False; rebuild(); show_msg("Заправка успешно учтена!")
-        except Exception: show_msg("Ошибка! Проверьте формат полей.")
-    dlg = ft.AlertDialog(
-        title=ft.Text("Учёт заправки (до полного)"),
-        content=ft.Column([ft.Text("Тип топлива:", size=12, color=ft.Colors.GREY_600), f_type, in_liters, in_cost, in_odo, in_date, in_comm], tight=True, spacing=10),
-        actions=[ft.TextButton("Отмена", on_click=lambda _: [setattr(dlg, "open", False), page.update()]), ft.ElevatedButton("Сохранить", bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=save_click)]
-    )
-    page.overlay.append(dlg); dlg.open = True
-
+# views.py - Часть 3.3а из 3.3в
 def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
     h_col = ft.Column(scroll=ft.ScrollMode.ALWAYS, height=350, spacing=10)
     search_field = ft.TextField(label="Поиск по журналу...", prefix_icon=ft.Icons.SEARCH, text_size=12, height=48, content_padding=ft.Padding(10, 0, 10, 0), on_change=lambda _: refresh())
     dlg = None
+
     def refresh():
         h_col.controls.clear()
         if "repair_history" not in car_profile: car_profile["repair_history"] = []
@@ -451,9 +418,10 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 try: page.clipboard = str(code_to_copy); show_msg(f" Артикул {code_to_copy} скопирован!")
                                 except: pass
                     return do_copy
+# views.py - Часть 3.3б из 3.3в
                 def make_edit(r=rec):
                     def open_edit_repair_dialog(_):
-                        edit_name = ft.TextField(label="What отремонтировано", value=str(r.get("repair_name", "")))
+                        edit_name = ft.TextField(label="Что отремонтировано", value=str(r.get("repair_name", "")))
                         edit_cat = ft.Dropdown(label="Категория (Тег)", value=r.get("category", "Ходовая"), options=[ft.dropdown.Option("Двигатель"), ft.dropdown.Option("Ходовая"), ft.dropdown.Option("Электрика"), ft.dropdown.Option("Кузов"), ft.dropdown.Option("Салон"), ft.dropdown.Option("Расходники / Другое")])
                         edit_odo = ft.TextField(label="Пробег (км)", value=str(r.get("odometer", "")))
                         edit_date = ft.TextField(label="Дата", value=str(r.get("date", "")))
@@ -469,13 +437,14 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                                 engine.save_data(db_data); edit_rep_dlg.open = False; refresh(); rebuild(); show_msg("Запись успешно изменена!")
                             except Exception: show_msg("Ошибка! Проверьте формат полей.")
                         edit_rep_dlg = ft.AlertDialog(adaptive=True, title=ft.Text("Правка записи ремонта"), content=ft.Column([edit_name, edit_cat, edit_odo, edit_date, edit_pname, edit_pcode, edit_cost, edit_comm], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO, height=300), actions=[ft.TextButton("Сохранить", on_click=save_edited_repair)])
-                    return open_edit_repair_dialog
+                        return open_edit_repair_dialog
                 cat_colors = {"Двигатель": ft.Colors.RED_700, "Ходовая": ft.Colors.BLUE_700, "Электрика": ft.Colors.ORANGE_800, "Кузов": ft.Colors.PURPLE_700, "Салон": ft.Colors.BROWN_600, "Расходники / Другое": ft.Colors.BLUE_GREY_600}
                 current_cat = rec.get("category", "Расходники / Другое"); tag_color = cat_colors.get(current_cat, ft.Colors.BLUE_GREY_600)
                 category_tag = ft.Container(content=ft.Text(current_cat, size=9, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD), bgcolor=tag_color, padding=ft.Padding(4, 2, 4, 2), border_radius=4)
                 parts_row = ft.Row([ft.Text(f" {rec.get('part_name')} [Арт: {rec.get('part_code')}]", size=12, color=ft.Colors.GREEN_800, expand=True), ft.IconButton(ft.Icons.COPY, icon_size=14, tooltip="Копировать артикул", on_click=make_copy(), padding=2)], spacing=3, alignment=ft.MainAxisAlignment.START) if rec.get('part_code') else ft.Text("Без запчастей", size=11, color=ft.Colors.GREY_500)
                 card_layout = ft.Column([ft.Row([ft.Text(f" {rec.get('date')}", size=11, color=ft.Colors.BLUE_GREY_500), category_tag], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), ft.Text(f" {rec.get('repair_name')}", weight=ft.FontWeight.BOLD, size=13, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS), parts_row, ft.Row([ft.Text(f" {rec.get('odometer')} км", size=12, weight=ft.FontWeight.W_500), ft.Text(f" {rec.get('cost', 0)} грн", size=12, color=ft.Colors.BLUE_900, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN), ft.Text(str(rec.get('comment', '')) if str(rec.get('comment', '')).strip() else "", size=11, color=ft.Colors.GREY_500, italic=True)], spacing=4, expand=True)
                 h_col.controls.append(ft.Container(content=ft.Row([card_layout, ft.Column([ft.IconButton(ft.Icons.EDIT, icon_color=ft.Colors.BLUE_600, icon_size=16, on_click=make_edit(), padding=2), ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=16, on_click=make_del(), padding=2)], alignment=ft.MainAxisAlignment.CENTER, spacing=5)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER), padding=10, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST, border_radius=8, margin=ft.Margin(0, 2, 0, 2)))
+# views.py - Часть 3.3в из 3.3в
     def add_repair_click(_):
         in_name = ft.TextField(label="Что отремонтировано / заменено")
         in_cat = ft.Dropdown(label="Категория (Тег ремонтов)", value="Ходовая", options=[ft.dropdown.Option("Двигатель"), ft.dropdown.Option("Ходовая"), ft.dropdown.Option("Электрика"), ft.dropdown.Option("Кузов"), ft.dropdown.Option("Салон"), ft.dropdown.Option("Расходники / Другое")])
@@ -496,11 +465,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
             except Exception: show_msg("Ошибка заполнения! Проверьте имя, пробег и дату.")
         adlg = ft.AlertDialog(title=ft.Text("Внести внеплановый ремонт"), content=ft.Column([in_name, in_cat, in_odo, in_date, in_pname, in_pcode, in_cost, in_comm], tight=True, spacing=10, scroll=ft.ScrollMode.AUTO, height=300), actions=[ft.TextButton("Отмена", on_click=lambda _: [setattr(adlg, "open", False), page.update()]), ft.ElevatedButton("Сохранить", bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=save_repair)])
         page.overlay.append(adlg); adlg.open = True
-    dlg = ft.AlertDialog(
-        content_padding=ft.Padding(15, 10, 15, 10), title=ft.Text("Журнал ремонтов", size=16, weight=ft.FontWeight.BOLD),
-        content=ft.Column([ft.Button("Добавить работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100, height=38), search_field, ft.Divider(height=1, color=ft.Colors.BLACK_12), h_col], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550),
-        actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])]
-    )
+    dlg = ft.AlertDialog(content_padding=ft.Padding(15, 10, 15, 10), title=ft.Text("Журнал ремонтов", size=16, weight=ft.FontWeight.BOLD), content=ft.Column([ft.Button("Добавить работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100, height=38), search_field, ft.Divider(height=1, color=ft.Colors.BLACK_12), h_col], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550), actions=[ft.TextButton("Закрыть", on_click=lambda _: [setattr(dlg, "open", False), page.update()])] )
     page.overlay.append(dlg); dlg.open = True; refresh()
 
 def show_add_car_dialog(page, current_db, refresh_callback):
@@ -533,19 +498,19 @@ def show_delete_car_dialog(page, current_db, selected_car, refresh_callback):
 
 def build_action_panel(page, current_db, selected_car, async_mobile_import, async_pc_import, toggle_analytics_click, network, show_message, refresh_callback):
     return ft.Column(
-        spacing=5, horizontal_alignment=ft.CrossAxisAlignment.START,
+        spacing=5, horizontal_alignment=ft.CrossAxisAlignment.START, 
         controls=[
-            ft.Text("База и управление профилями:", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_700),
+            ft.Text("База и управление профилями:", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_700), 
             ft.Row(
-                scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                scroll=ft.ScrollMode.AUTO, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER, 
                 controls=[
-                    ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)),
-                    ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=async_mobile_import if os.name != "nt" else async_pc_import),
-                    ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=toggle_analytics_click),
-                    ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
-                    ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=lambda _: show_add_car_dialog(page, current_db, refresh_callback)),
-                    ft.IconButton(ft.Icons.EDIT, tooltip="Переименовать авто", on_click=lambda _: show_edit_car_name_dialog(page, current_db, selected_car, refresh_callback)),
-                    ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=lambda _: show_delete_car_dialog(page, current_db, selected_car, refresh_callback), icon_color=ft.Colors.RED_500),
+                    ft.IconButton(ft.Icons.CLOUD_UPLOAD, tooltip="Экспорт базы в Telegram", on_click=lambda _: network.auto_export_file_to_telegram(page, show_message)), 
+                    ft.IconButton(ft.Icons.CLOUD_DOWNLOAD, tooltip="Импорт базы данных", on_click=async_mobile_import if os.name != "nt" else async_pc_import), 
+                    ft.IconButton(ft.Icons.BAR_CHART_ROUNDED, tooltip="Аналитика", on_click=toggle_analytics_click), 
+                    ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12), 
+                    ft.IconButton(ft.Icons.ADD_CIRCLE, tooltip="Добавить авто", on_click=lambda _: show_add_car_dialog(page, current_db, refresh_callback)), 
+                    ft.IconButton(ft.Icons.EDIT, tooltip="Переименовать авто", on_click=lambda _: show_edit_car_name_dialog(page, current_db, selected_car, refresh_callback)), 
+                    ft.IconButton(ft.Icons.DELETE_FOREVER, tooltip="Удалить авто", on_click=lambda _: show_delete_car_dialog(page, current_db, selected_car, refresh_callback), icon_color=ft.Colors.RED_500)
                 ]
             )
         ]
