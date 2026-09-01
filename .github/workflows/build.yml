@@ -27,7 +27,7 @@ jobs:
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода с относительными путями WASM
+      - name: 2. Подготовка и компиляция Python-кода в чистом офлайн-режиме HTML
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -42,69 +42,34 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          flet publish main.py --base-url ./ --distpath ../flet_web_dist
+          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур успешно скомпилирован с относительным роутингом."
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме чистого HTML-рендеринга."
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем стабильные плагины WebView и локального веб-сервера
+      - name: 4. Подключаем официальный стабильный плагин WebView
         run: |
           cd build_flutter
-          flutter pub add webview_flutter shelf shelf_router
+          flutter pub add webview_flutter
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-      - name: 6. Перезапись main.dart под обслуживание безопасного loopback-сервера
+      - name: 6. Перезапись main.dart под безопасное прямое чтение офлайн-активов
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
-          import 'dart:convert';
-          import 'dart:io';
           import 'package:flutter/material.dart';
-          import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:shelf/shelf.dart';
-          import 'package:shelf/shelf_io.dart' as io;
-          import 'package:shelf_router/shelf_router.dart' as shelf_route;
 
-          String _serverUrl = "assets/www/index.html";
-          bool _isServerRunning = false;
-
-          void main() async {
+          void main() {
             WidgetsFlutterBinding.ensureInitialized();
-            final app = shelf_route.Router();
-            
-            app.all('/<p.*>', (Request request) async {
-              var path = request.url.path;
-              if (path == '' || path == '/') path = 'index.html';
-              try {
-                final assetPath = 'assets/www/$path';
-                final bytes = await rootBundle.load(assetPath);
-                var contentType = 'text/html';
-                if (path.endsWith('.js')) contentType = 'application/javascript';
-                if (path.endsWith('.wasm')) contentType = 'application/wasm';
-                if (path.endsWith('.css')) contentType = 'text/css';
-                if (path.endsWith('.json')) contentType = 'application/json';
-                if (path.endsWith('.png')) contentType = 'image/png';
-                return Response.ok(bytes.buffer.asUint8List(), headers: {'content-type': contentType, 'Access-Control-Allow-Origin': '*'});
-              } catch (e) {
-                return Response.notFound('Not Found');
-              }
-            });
-
-            try {
-              final server = await io.serve(app, InternetAddress.loopbackIPv4, 0);
-              _serverUrl = "http://${server.address.address}:${server.port}/index.html";
-              _isServerRunning = true;
-            } catch (e) {
-              _isServerRunning = false;
-            }
             runApp(const MyApp());
           }
+
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
             @override
@@ -123,7 +88,6 @@ jobs:
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
-
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
             @override
@@ -131,13 +95,8 @@ jobs:
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000));
-              
-              if (_isServerRunning) {
-                _controller.loadRequest(Uri.parse(_serverUrl));
-              } else {
-                _controller.loadFlutterAsset(_serverUrl);
-              }
+                ..setBackgroundColor(const Color(0x00000000))
+                ..loadFlutterAsset('assets/www/index.html');
             }
             @override
             Widget build(BuildContext context) {
@@ -149,7 +108,7 @@ jobs:
             }
           }
           EOF
-      - name: 7. Жесткая и каноническая генерация путей pubspec.yaml для Flet WASM
+      - name: 7. Динамическая генерацияpubspec.yaml с рекурсивной линковкой веб-ресурсов
         run: |
           cd build_flutter
           rm -f pubspec.yaml
@@ -164,8 +123,6 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.10.0
-            shelf: ^1.4.1
-            shelf_router: ^1.1.4
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -174,13 +131,14 @@ jobs:
             uses-material-design: true
             assets:
               - assets/www/
-              - assets/www/assets/
-              - assets/www/assets/flet_app/
-              - assets/www/assets/fonts/
-              - assets/www/canvaskit/
-              - assets/www/canvaskit/profiling/
           EOF
-          echo "[УСПЕХ] Манифест путей pubspec.yaml жестко и корректно собран."
+          
+          find assets/www -type d | while read -r dir; do
+            if [ "$dir" != "assets/www" ]; then
+              echo "    - ${dir}/" >> pubspec.yaml
+            fi
+          done
+          echo "[УСПЕХ] Манифест путей pubspec.yaml динамически собран."
       - name: 8. Компиляция стабильного Android APK
         run: |
           cd build_flutter
@@ -190,3 +148,4 @@ jobs:
         with:
           name: release-apk
           path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
+
