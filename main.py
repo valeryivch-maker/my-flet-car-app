@@ -1,4 +1,4 @@
-﻿# main.py - Часть 1 из 4
+﻿# main.py - Часть 1 из 7
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -9,9 +9,15 @@ import json
 from datetime import datetime
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
-for d in [os.path.abspath(os.path.dirname(__file__)), os.getcwd()]:
-    if d not in sys.path:
-        sys.path.insert(0, d)
+# Строгая изоляция путей sys.path для предотвращения конфликтов в Android HyperOS
+base_dir = os.path.abspath(os.path.dirname(__file__))
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
+
+if os.name == 'nt':
+    current_cwd = os.getcwd()
+    if current_cwd not in sys.path:
+        sys.path.insert(0, current_cwd)
 
 try:
     import network
@@ -25,7 +31,7 @@ except ImportError:
                 return lambda *a, **kw: False
         network = NetworkStub()
         sys.modules['network'] = network
-
+# main.py - Часть 2 из 7
 import flet as ft
 import engine
 import views
@@ -40,7 +46,7 @@ def show_message(text: str):
             _current_page_ref.update()
         except:
             pass
-# main.py - Часть 2 из 4
+
 def run_local_telegram_sync():
     import shutil
     import glob
@@ -61,7 +67,7 @@ def run_local_telegram_sync():
         return True
     except:
         return False
-
+# main.py - Часть 3 из 7
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
@@ -82,7 +88,6 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
-# main.py - Часть 3 из 4
     page.theme = ft.Theme(
         color_scheme_seed=ft.Colors.AMBER,
         scrollbar_theme=ft.ScrollbarTheme(
@@ -93,11 +98,10 @@ def main(page: ft.Page):
             thumb_color=ft.Colors.AMBER_700
         )
     )
-    
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
-    
+# main.py - Часть 4 из 7
     def refresh_ui_sync():
         page.controls.clear()
         rebuild_ui()
@@ -125,7 +129,6 @@ def main(page: ft.Page):
         except Exception as err:
             show_message(f"[Х] Ошибка вызова окна: {str(err)}")
 
-# main.py - Часть 4.1 из 4
     def async_pc_import(e=None):
         show_message("Сканирование локальных загрузок...")
         try:
@@ -138,7 +141,7 @@ def main(page: ft.Page):
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as err:
             show_message(f"[X] Ошибка импорта: {str(err)}")
-
+# main.py - Часть 5 из 7
     def rebuild_ui():
         if os.name != 'nt':
             page.views_detached = True
@@ -153,7 +156,6 @@ def main(page: ft.Page):
                         current_db = json.loads(str(raw_cached_db))
                     else:
                         current_db = engine.load_data()
-# main.py - Часть 4.2 из 4
                 except Exception as cache_err:
                     print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
                     if hasattr(page, "client_storage"):
@@ -175,9 +177,8 @@ def main(page: ft.Page):
                 page.views_detached = False
             page.update()
             return
-            
+# main.py - Часть 6 из 7
         selected_car = engine.app_state.get("selected_car")
-# main.py - Часть 4.3 из 4
         if selected_car:
             if isinstance(selected_car, list) and len(selected_car) > 0:
                 selected_car = selected_car[0]
@@ -203,7 +204,7 @@ def main(page: ft.Page):
         odo_dict = car_profile.get("odometer") or {}
         current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
         daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
-# main.py - Часть 4.4 из 4
+# main.py - Часть 7 из 7
         def update_forecast_click(e):
             try:
                 if not current_odo_input.value or not daily_input.value:
@@ -245,7 +246,11 @@ def main(page: ft.Page):
             action_panel, ft.Divider(height=5), ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
             ft.Column([current_odo_input, daily_input], expand=False, spacing=8), ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
             ft.Column([ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE), ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
-            ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD), ft.Row([ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40), ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)], spacing=10),
+            ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
+            ft.Row([
+                ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40),
+                ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
+            ], spacing=10),
             ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
         ], spacing=12), padding=12))
         
@@ -278,7 +283,3 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
-
-
-
-
