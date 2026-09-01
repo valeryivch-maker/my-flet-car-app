@@ -128,10 +128,14 @@ jobs:
             uses-material-design: true
             assets:
               - assets/www/
-              - assets/www/assets/
-              - assets/www/assets/flet_app/
-              - assets/www/assets/fonts/
           EOF
+          
+          # Безопасный рекурсивный поиск папок внутри директории assets/www
+          find assets/www -type d | while read -r dir; do
+            if [ "$dir" != "assets/www" ]; then
+              echo "    - ${dir}/" >> pubspec.yaml
+            fi
+          done
           echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и верифицирован."
       - name: 8. Компилци стабилного Android APK
         run: |
