@@ -58,17 +58,21 @@ jobs:
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-      - name: 6. Перезапись main.dart под обслуживание локального сервера localhost:8080
+      - name: 6. Перезапись main.dart под обслуживание безопасного loopback-сервера
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'dart:convert';
+          import 'dart:io';
           import 'package:flutter/material.dart';
           import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:shelf/shelf.dart';
           import 'package:shelf/shelf_io.dart' as io;
           import 'package:shelf_router/shelf_router.dart' as shelf_route;
+
+          String _serverUrl = "assets/www/index.html";
+          bool _isServerRunning = false;
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -92,7 +96,13 @@ jobs:
               }
             });
 
-            final server = await io.serve(app, '127.0.0.1', 8080);
+            try {
+              final server = await io.serve(app, InternetAddress.loopbackIPv4, 0);
+              _serverUrl = "http://${server.address.address}:${server.port}/index.html";
+              _isServerRunning = true;
+            } catch (e) {
+              _isServerRunning = false;
+            }
             runApp(const MyApp());
           }
           class MyApp extends StatelessWidget {
@@ -121,8 +131,13 @@ jobs:
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000))
-                ..loadRequest(Uri.parse('http://127.0.0'));
+                ..setBackgroundColor(const Color(0x00000000));
+              
+              if (_isServerRunning) {
+                _controller.loadRequest(Uri.parse(_serverUrl));
+              } else {
+                _controller.loadFlutterAsset(_serverUrl);
+              }
             }
             @override
             Widget build(BuildContext context) {
