@@ -1,4 +1,4 @@
-﻿# main.py - Часть 1 из 7
+﻿# main.py - Часть 1 из 4
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -9,7 +9,6 @@ import json
 from datetime import datetime
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
-# Строгая изоляция путей sys.path для предотвращения конфликтов в Android HyperOS
 base_dir = os.path.abspath(os.path.dirname(__file__))
 if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
@@ -31,7 +30,7 @@ except ImportError:
                 return lambda *a, **kw: False
         network = NetworkStub()
         sys.modules['network'] = network
-# main.py - Часть 2 из 7
+
 import flet as ft
 import engine
 import views
@@ -42,11 +41,9 @@ def show_message(text: str):
     global _current_page_ref
     if _current_page_ref:
         _current_page_ref.snack_bar = ft.SnackBar(ft.Text(text), open=True)
-        try:
-            _current_page_ref.update()
-        except:
-            pass
-
+        try: _current_page_ref.update()
+        except: pass
+# main.py - Часть 2 из 4
 def run_local_telegram_sync():
     import shutil
     import glob
@@ -67,7 +64,7 @@ def run_local_telegram_sync():
         return True
     except:
         return False
-# main.py - Часть 3 из 7
+
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
@@ -88,20 +85,17 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+# main.py - Часть 3 из 4
     page.theme = ft.Theme(
         color_scheme_seed=ft.Colors.AMBER,
         scrollbar_theme=ft.ScrollbarTheme(
-            track_visibility=True,
-            thumb_visibility=True,
-            thickness=10,
-            radius=4,
-            thumb_color=ft.Colors.AMBER_700
+            track_visibility=True, thumb_visibility=True, thickness=10, radius=4, thumb_color=ft.Colors.AMBER_700
         )
     )
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
-# main.py - Часть 4 из 7
+    
     def refresh_ui_sync():
         page.controls.clear()
         rebuild_ui()
@@ -118,16 +112,9 @@ def main(page: ft.Page):
         try:
             net_mod = sys.modules.get("network", __import__("network"))
             if hasattr(net_mod, "show_custom_file_manager_dialog"):
-                net_mod.show_custom_file_manager_dialog(
-                    page=page,
-                    mode="import",
-                    db_data_ref=page.data.get("db_data", {}),
-                    show_message_callback=show_message
-                )
-            else:
-                show_message("[Х] Модуль сети не поддерживает диалоги")
-        except Exception as err:
-            show_message(f"[Х] Ошибка вызова окна: {str(err)}")
+                net_mod.show_custom_file_manager_dialog(page=page, mode="import", db_data_ref=page.data.get("db_data", {}), show_message_callback=show_message)
+            else: show_message("[Х] Модуль сети не поддерживает диалоги")
+        except Exception as err: show_message(f"[Х] Ошибка вызова окна: {str(err)}")
 
     def async_pc_import(e=None):
         show_message("Сканирование локальных загрузок...")
@@ -135,13 +122,10 @@ def main(page: ft.Page):
             if run_local_telegram_sync():
                 page.data.pop("db_data", None)
                 page.data["refresh_ui"]()
-                page.update()
                 show_message("[V] База данных успешно импортирована!")
-            else:
-                show_message("[X] Файлы импорта не найдены.")
-        except Exception as err:
-            show_message(f"[X] Ошибка импорта: {str(err)}")
-# main.py - Часть 5 из 7
+            else: show_message("[X] Файлы импорта не найдены.")
+        except Exception as err: show_message(f"[X] Ошибка импорта: {str(err)}")
+# main.py - Часть 4 из 4
     def rebuild_ui():
         if os.name != 'nt':
             page.views_detached = True
@@ -152,19 +136,13 @@ def main(page: ft.Page):
             else:
                 try:
                     raw_cached_db = page.client_storage.get("offline_car_db")
-                    if raw_cached_db:
-                        current_db = json.loads(str(raw_cached_db))
-                    else:
-                        current_db = engine.load_data()
-                except Exception as cache_err:
-                    print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
-                    if hasattr(page, "client_storage"):
-                        page.client_storage.remove("offline_car_db")
+                    current_db = json.loads(str(raw_cached_db)) if raw_cached_db else engine.load_data()
+                except:
+                    if hasattr(page, "client_storage"): page.client_storage.remove("offline_car_db")
                     current_db = engine.load_data()
             if hasattr(page, "client_storage") and os.name != 'nt':
                 page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
-        except Exception as db_err:
-            print(f"[OFFLINE DB CRITICAL] Сбой чтения СУБД: {db_err}")
+        except:
             current_db = {"cars": {}}
             
         page.data["db_data"] = current_db
@@ -172,22 +150,20 @@ def main(page: ft.Page):
         car_names = list(cars_dict.keys())
         
         if not cars_dict or not car_names:
-            page.add(ft.Container(content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.center, padding=50))
-            if os.name != 'nt':
-                page.views_detached = False
+            page.add(ft.Container(content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.Alignment(0,0), padding=50))
+            if os.name != 'nt': page.views_detached = False
             page.update()
             return
-# main.py - Часть 6 из 7
+            
         selected_car = engine.app_state.get("selected_car")
         if selected_car:
             if isinstance(selected_car, list) and len(selected_car) > 0:
                 selected_car = selected_car[0]
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
-            if match:
-                selected_car = match[0]
+            if match: selected_car = str(match[0])
             engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
-            selected_car = car_names[0] if car_names else None
+            selected_car = str(car_names[0]) if car_names else None
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -204,41 +180,39 @@ def main(page: ft.Page):
         odo_dict = car_profile.get("odometer") or {}
         current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
         daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
-# main.py - Часть 7 из 7
+        
         def update_forecast_click(e):
             try:
-                if not current_odo_input.value or not daily_input.value:
-                    page.snack_bar = ft.SnackBar(ft.Text("Поля не могут быть пустыми!"), open=True)
-                    page.update()
-                    return
+                if not current_odo_input.value or not daily_input.value: return
                 val = int(str(current_odo_input.value).strip())
                 daily_val = int(str(daily_input.value).strip())
                 car_profile["odometer"] = {"value": val, "date": datetime.now().strftime("%d.%m.%Y")}
                 car_profile["daily_mileage"] = max(1, daily_val)
-                if "odometer_history" not in car_profile:
-                    car_profile["odometer_history"] = []
+                if "odometer_history" not in car_profile: car_profile["odometer_history"] = []
                 if not any(h.get("value") == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
                 car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
-                if os.name == 'nt' or not hasattr(page, "client_storage"):
-                    engine.save_data(current_db)
-                else:
-                    page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
-                page.snack_bar = ft.SnackBar(ft.Text("Данные успешно сохранены в локальную память!"), open=True)
-                page.update()
-                page.data["refresh_ui"] = lambda: page.pubsub.send_all("trigger_refresh_ui")
+                if os.name == 'nt' or not hasattr(page, "client_storage"): engine.save_data(current_db)
+                else: page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
+                show_message("[V] Данные сохранены!")
                 page.data["refresh_ui"]()
-                try:
-                    if hasattr(network, "LAST_SENT_ALERTS") and selected_car in network.LAST_SENT_ALERTS:
-                        network.LAST_SENT_ALERTS[selected_car] = None
-                    if hasattr(network, "check_and_send_alerts") and os.name == 'nt':
-                        network.check_and_send_alerts(car_profile, car_name=selected_car)
-                except Exception as t_err:
-                    print(f"[ALERT ERROR]: {t_err}")
-            except Exception as ex:
-                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка СУБД: {str(ex)}"), open=True)
-                page.update()
+            except Exception as ex: show_message(f"[X] Ошибка СУБД: {str(ex)}")
                 
+        def create_new_task_handler(e):
+            def save_task_dialog(_):
+                try:
+                    name = t_name.value.strip()
+                    interval = int(t_interval.value.strip())
+                    if not name or interval <= 0: raise ValueError
+                    if "maintenance_data" not in car_profile: car_profile["maintenance_data"] = {}
+                    car_profile["maintenance_data"][name] = {"last_service": int(car_profile["odometer"]["value"]), "interval": interval, "date": datetime.now().strftime("%d.%m.%Y")}
+                    engine.save_data(current_db); d.open = False; rebuild_ui(); show_message("[V] Регламент добавлен!")
+                except: show_message("[X] Ошибка заполнения!")
+            t_name = ft.TextField(label="Название регламента")
+            t_interval = ft.TextField(label="Интервал (км)", value="10000")
+            d = ft.AlertDialog(title=ft.Text("Создать регламент TO"), content=ft.Column([t_name, t_interval], tight=True), actions=[ft.TextButton("Сохранить", on_click=save_task_dialog)])
+            page.overlay.append(d); d.open = True; page.update()
+
         action_panel = views.build_action_panel(page, current_db, selected_car, async_mobile_import, async_pc_import, lambda e: [engine.app_state.update({"view_mode": "analytics" if engine.app_state.get("view_mode", "list") != "analytics" else "list"}), rebuild_ui()], network, show_message, lambda: page.data["refresh_ui"]())
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in car_profile.get("odometer_history", [])[-2:]]) if car_profile.get("odometer_history") else "История пробега пуста"
         
@@ -248,38 +222,21 @@ def main(page: ft.Page):
             ft.Column([ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE), ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
             ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
             ft.Row([
-                ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40),
-                ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
-            ], spacing=10),
-            ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
+                ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40),
+                ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40)
+            ], spacing=10)
         ], spacing=12), padding=12))
         
         if engine.app_state.get("view_mode") == "analytics":
-            analytics_view = views.generate_analytics_view(page, car_profile)
-            main_layout = ft.Column([header_card, analytics_view], expand=False, scroll=ft.ScrollMode.AUTO)
+            main_layout = views.generate_analytics_view(page, car_profile, header_card)
         else:
-            main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
+            main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message, add_task_fn=create_new_task_handler)
             
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
-        if os.name != 'nt':
-            page.views_detached = False
+        if os.name != 'nt': page.views_detached = False
         page.update()
 
     rebuild_ui()
-    try:
-        if not page.data.get("worker_initialized") and os.name == 'nt':
-            def start_worker():
-                time.sleep(1.0)
-                c_data = engine.load_data()
-                sc = engine.app_state.get("selected_car", "Chevrolet lacetti")
-                if c_data and "cars" in c_data and sc in c_data["cars"]:
-                    net_mod = sys.modules.get("network", __import__("network"))
-                    if hasattr(net_mod, "check_and_send_alerts"):
-                        net_mod.check_and_send_alerts(c_data["cars"][sc], car_name=sc)
-            threading.Thread(target=start_worker, daemon=True).start()
-            page.data["worker_initialized"] = True
-    except Exception as e:
-        print(f"Ошибка запуска алертов: {e}")
 
 if __name__ == "__main__":
     ft.app(target=main)
