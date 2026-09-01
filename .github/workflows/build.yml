@@ -68,11 +68,11 @@ jobs:
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:shelf/shelf.dart';
           import 'package:shelf/shelf_io.dart' as io;
-          import 'package:shelf_router/shelf_router.dart';
+          import 'package:shelf_router/shelf_router.dart' as shelf_route;
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            final app = Router();
+            final app = shelf_route.Router();
             
             app.all('/<p.*>', (Request request) async {
               var path = request.url.path;
