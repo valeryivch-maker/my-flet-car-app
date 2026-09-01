@@ -27,7 +27,7 @@ jobs:
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в чистом офлайн-режиме HTML
+      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -45,27 +45,27 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован в режиме чистого HTML-рендеринга."
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем официальный стабильный плагин WebView
+      - name: 4. Подключаем продвинутый низкоуровневый плагин InAppWebView
         run: |
           cd build_flutter
-          flutter pub add webview_flutter
+          flutter pub add flutter_inappwebview
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-      - name: 6. Перезапись main.dart под безопасное прямое чтение офлайн-активов
+      - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-          void main() {
+          void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             runApp(const MyApp());
           }
@@ -89,26 +89,26 @@ jobs:
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
           class _WebViewContainerState extends State<WebViewContainer> {
-            late final WebViewController _controller;
-            @override
-            void initState() {
-              super.initState();
-              _controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000))
-                ..loadFlutterAsset('assets/www/index.html');
-            }
             @override
             Widget build(BuildContext context) {
               return Scaffold(
                 body: SafeArea(
-                  child: WebViewWidget(controller: _controller),
+                  child: InAppWebView(
+                    initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
+                    initialSettings: InAppWebViewSettings(
+                      javaScriptEnabled: true,
+                      allowFileAccess: true,
+                      allowFileAccessFromFileURLs: true,
+                      allowUniversalAccessFromFileURLs: true,
+                      useHybridComposition: true
+                    ),
+                  ),
                 ),
               );
             }
           }
           EOF
-      - name: 7. Динамическая генерацияpubspec.yaml с рекурсивной линковкой веб-ресурсов
+      - name: 7. Жесткая и каноническая генерация путей pubspec.yaml для Flet HTML
         run: |
           cd build_flutter
           rm -f pubspec.yaml
@@ -122,7 +122,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            webview_flutter: ^4.10.0
+            flutter_inappwebview: ^6.1.5
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -148,4 +148,3 @@ jobs:
         with:
           name: release-apk
           path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
-
