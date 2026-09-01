@@ -1,4 +1,4 @@
-﻿# main.py - Часть 1 из 3
+﻿# main.py - Часть 1 из 4
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -7,7 +7,6 @@ import time
 import threading
 import json
 from datetime import datetime
-
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 for d in [os.path.abspath(os.path.dirname(__file__)), os.getcwd()]:
@@ -41,7 +40,7 @@ def show_message(text: str):
             _current_page_ref.update()
         except:
             pass
-
+# main.py - Часть 2 из 4
 def run_local_telegram_sync():
     import shutil
     import glob
@@ -83,7 +82,7 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
-# main.py - Часть 2 из 3
+# main.py - Часть 3 из 4
     page.theme = ft.Theme(
         color_scheme_seed=ft.Colors.AMBER,
         scrollbar_theme=ft.ScrollbarTheme(
@@ -125,7 +124,7 @@ def main(page: ft.Page):
                 show_message("[Х] Модуль сети не поддерживает диалоги")
         except Exception as err:
             show_message(f"[Х] Ошибка вызова окна: {str(err)}")
-            
+# main.py - Часть 4.1 из 4
     def async_pc_import(e=None):
         show_message("Сканирование локальных загрузок...")
         try:
@@ -142,7 +141,6 @@ def main(page: ft.Page):
     def rebuild_ui():
         if os.name != 'nt':
             page.views_detached = True
-            
         page.clean()
         try:
             if os.name == 'nt' or not hasattr(page, "client_storage"):
@@ -154,12 +152,12 @@ def main(page: ft.Page):
                         current_db = json.loads(str(raw_cached_db))
                     else:
                         current_db = engine.load_data()
+# main.py - Часть 4.2 из 4
                 except Exception as cache_err:
                     print(f"[CACHE RESET] Сброс битого кэша: {cache_err}")
                     if hasattr(page, "client_storage"):
                         page.client_storage.remove("offline_car_db")
                     current_db = engine.load_data()
-            
             if hasattr(page, "client_storage") and os.name != 'nt':
                 page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
         except Exception as db_err:
@@ -171,23 +169,19 @@ def main(page: ft.Page):
         car_names = list(cars_dict.keys())
         
         if not cars_dict or not car_names:
-            page.add(ft.Container(
-                content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD),
-                alignment=ft.alignment.CENTER,
-                padding=50
-            ))
+            page.add(ft.Container(content=ft.Text("База данных пуста. Пожалуйста, импортируйте базу.", size=16, weight=ft.FontWeight.BOLD), alignment=ft.alignment.center, padding=50))
             if os.name != 'nt':
                 page.views_detached = False
             page.update()
             return
             
         selected_car = engine.app_state.get("selected_car")
+# main.py - Часть 4.3 из 4
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
                 selected_car = match[0]
-                engine.app_state["selected_car"] = selected_car
-                
+            engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
             selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
@@ -199,35 +193,14 @@ def main(page: ft.Page):
                 return lambda _: [engine.app_state.update({"selected_car": car_name_to_select}), rebuild_ui()]
             car_buttons_row.controls.append(ft.Container(
                 content=ft.Text(str(name), color=ft.Colors.WHITE if is_selected else ft.Colors.BLACK, weight=ft.FontWeight.BOLD if is_selected else ft.FontWeight.NORMAL, size=14),
-                bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200,
-                padding=ft.Padding(16, 8, 16, 8),
-                border_radius=8,
-                on_click=make_click_handler()
+                bgcolor=ft.Colors.AMBER_700 if is_selected else ft.Colors.GREY_200, padding=ft.Padding(16, 8, 16, 8), border_radius=8, on_click=make_click_handler()
             ))
-# main.py - Часть 3 из 3
+            
         car_profile = cars_dict[selected_car]
         odo_dict = car_profile.get("odometer") or {}
-        
-        current_odo_input = ft.TextField(
-            label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]",
-            value=str(odo_dict.get("value", "0")),
-            keyboard_type=ft.KeyboardType.NUMBER,
-            expand=True,
-            border=ft.InputBorder.NONE,
-            filled=True,
-            border_radius=ft.BorderRadius(8, 8, 8, 8)
-        )
-        
-        daily_input = ft.TextField(
-            label="Пробег в день (км)",
-            value=str(car_profile.get("daily_mileage", "0")),
-            keyboard_type=ft.KeyboardType.NUMBER,
-            expand=True,
-            border=ft.InputBorder.NONE,
-            filled=True,
-            border_radius=ft.BorderRadius(8, 8, 8, 8)
-        )
-        
+        current_odo_input = ft.TextField(label=f"Пробег (км) [от {odo_dict.get('date', '-')} ]", value=str(odo_dict.get("value", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
+        daily_input = ft.TextField(label="Пробег в день (км)", value=str(car_profile.get("daily_mileage", "0")), keyboard_type=ft.KeyboardType.NUMBER, expand=True, border=ft.InputBorder.NONE, filled=True, border_radius=ft.BorderRadius(8, 8, 8, 8))
+# main.py - Часть 4.4 из 4
         def update_forecast_click(e):
             try:
                 if not current_odo_input.value or not daily_input.value:
@@ -243,20 +216,18 @@ def main(page: ft.Page):
                 if not any(h.get("value") == val for h in car_profile["odometer_history"]):
                     car_profile["odometer_history"].append({"value": val, "date": datetime.now().strftime("%d.%m.%Y")})
                 car_profile["predictions"] = engine.get_maintenance_predictions(car_profile)
-                
                 if os.name == 'nt' or not hasattr(page, "client_storage"):
                     engine.save_data(current_db)
                 else:
                     page.client_storage.set("offline_car_db", json.dumps(current_db, ensure_ascii=False))
-                    
                 page.snack_bar = ft.SnackBar(ft.Text("Данные успешно сохранены в локальную память!"), open=True)
                 page.update()
+                page.data["refresh_ui"] = lambda: page.pubsub.send_all("trigger_refresh_ui")
                 page.data["refresh_ui"]()
-                
                 try:
                     if hasattr(network, "LAST_SENT_ALERTS") and selected_car in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[selected_car] = None
-                    if hasattr(network, "check_and_send_alerts"):
+                    if hasattr(network, "check_and_send_alerts") and os.name == 'nt':
                         network.check_and_send_alerts(car_profile, car_name=selected_car)
                 except Exception as t_err:
                     print(f"[ALERT ERROR]: {t_err}")
@@ -264,29 +235,14 @@ def main(page: ft.Page):
                 page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка СУБД: {str(ex)}"), open=True)
                 page.update()
                 
-        action_panel = views.build_action_panel(
-            page, current_db, selected_car, async_mobile_import, async_pc_import,
-            lambda e: [engine.app_state.update({"view_mode": "analytics" if engine.app_state.get("view_mode", "list") != "analytics" else "list"}), rebuild_ui()],
-            network, show_message, lambda: page.data["refresh_ui"]()
-        )
-        
+        action_panel = views.build_action_panel(page, current_db, selected_car, async_mobile_import, async_pc_import, lambda e: [engine.app_state.update({"view_mode": "analytics" if engine.app_state.get("view_mode", "list") != "analytics" else "list"}), rebuild_ui()], network, show_message, lambda: page.data["refresh_ui"]())
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in car_profile.get("odometer_history", [])[-2:]]) if car_profile.get("odometer_history") else "История пробега пуста"
         
         header_card = ft.Card(content=ft.Container(content=ft.Column([
-            action_panel,
-            ft.Divider(height=5),
-            ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
-            ft.Column([current_odo_input, daily_input], expand=False, spacing=8),
-            ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
-            ft.Column([
-                ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE),
-                ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)
-            ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
-            ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
-            ft.Row([
-                ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40),
-                ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
-            ], spacing=10),
+            action_panel, ft.Divider(height=5), ft.Text("Обновление данных пробега", size=16, weight=ft.FontWeight.BOLD),
+            ft.Column([current_odo_input, daily_input], expand=False, spacing=8), ft.Text(hist_text, size=11, color=ft.Colors.GREY_600, italic=True),
+            ft.Column([ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE), ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
+            ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD), ft.Row([ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40), ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)], spacing=10),
             ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, bgcolor=ft.Colors.BLUE_GREY_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, lambda: page.data["refresh_ui"](), show_message), expand=True, height=40)
         ], spacing=12), padding=12))
         
@@ -296,19 +252,14 @@ def main(page: ft.Page):
         else:
             main_layout = views.build_maintenance_list(page, current_db, selected_car, car_profile, header_card, rebuild_ui, show_message)
             
-        page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[
-            ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)),
-            main_layout
-        ])))
-        
+        page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
         if os.name != 'nt':
             page.views_detached = False
-            page.update()
+        page.update()
 
     rebuild_ui()
-    
     try:
-        if not page.data.get("worker_initialized"):
+        if not page.data.get("worker_initialized") and os.name == 'nt':
             def start_worker():
                 time.sleep(1.0)
                 c_data = engine.load_data()
