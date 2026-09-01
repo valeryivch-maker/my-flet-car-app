@@ -1,166 +1,154 @@
 ﻿name: Build Android Release (100% Offline Asset Container Clean)
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
+ push:
+   branches:
+     - main
+ workflow_dispatch:
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Чек-аут репозитория
-        uses: actions/checkout@v4
-
-      - name: Настройка Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Настройка Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Настройка Flutter (Фиксированная версия)
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.7'
-          channel: 'stable'
-
-      - name: 1. Установка компилятора Flet CLI в Linux-окружение
-        run: |
-          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-
-      - name: 2. Подготовка и компиляция Python-кода с относительными путями WASM
-        run: |
-          mkdir -p .tmp_web_payload
-          python -c "
-          import os, shutil
-          dest = '.tmp_web_payload'
-          for item in os.listdir('.'):
-              if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']:
-                  continue
-              if os.path.isfile(item):
-                  shutil.copy2(item, os.path.join(dest, item))
-              elif os.path.isdir(item):
-                  shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
-          "
-          cd .tmp_web_payload
-          flet publish main.py --base-url ./ --distpath ../flet_web_dist
-          cd ..
-          rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур успешно скомпилирован с относительным роутингом."
-
-      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
-        run: |
-          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-
-      - name: 4. Подключаем официальный стабильный плагин WebView
-        run: |
-          cd build_flutter
-          flutter pub add webview_flutter
-
-      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
-        run: |
-          mkdir -p build_flutter/assets/www
-          cp -r flet_web_dist/* build_flutter/assets/www/
-          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-
-      - name: 6. Перезапись main.dart под обслуживание локальных ресурсов
-        run: |
-          rm -f build_flutter/lib/main.dart
-          cat << 'EOF' > build_flutter/lib/main.dart
-          import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
-          
-          void main() {
-            WidgetsFlutterBinding.ensureInitialized();
-            runApp(const MyApp());
-          }
-          
-          class MyApp extends StatelessWidget {
-            const MyApp({super.key});
-            @override
-            Widget build(BuildContext context) {
-              return MaterialApp(
-                title: 'Журнал ТО',
-                debugShowCheckedModeBanner: false,
-                theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.amber),
-                home: const WebViewContainer(),
-              );
-            }
-          }
-          
-          class WebViewContainer extends StatefulWidget {
-            const WebViewContainer({super.key});
-            @override
-            State<WebViewContainer> createState() => _WebViewContainerState();
-          }
-          
-          class _WebViewContainerState extends State<WebViewContainer> {
-            late final WebViewController _controller;
-            @override
-            void initState() {
-              super.initState();
-              _controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(const Color(0x00000000))
-                ..loadFlutterAsset('assets/www/index.html');
-            }
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(
-                body: SafeArea(
-                  child: WebViewWidget(controller: _controller),
-                ),
-              );
-            }
-          }
-          EOF
-
-      - name: 7. Динамическая генерация pubspec.yaml с рекурсивной линковкой веб-ресурсов
-        run: |
-          cd build_flutter
-          rm -f pubspec.yaml
-          cat << 'EOF' > pubspec.yaml
-          name: flet_android
-          description: "An offline Flet Asset project."
-          publish_to: 'none'
-          version: 1.0.0+1
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-          dependencies:
-            flutter:
-              sdk: flutter
-            webview_flutter: ^4.10.0
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-            flutter_lints: ^3.0.0
-          flutter:
-            uses-material-design: true
-            assets:
-              - assets/www/
-          EOF
-          
-          # Корректный рекурсивный обход папок без дублирования слешей
-          find assets/www -type d | while read -r dir; do
-            if [ "$dir" != "assets/www" ]; then
-              clean_dir=$(echo "$dir" | sed 's|/\+$||')
-              echo "    - ${clean_dir}/" >> pubspec.yaml
-            fi
-          done
-          echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и верифицирован."
-
-      - name: 8. Компиляция стабильного Android APK
-        run: |
-          cd build_flutter
-          flutter build apk --release
-
-      - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
+ build:
+   runs-on: ubuntu-latest
+   steps:
+     - name: Чек-аут репозитори
+       uses: actions/checkout@v4
+     - name: Настройка Java JDK 17
+       uses: actions/setup-java@v4
+       with:
+         distribution: 'zulu'
+         java-version: '17'
+     - name: Настройка Python 3.12
+       uses: actions/setup-python@v5
+       with:
+         python-version: '3.12'
+     - name: Настройка Flutter (Фиксированна верси)
+       uses: subosito/flutter-action@v2
+       with:
+         flutter-version: '3.41.7'
+         channel: 'stable'
+     - name: 1. Установка компилтора Flet CLI в Linux-окружение
+       run: |
+         pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
+     - name: 2. Подготовка и компилци Python-кода с относителными путми WASM
+       run: |
+         mkdir -p .tmp_web_payload
+         python -c "
+         import os, shutil
+         dest = '.tmp_web_payload'
+         for item in os.listdir('.'):
+             if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']:
+                 continue
+             if os.path.isfile(item):
+                 shutil.copy2(item, os.path.join(dest, item))
+             elif os.path.isdir(item):
+                 shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
+         "
+         cd .tmp_web_payload
+         flet publish main.py --base-url ./ --distpath ../flet_web_dist
+         cd ..
+         rm -rf .tmp_web_payload
+         echo "[УСПЕХ] Python-контур успешно скомпилирован с относителным роутингом."
+     - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
+       run: |
+         flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
+     - name: 4. Подклчаем официалный стабилный плагин WebView
+       run: |
+         cd build_flutter
+         flutter pub add webview_flutter
+     - name: 5. Инъекци автономного дистрибутива в ассеты мобилного приложени
+       run: |
+         mkdir -p build_flutter/assets/www
+         cp -r flet_web_dist/* build_flutter/assets/www/
+         echo "[УСПЕХ] Веб-дистрибутив зашит во внутренн структуру assets/www/"
+     - name: 6. Перезапис main.dart под обслуживание локалных ресурсов
+       run: |
+         rm -f build_flutter/lib/main.dart
+         cat << 'EOF' > build_flutter/lib/main.dart
+         import 'package:flutter/material.dart';
+         import 'package:webview_flutter/webview_flutter.dart';
+         
+         void main() {
+           WidgetsFlutterBinding.ensureInitialized();
+           runApp(const MyApp());
+         }
+         
+         class MyApp extends StatelessWidget {
+           const MyApp({super.key});
+           @override
+           Widget build(BuildContext context) {
+             return MaterialApp(
+               title: 'Журнал ТО',
+               debugShowCheckedModeBanner: false,
+               theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.amber),
+               home: const WebViewContainer(),
+             );
+           }
+         }
+         
+         class WebViewContainer extends StatefulWidget {
+           const WebViewContainer({super.key});
+           @override
+           State<WebViewContainer> createState() => _WebViewContainerState();
+         }
+         
+         class _WebViewContainerState extends State<WebViewContainer> {
+           late final WebViewController _controller;
+           @override
+           void initState() {
+             super.initState();
+             _controller = WebViewController()
+               ..setJavaScriptMode(JavaScriptMode.unrestricted)
+               ..setBackgroundColor(const Color(0x00000000))
+               ..loadFlutterAsset('assets/www/index.html');
+           }
+           @override
+           Widget build(BuildContext context) {
+             return Scaffold(
+               body: SafeArea(
+                 child: WebViewWidget(controller: _controller),
+               ),
+             );
+           }
+         }
+         EOF
+     - name: 7. Динамическа генераци pubspec.yaml с рекурсивной линковкой веб-ресурсов
+       run: |
+         cd build_flutter
+         rm -f pubspec.yaml
+         cat << 'EOF' > pubspec.yaml
+         name: flet_android
+         description: "An offline Flet Asset project."
+         publish_to: 'none'
+         version: 1.0.0+1
+         environment:
+           sdk: '>=3.0.0 <4.0.0'
+         dependencies:
+           flutter:
+             sdk: flutter
+           webview_flutter: ^4.10.0
+         dev_dependencies:
+           flutter_test:
+             sdk: flutter
+           flutter_lints: ^3.0.0
+         flutter:
+           uses-material-design: true
+           assets:
+             - assets/www/index.html
+             - assets/www/
+         EOF
+         
+         # Корректный рекурсивный обход папок с отступами в 4 пробела для YAML
+         find assets/www -type d | while read -r dir; do
+           if [ "$dir" != "assets/www" ]; then
+             clean_dir=$(echo "$dir" | sed 's|/\+$||')
+             echo "    - ${clean_dir}/" >> pubspec.yaml
+           fi
+         done
+         echo "[УСПЕХ] Манифест pubspec.yaml динамически собран и верифицирован."
+     - name: 8. Компилци стабилного Android APK
+       run: |
+         cd build_flutter
+         flutter build apk --release
+     - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
+       uses: actions/upload-artifact@v4
+       with:
+         name: release-apk
+         path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
