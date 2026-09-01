@@ -179,12 +179,14 @@ def main(page: ft.Page):
         selected_car = engine.app_state.get("selected_car")
 # main.py - Часть 4.3 из 4
         if selected_car:
+            if isinstance(selected_car, list) and len(selected_car) > 0:
+                selected_car = selected_car[0]
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = str(match[0])
+                selected_car = match[0]
             engine.app_state["selected_car"] = selected_car
         if not selected_car or selected_car not in cars_dict:
-            selected_car = str(car_names[0]) if car_names else None
+            selected_car = car_names[0] if car_names else None
             engine.app_state["selected_car"] = selected_car
             
         car_buttons_row = ft.Row(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -276,6 +278,7 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
+
 
 
 
