@@ -32,7 +32,7 @@ jobs:
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Подготовка, компиляция Python-кода и инъекция Eruda DevTools
+     - name: 2. Компиляция Python-кода и инъекция автономной консоли отладки
        run: |
          mkdir -p .tmp_web_payload
          python -c "
@@ -51,21 +51,46 @@ jobs:
          cd ..
          rm -rf .tmp_web_payload
          
-         # Скачиваем автономную веб-консоль Eruda для работы в 100% офлайн-режиме
-         curl -L https://jsdelivr.net -o flet_web_dist/eruda.js
-         
-         # Инжектируем инициализацию консоли Eruda в index.html перед тегом </head>
+         # Генерируем автономный встроенный логгер для вывода JS-ошибок прямо на экран телефона
          python -c "
          with open('flet_web_dist/index.html', 'r', encoding='utf-8') as f:
              html = f.read()
          
-         eruda_script = '<script src=\"eruda.js\"></script><script>eruda.init();</script></head>'
-         html = html.replace('</head>', eruda_script)
+         debug_ui = '''
+         <script>
+         window.addEventListener('DOMContentLoaded', function() {
+             var div = document.createElement('div');
+             div.id = 'debug-console';
+             div.style.position = 'fixed';
+             div.style.bottom = '10px';
+             div.style.left = '10px';
+             div.style.right = '10px';
+             div.style.height = '150px';
+             div.style.background = 'rgba(0,0,0,0.85)';
+             div.style.color = '#ff3333';
+             div.style.fontFamily = 'monospace';
+             div.style.fontSize = '11px';
+             div.style.padding = '8px';
+             div.style.overflowY = 'scroll';
+             div.style.zIndex = '999999';
+             div.style.border = '2px solid red';
+             div.innerHTML = '<b>ОТЛАДКА АВТОНОМНОГО КОНТЕЙНЕРА ЗАПУЩЕНА:</b><br>';
+             document.body.appendChild(div);
+             
+             window.onerror = function(msg, url, line) {
+                 div.innerHTML += 'ОШИБКА: ' + msg + ' <br>ФАЙЛ: ' + url + ' (Строка: ' + line + ')<br>----------------<br>';
+                 return false;
+             };
+         });
+         </script>
+         </head>
+         '''
+         html = html.replace('</head>', debug_ui)
          
          with open('flet_web_dist/index.html', 'w', encoding='utf-8') as f:
              f.write(html)
          "
-         echo "[УСПЕХ] Офлайн-консоль Eruda успешно имплантирована в дистрибутив."
+         echo "[УСПЕХ] Встроенный графический логгер успешно имплантирован в index.html."
 
      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
        run: |
