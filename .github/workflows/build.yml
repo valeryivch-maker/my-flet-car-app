@@ -32,7 +32,7 @@ jobs:
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+     - name: 2. Подготовка, компиляция Python-кода и инъекция Eruda DevTools
        run: |
          mkdir -p .tmp_web_payload
          python -c "
@@ -50,7 +50,22 @@ jobs:
          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
          cd ..
          rm -rf .tmp_web_payload
-         echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
+         
+         # Скачиваем автономную веб-консоль Eruda для работы в 100% офлайн-режиме
+         curl -L https://jsdelivr.net -o flet_web_dist/eruda.js
+         
+         # Инжектируем инициализацию консоли Eruda в index.html перед тегом </head>
+         python -c "
+         with open('flet_web_dist/index.html', 'r', encoding='utf-8') as f:
+             html = f.read()
+         
+         eruda_script = '<script src=\"eruda.js\"></script><script>eruda.init();</script></head>'
+         html = html.replace('</head>', eruda_script)
+         
+         with open('flet_web_dist/index.html', 'w', encoding='utf-8') as f:
+             f.write(html)
+         "
+         echo "[УСПЕХ] Офлайн-консоль Eruda успешно имплантирована в дистрибутив."
 
      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
        run: |
