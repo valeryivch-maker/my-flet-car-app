@@ -6,7 +6,7 @@ on:
  workflow_dispatch:
 jobs:
  build:
-   runs-ok: ubuntu-latest
+   runs-on: ubuntu-latest
    steps:
      - name: Чек-аут репозитория
        uses: actions/checkout@v4
