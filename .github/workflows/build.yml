@@ -156,12 +156,15 @@ jobs:
          }
          EOF
          echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
-     - name: 8. Компиляция стабильного Android APK
+     - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
        run: |
          cd build_flutter
-         flutter build apk --release
+         flutter pub get
+         cd android
+         chmod +x gradlew
+         ./gradlew assembleRelease
      - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
        uses: actions/upload-artifact@v4
        with:
          name: release-apk
-         path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
+         path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
