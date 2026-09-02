@@ -91,7 +91,7 @@ jobs:
              return Scaffold(
                body: SafeArea(
                  child: InAppWebView(
-                   initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
+                   initialUrlRequest: URLRequest(url: Uri.parse("asset:///assets/www/index.html")),
                    initialOptions: InAppWebViewGroupOptions(
                      crossPlatform: InAppWebViewOptions(
                        javaScriptEnabled: true,
