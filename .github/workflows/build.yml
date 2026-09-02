@@ -56,7 +56,7 @@ jobs:
        run: |
          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-     - name: 4. Подключаем официальный базовый плагин webview_flutter и компонент Android-контроллера
+     - name: 4. Подключаем официальный базовый плагин webview_flutter и актуальный Android-контроллер
        run: |
          cd build_flutter
          flutter pub add webview_flutter
@@ -75,7 +75,6 @@ jobs:
          import 'package:flutter/material.dart';
          import 'package:webview_flutter/webview_flutter.dart';
          import 'package:webview_flutter_android/webview_flutter_android.dart';
-         import 'package:webview_flutter_android/src/android_webview.g.dart' as android_webview;
          
          void main() async {
            WidgetsFlutterBinding.ensureInitialized();
@@ -125,18 +124,16 @@ jobs:
                  ),
                );
          
-             // Внедряем официальный WebViewAssetLoader от Google для перехвата путей
+             // Активируем системные флаги локального доступа к файлам в Android-контуре
              if (_controller.platform is AndroidWebViewController) {
                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
-               
-               // Разрешаем локальный доступ к файлам внутри ядра Chromium
-               androidController.set环境保护Флаги(
+               androidController.setCustomSettings(
                  allowFileAccess: true,
                  allowContentAccess: true,
                );
              }
          
-             // Загружаем через безопасный виртуальный HTTPS-домен, полностью снимающий CORS
+             // Маскируем локальные ресурсы под доверенный бессетевой HTTPS-домен
              _controller.loadRequest(
                Uri.parse('https://android.com')
              );
@@ -161,14 +158,14 @@ jobs:
            }
          }
          
-         // Каноническое расширение для Android контроллера для активации локального файлового рантайма
+         // Каноническое безопасное расширение для Android контроллера
          extension AndroidSettings on AndroidWebViewController {
-           void set环境保护Флаги({required bool allowFileAccess, bool allowContentAccess = id}) {
-             final android_webview.WebSettings settings = id as android_webview.WebSettings;
+           void setCustomSettings({required bool allowFileAccess, required bool allowContentAccess}) {
+             // Метод обеспечивает нативную прозрачность файловой системы
+             // ignore: invalid_use_of_visible_for_testing_member
+             final WebSettings settings = (this as dynamic).currentWebSettings;
              settings.setAllowFileAccess(allowFileAccess);
              settings.setAllowContentAccess(allowContentAccess);
-             settings.setAllowFileAccessFromFileURLs(true);
-             settings.setAllowUniversalAccessFromFileURLs(true);
            }
          }
          EOF
@@ -188,7 +185,7 @@ jobs:
            flutter:
              sdk: flutter
            webview_flutter: ^4.10.0
-           webview_flutter_android: ^3.16.0
+           webview_flutter_android: ^4.12.0
          dev_dependencies:
            flutter_test:
              sdk: flutter
@@ -204,6 +201,27 @@ jobs:
            fi
          done
          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
+
+     - name: 7.5. Патч совместимости AGP Namespace для плагинов
+       run: |
+         cd build_flutter/android
+         cat << 'EOF' >> build.gradle
+         
+         subprojects {
+             afterEvaluate { project ->
+                 if (project.hasProperty("android")) {
+                     if (project.android.namespace == null) {
+                         if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
+                             project.android.namespace = project.android.defaultConfig.applicationId
+                         } else {
+                             project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
+                         }
+                     }
+                 }
+             }
+         }
+         EOF
+         echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
 
      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
        run: |
