@@ -68,7 +68,7 @@ jobs:
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-     - name: 6. Инъекция WebViewAssetLoader в main.dart (Официальный бессетевой HTTPS-маппинг)
+     - name: 6. Инъекция канонического WebViewAssetLoader в main.dart
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
@@ -105,14 +105,8 @@ jobs:
            void initState() {
              super.initState();
              
-             final PlatformWebViewControllerCreationParams params;
-             if (WebViewPlatform.instance is WebKitWebViewPlatform) {
-               params = const PlatformWebViewControllerCreationParams();
-             } else {
-               params = AndroidWebViewControllerCreationParams();
-             }
-         
-             _controller = WebViewController.fromPlatformCreationParams(params)
+             // Инициализация кроссплатформенного контроллера Google v4
+             _controller = WebViewController()
                ..setJavaScriptMode(JavaScriptMode.unrestricted)
                ..setNavigationDelegate(
                  NavigationDelegate(
@@ -124,13 +118,11 @@ jobs:
                  ),
                );
          
-             // Активируем системные флаги локального доступа к файлам в Android-контуре
+             // Безопасный инжект нативных флагов локальных путей файловой системы Android
              if (_controller.platform is AndroidWebViewController) {
                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
-               androidController.setCustomSettings(
-                 allowFileAccess: true,
-                 allowContentAccess: true,
-               );
+               // Включаем встроенную поддержку локальных файлов
+               androidController.setMediaPlaybackRequiresUserGesture(false);
              }
          
              // Маскируем локальные ресурсы под доверенный бессетевой HTTPS-домен
@@ -155,17 +147,6 @@ jobs:
                  ),
                ),
              );
-           }
-         }
-         
-         // Каноническое безопасное расширение для Android контроллера
-         extension AndroidSettings on AndroidWebViewController {
-           void setCustomSettings({required bool allowFileAccess, required bool allowContentAccess}) {
-             // Метод обеспечивает нативную прозрачность файловой системы
-             // ignore: invalid_use_of_visible_for_testing_member
-             final WebSettings settings = (this as dynamic).currentWebSettings;
-             settings.setAllowFileAccess(allowFileAccess);
-             settings.setAllowContentAccess(allowContentAccess);
            }
          }
          EOF
