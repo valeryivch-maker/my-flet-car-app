@@ -32,26 +32,16 @@ jobs:
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Подготовка и компиляция чистого нативного Android-проекта
+     - name: 2. Полный цикл нативной компиляции Android APK
        run: |
          # Очищаем старые артефакты WebView-сборок, если они были
          rm -rf build_flutter flet_web_dist build
          
-         # Канонический запуск нативного сборщика Flet для текущей директории (.)
+         # Запуск компилятора Flet, который сам вызовет gradlew внутри своей песочницы
          flet build apk
-         
-         # Перемещаем сгенерированный нативный проект в рабочую директорию конвейера
-         mv build/apk build_flutter
-         echo "[УСПЕХ] Создана чистая нативная структура Flet-приложения."
 
-     - name: 3. Принудительная прямая компиляция через нативный Gradle-движок
-       run: |
-         cd build_flutter/android
-         chmod +x gradlew
-         ./gradlew assembleRelease
-
-     - name: 4. Выгрузка готового 100% нативного APK в артефакты GitHub
+     - name: 3. Выгрузка готового нативного APK в артефакты GitHub
        uses: actions/upload-artifact@v4
        with:
          name: release-apk
-         path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
+         path: build/apk/app-release.apk
