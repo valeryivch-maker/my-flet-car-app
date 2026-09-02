@@ -105,7 +105,6 @@ jobs:
            void initState() {
              super.initState();
              
-             // Инициализация кроссплатформенного контроллера Google v4
              _controller = WebViewController()
                ..setJavaScriptMode(JavaScriptMode.unrestricted)
                ..setNavigationDelegate(
@@ -118,14 +117,11 @@ jobs:
                  ),
                );
          
-             // Безопасный инжект нативных флагов локальных путей файловой системы Android
              if (_controller.platform is AndroidWebViewController) {
                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
-               // Включаем встроенную поддержку локальных файлов
                androidController.setMediaPlaybackRequiresUserGesture(false);
              }
          
-             // Маскируем локальные ресурсы под доверенный бессетевой HTTPS-домен
              _controller.loadRequest(
                Uri.parse('https://android.com')
              );
@@ -183,12 +179,16 @@ jobs:
          done
          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
 
-     - name: 7.5. Патч совместимости AGP Namespace для плагинов
+     - name: 7.5. Патч совместимости AGP и инъекция глобальных Maven-репозиториев AndroidX
        run: |
          cd build_flutter/android
          cat << 'EOF' >> build.gradle
          
          subprojects {
+             project.repositories {
+                 google()
+                 mavenCentral()
+             }
              afterEvaluate { project ->
                  if (project.hasProperty("android")) {
                      if (project.android.namespace == null) {
@@ -202,7 +202,7 @@ jobs:
              }
          }
          EOF
-         echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
+         echo "[УСПЕХ] Глобальные репозитории google() и mavenCentral() успешно инжектированы."
 
      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
        run: |
