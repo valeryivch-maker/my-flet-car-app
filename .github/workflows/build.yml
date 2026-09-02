@@ -58,7 +58,7 @@ jobs:
          mkdir -p build_flutter/assets/www
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-     - name: 6. Инъекция безопасного CustomPathHandler внутрь main.dart (v6.0.0)
+     - name: 6. Инъекция декларативного WebViewAssetLoader внутрь main.dart
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
@@ -100,17 +100,14 @@ jobs:
                      allowFileAccessFromFileURLs: true,
                      allowUniversalAccessFromFileURLs: true,
                      useHybridComposition: true,
-                     isInspectable: true
+                     isInspectable: true,
+                     webViewAssetLoader: WebViewAssetLoader(
+                       domain: "://android.com",
+                       pathHandlers: [
+                         AssetsPathHandler(path: "/assets/www/")
+                       ]
+                     )
                    ),
-                   onWebViewCreated: (controller) {
-                     // Регистрация корректного перехватчика путей для версии 6.0.0
-                     controller.addCustomPathHandler(
-                       CustomPathHandler(
-                         path: "/assets/www/",
-                         directory: "assets/www"
-                       )
-                     );
-                   },
                  ),
                ),
              );
