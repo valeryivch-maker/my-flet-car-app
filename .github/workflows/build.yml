@@ -32,7 +32,7 @@ jobs:
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Компиляция Python-кода и инъекция автономной консоли отладки
+     - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
        run: |
          mkdir -p .tmp_web_payload
          python -c "
@@ -50,47 +50,7 @@ jobs:
          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
          cd ..
          rm -rf .tmp_web_payload
-         
-         # Генерируем автономный встроенный логгер для вывода JS-ошибок прямо на экран телефона
-         python -c "
-         with open('flet_web_dist/index.html', 'r', encoding='utf-8') as f:
-             html = f.read()
-         
-         debug_ui = '''
-         <script>
-         window.addEventListener('DOMContentLoaded', function() {
-             var div = document.createElement('div');
-             div.id = 'debug-console';
-             div.style.position = 'fixed';
-             div.style.bottom = '10px';
-             div.style.left = '10px';
-             div.style.right = '10px';
-             div.style.height = '150px';
-             div.style.background = 'rgba(0,0,0,0.85)';
-             div.style.color = '#ff3333';
-             div.style.fontFamily = 'monospace';
-             div.style.fontSize = '11px';
-             div.style.padding = '8px';
-             div.style.overflowY = 'scroll';
-             div.style.zIndex = '999999';
-             div.style.border = '2px solid red';
-             div.innerHTML = '<b>ОТЛАДКА АВТОНОМНОГО КОНТЕЙНЕРА ЗАПУЩЕНА:</b><br>';
-             document.body.appendChild(div);
-             
-             window.onerror = function(msg, url, line) {
-                 div.innerHTML += 'ОШИБКА: ' + msg + ' <br>ФАЙЛ: ' + url + ' (Строка: ' + line + ')<br>----------------<br>';
-                 return false;
-             };
-         });
-         </script>
-         </head>
-         '''
-         html = html.replace('</head>', debug_ui)
-         
-         with open('flet_web_dist/index.html', 'w', encoding='utf-8') as f:
-             f.write(html)
-         "
-         echo "[УСПЕХ] Встроенный графический логгер успешно имплантирован в index.html."
+         echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
 
      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
        run: |
@@ -107,7 +67,7 @@ jobs:
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-     - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart
+     - name: 6. Инъекция нативного Java/Kotlin CORS патча и логгера ошибок в main.dart
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
@@ -151,6 +111,37 @@ jobs:
                      isInspectable: true,
                      mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW
                    ),
+                   onLoadStop: (controller, url) async {
+                     // Нативный принудительный инжект консоли логирования в обход CSP блокировок
+                     await controller.evaluateJavascript(source: """
+                       (function() {
+                         if (document.getElementById('native-debug-panel')) return;
+                         var panel = document.createElement('div');
+                         panel.id = 'native-debug-panel';
+                         panel.style.position = 'fixed';
+                         panel.style.bottom = '0px';
+                         panel.style.left = '0px';
+                         panel.style.right = '0px';
+                         panel.style.height = '40%';
+                         panel.style.background = '#1a1a1a';
+                         panel.style.color = '#00ff00';
+                         panel.style.fontFamily = 'monospace';
+                         panel.style.fontSize = '12px';
+                         panel.style.padding = '10px';
+                         panel.style.overflowY = 'scroll';
+                         panel.style.zIndex = '999999';
+                         panel.style.borderTop = '3px solid #ffc107';
+                         panel.innerHTML = '<b>[АРХИТЕКТУРНЫЙ ЛОГГЕР ЯДРА CHROMIUM]:</b><br>';
+                         document.body.appendChild(panel);
+                         
+                         window.addEventListener('error', function(e) {
+                           panel.innerHTML += '<span style="color:#ff3333;">[ОШИБКА]: ' + e.message + '</span><br>Файл: ' + e.filename + ' (Строка: ' + e.lineno + ')<br>----------------<br>';
+                         }, true);
+                         
+                         panel.innerHTML += '[СТАТУС]: Нативная инъекция успешна. Ожидание ответа модулей Flet...<br>';
+                       })();
+                     """);
+                   },
                  ),
                ),
              );
