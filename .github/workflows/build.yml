@@ -49,16 +49,16 @@ jobs:
      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
        run: |
          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-     - name: 4. Подключаем стабильный низкоуровневый плагин InAppWebView v5
+     - name: 4. Подключаем переходную версию плагина InAppWebView v6.0.0
        run: |
          cd build_flutter
-         flutter pub add flutter_inappwebview:5.8.0
+         flutter pub add flutter_inappwebview:6.0.0
      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
        run: |
          mkdir -p build_flutter/assets/www
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-     - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart (v5 синтаксис)
+     - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart (v6 синтаксис)
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
@@ -91,17 +91,14 @@ jobs:
              return Scaffold(
                body: SafeArea(
                  child: InAppWebView(
-                   initialUrlRequest: URLRequest(url: Uri.parse("asset:///assets/www/index.html")),
-                   initialOptions: InAppWebViewGroupOptions(
-                     crossPlatform: InAppWebViewOptions(
-                       javaScriptEnabled: true,
-                       allowFileAccessFromFileURLs: true,
-                       allowUniversalAccessFromFileURLs: true
-                     ),
-                     android: AndroidInAppWebViewOptions(
-                       useHybridComposition: true,
-                       allowFileAccess: true
-                     ),
+                   initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
+                   initialSettings: InAppWebViewSettings(
+                     javaScriptEnabled: true,
+                     allowFileAccess: true,
+                     allowFileAccessFromFileURLs: true,
+                     allowUniversalAccessFromFileURLs: true,
+                     useHybridComposition: true,
+                     isInspectable: true
                    ),
                  ),
                ),
@@ -123,7 +120,7 @@ jobs:
          dependencies:
            flutter:
              sdk: flutter
-           flutter_inappwebview: ^5.8.0
+           flutter_inappwebview: 6.0.0
          dev_dependencies:
            flutter_test:
              sdk: flutter
@@ -139,7 +136,7 @@ jobs:
            fi
          done
          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
-     - name: 7.5. Патч совместимости AGP Namespace для старых плагинов v5
+     - name: 7.5. Патч совместимости AGP Namespace для плагинов
        run: |
          cd build_flutter/android
          cat << 'EOF' >> build.gradle
