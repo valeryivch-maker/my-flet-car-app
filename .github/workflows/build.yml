@@ -32,13 +32,13 @@ jobs:
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Полный цикл нативной компиляции Android APK (Бессетевой режим)
+     - name: 2. Полный цикл нативной компиляции Android APK (Чистый запуск)
        run: |
          # Очищаем старые артефакты WebView-сборок, если они были
          rm -rf build_flutter flet_web_dist build
          
-         # Запуск компилятора Flet с флагом принудительного перевода на каналы памяти (минуя сокеты)
-         flet build apk --no-version-check
+         # Канонический запуск нативного компилятора Flet для текущей директории
+         flet build apk
 
      - name: 3. Выгрузка готового нативного APK в артефакты GitHub
        uses: actions/upload-artifact@v4
