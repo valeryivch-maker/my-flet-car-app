@@ -56,10 +56,10 @@ jobs:
        run: |
          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-     - name: 4. Подключаем переходную версию плагина InAppWebView v6.0.0
+     - name: 4. Подключаем официальный базовый плагин webview_flutter от Google
        run: |
          cd build_flutter
-         flutter pub add flutter_inappwebview:6.0.0
+         flutter pub add webview_flutter
 
      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
        run: |
@@ -67,12 +67,13 @@ jobs:
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-     - name: 6. Инъекция нативного Java/Kotlin CORS патча и логгера ошибок в main.dart
+     - name: 6. Инъекция загрузчика HTML-строки в main.dart через официальный SDK
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
          import 'package:flutter/material.dart';
-         import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+         import 'package:flutter/services.dart';
+         import 'package:webview_flutter/webview_flutter.dart';
          
          void main() async {
            WidgetsFlutterBinding.ensureInitialized();
@@ -96,52 +97,51 @@ jobs:
            State<WebViewContainer> createState() => _WebViewContainerState();
          }
          class _WebViewContainerState extends State<WebViewContainer> {
+           late final WebViewController _controller;
+           bool _isLoading = true;
+         
+           @override
+           void initState() {
+             super.initState();
+             _controller = WebViewController()
+               ..setJavaScriptMode(JavaScriptMode.unrestricted)
+               ..setNavigationDelegate(
+                 NavigationDelegate(
+                   onPageFinished: (String url) {
+                     setState(() {
+                       _isLoading = false;
+                     });
+                   },
+                 ),
+               );
+             _loadHtmlFromAssets();
+           }
+         
+           Future<void> _loadHtmlFromAssets() async {
+             try {
+               // Читаем скомпилированный index.html напрямую как текстовую строку
+               String fileHtmlContents = await rootBundle.loadString('assets/www/index.html');
+               
+               // Принудительно скармливаем её в официальный WebView от Google
+               await _controller.loadHtmlString(fileHtmlContents, baseUrl: 'https://android.com');
+             } catch (e) {
+               debugPrint("Ошибка чтения ассета: $e");
+             }
+           }
+         
            @override
            Widget build(BuildContext context) {
              return Scaffold(
+               backgroundColor: const Color(0xFF1E1E1E),
                body: SafeArea(
-                 child: InAppWebView(
-                   initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
-                   initialSettings: InAppWebViewSettings(
-                     javaScriptEnabled: true,
-                     allowFileAccess: true,
-                     allowFileAccessFromFileURLs: true,
-                     allowUniversalAccessFromFileURLs: true,
-                     useHybridComposition: true,
-                     isInspectable: true,
-                     mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW
-                   ),
-                   onLoadStop: (controller, url) async {
-                     // Нативный принудительный инжект консоли логирования в обход CSP блокировок
-                     await controller.evaluateJavascript(source: """
-                       (function() {
-                         if (document.getElementById('native-debug-panel')) return;
-                         var panel = document.createElement('div');
-                         panel.id = 'native-debug-panel';
-                         panel.style.position = 'fixed';
-                         panel.style.bottom = '0px';
-                         panel.style.left = '0px';
-                         panel.style.right = '0px';
-                         panel.style.height = '40%';
-                         panel.style.background = '#1a1a1a';
-                         panel.style.color = '#00ff00';
-                         panel.style.fontFamily = 'monospace';
-                         panel.style.fontSize = '12px';
-                         panel.style.padding = '10px';
-                         panel.style.overflowY = 'scroll';
-                         panel.style.zIndex = '999999';
-                         panel.style.borderTop = '3px solid #ffc107';
-                         panel.innerHTML = '<b>[АРХИТЕКТУРНЫЙ ЛОГГЕР ЯДРА CHROMIUM]:</b><br>';
-                         document.body.appendChild(panel);
-                         
-                         window.addEventListener('error', function(e) {
-                           panel.innerHTML += '<span style="color:#ff3333;">[ОШИБКА]: ' + e.message + '</span><br>Файл: ' + e.filename + ' (Строка: ' + e.lineno + ')<br>----------------<br>';
-                         }, true);
-                         
-                         panel.innerHTML += '[СТАТУС]: Нативная инъекция успешна. Ожидание ответа модулей Flet...<br>';
-                       })();
-                     """);
-                   },
+                 child: Stack(
+                   children: [
+                     WebViewWidget(controller: _controller),
+                     if (_isLoading)
+                       const Center(
+                         child: CircularProgressIndicator(color: Colors.amber),
+                       ),
+                   ],
                  ),
                ),
              );
@@ -163,7 +163,7 @@ jobs:
          dependencies:
            flutter:
              sdk: flutter
-           flutter_inappwebview: 6.0.0
+           webview_flutter: ^4.10.0
          dev_dependencies:
            flutter_test:
              sdk: flutter
@@ -179,27 +179,6 @@ jobs:
            fi
          done
          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
-
-     - name: 7.5. Патч совместимости AGP Namespace для плагинов
-       run: |
-         cd build_flutter/android
-         cat << 'EOF' >> build.gradle
-         
-         subprojects {
-             afterEvaluate { project ->
-                 if (project.hasProperty("android")) {
-                     if (project.android.namespace == null) {
-                         if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
-                             project.android.namespace = project.android.defaultConfig.applicationId
-                         } else {
-                             project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
-                         }
-                     }
-                 }
-             }
-         }
-         EOF
-         echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
 
      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
        run: |
