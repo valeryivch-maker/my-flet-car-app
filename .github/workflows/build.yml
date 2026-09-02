@@ -139,6 +139,26 @@ jobs:
            fi
          done
          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
+     - name: 7.5. Патч совместимости AGP Namespace для старых плагинов v5
+       run: |
+         cd build_flutter/android
+         cat << 'EOF' >> build.gradle
+         
+         subprojects {
+             afterEvaluate { project ->
+                 if (project.hasProperty("android")) {
+                     if (project.android.namespace == null) {
+                         if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
+                             project.android.namespace = project.android.defaultConfig.applicationId
+                         } else {
+                             project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
+                         }
+                     }
+                 }
+             }
+         }
+         EOF
+         echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
      - name: 8. Компиляция стабильного Android APK
        run: |
          cd build_flutter
