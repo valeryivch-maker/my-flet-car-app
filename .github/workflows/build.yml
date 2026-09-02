@@ -25,7 +25,7 @@ jobs:
      - name: Настройка Flutter (Фиксированная версия)
        uses: subosito/flutter-action@v2
        with:
-         flutter-version: '3.22.2' # Ультрастабильная версия для чистого нативного Flet
+         flutter-version: '3.22.2'
          channel: 'stable'
 
      - name: 1. Установка компилятора Flet CLI
@@ -35,10 +35,10 @@ jobs:
      - name: 2. Подготовка и компиляция чистого нативного Android-проекта
        run: |
          # Очищаем старые артефакты WebView-сборок, если они были
-         rm -rf build_flutter flet_web_dist
+         rm -rf build_flutter flet_web_dist build
          
-         # Запуск нативного сборщика Flet, который создаст канонический проект
-         flet build apk --main main.py --no-version-check
+         # Канонический запуск нативного сборщика Flet для текущей директории (.)
+         flet build apk
          
          # Перемещаем сгенерированный нативный проект в рабочую директорию конвейера
          mv build/apk build_flutter
