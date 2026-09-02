@@ -58,14 +58,18 @@ jobs:
          mkdir -p build_flutter/assets/www
          cp -r flet_web_dist/* build_flutter/assets/www/
          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-     - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart (v6 синтаксис)
+     - name: 6. Инъекция Localhost-сервера и CORS флагов внутрь main.dart
        run: |
          rm -f build_flutter/lib/main.dart
          cat << 'EOF' > build_flutter/lib/main.dart
          import 'package:flutter/material.dart';
          import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+         
+         final InAppLocalhostServer localhostServer = InAppLocalhostServer(port: 8080, documentRoot: 'assets/www');
+         
          void main() async {
            WidgetsFlutterBinding.ensureInitialized();
+           await localhostServer.start();
            runApp(const MyApp());
          }
          class MyApp extends StatelessWidget {
@@ -91,7 +95,7 @@ jobs:
              return Scaffold(
                body: SafeArea(
                  child: InAppWebView(
-                   initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
+                   initialUrlRequest: URLRequest(url: WebUri("http://localhost:8080/index.html")),
                    initialSettings: InAppWebViewSettings(
                      javaScriptEnabled: true,
                      allowFileAccess: true,
