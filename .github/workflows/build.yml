@@ -1,4 +1,4 @@
-﻿name: Build Android Release (100% Pure Native Flet Engine)
+﻿name: Build Android Release (100% Offline WebView CORS Patched)
 on:
  push:
    branches:
@@ -25,23 +25,161 @@ jobs:
      - name: Настройка Flutter (Фиксированная версия)
        uses: subosito/flutter-action@v2
        with:
-         flutter-version: '3.22.2'
+         flutter-version: '3.41.7'
          channel: 'stable'
 
-     - name: 1. Установка компилятора Flet CLI
+     - name: 1. Установка компилятора Flet CLI в Linux-окружение
        run: |
          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-     - name: 2. Полный цикл нативной компиляции Android APK (Чистый запуск)
+     - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
        run: |
-         # Очищаем старые артефакты WebView-сборок, если они были
-         rm -rf build_flutter flet_web_dist build
-         
-         # Канонический запуск нативного компилятора Flet для текущей директории
-         flet build apk
+         mkdir -p .tmp_web_payload
+         python -c "
+         import os, shutil
+         dest = '.tmp_web_payload'
+         for item in os.listdir('.'):
+             if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']:
+                 continue
+             if os.path.isfile(item):
+                 shutil.copy2(item, os.path.join(dest, item))
+             elif os.path.isdir(item):
+                 shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
+         "
+         cd .tmp_web_payload
+         flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+         cd ..
+         rm -rf .tmp_web_payload
+         echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
 
-     - name: 3. Выгрузка готового нативного APK в артефакты GitHub
+     - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
+       run: |
+         flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
+
+     - name: 4. Подключаем переходную версию плагина InAppWebView v6.0.0
+       run: |
+         cd build_flutter
+         flutter pub add flutter_inappwebview:6.0.0
+
+     - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
+       run: |
+         mkdir -p build_flutter/assets/www
+         cp -r flet_web_dist/* build_flutter/assets/www/
+         echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
+
+     - name: 6. Инъекция Java/Kotlin CORS флагов внутрь main.dart
+       run: |
+         rm -f build_flutter/lib/main.dart
+         cat << 'EOF' > build_flutter/lib/main.dart
+         import 'package:flutter/material.dart';
+         import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+         
+         void main() async {
+           WidgetsFlutterBinding.ensureInitialized();
+           runApp(const MyApp());
+         }
+         class MyApp extends StatelessWidget {
+           const MyApp({super.key});
+           @override
+           Widget build(BuildContext context) {
+             return MaterialApp(
+               title: 'Журнал ТО',
+               debugShowCheckedModeBanner: false,
+               theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.amber),
+               home: const WebViewContainer(),
+             );
+           }
+         }
+         class WebViewContainer extends StatefulWidget {
+           const WebViewContainer({super.key});
+           @override
+           State<WebViewContainer> createState() => _WebViewContainerState();
+         }
+         class _WebViewContainerState extends State<WebViewContainer> {
+           @override
+           Widget build(BuildContext context) {
+             return Scaffold(
+               body: SafeArea(
+                 child: InAppWebView(
+                   initialUrlRequest: URLRequest(url: WebUri("asset:///assets/www/index.html")),
+                   initialSettings: InAppWebViewSettings(
+                     javaScriptEnabled: true,
+                     allowFileAccess: true,
+                     allowFileAccessFromFileURLs: true,
+                     allowUniversalAccessFromFileURLs: true,
+                     useHybridComposition: true,
+                     isInspectable: true,
+                     mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW
+                   ),
+                 ),
+               ),
+             );
+           }
+         }
+         EOF
+
+     - name: 7. Жесткая и каноническая генерация путей pubspec.yaml для Flet HTML
+       run: |
+         cd build_flutter
+         rm -f pubspec.yaml
+         cat << 'EOF' > pubspec.yaml
+         name: flet_android
+         description: "An offline Flet Asset project."
+         publish_to: 'none'
+         version: 1.0.0+1
+         environment:
+           sdk: '>=3.0.0 <4.0.0'
+         dependencies:
+           flutter:
+             sdk: flutter
+           flutter_inappwebview: 6.0.0
+         dev_dependencies:
+           flutter_test:
+             sdk: flutter
+           flutter_lints: ^3.0.0
+         flutter:
+           uses-material-design: true
+           assets:
+             - assets/www/
+         EOF
+         find assets/www -type d | while read -r dir; do
+           if [ "$dir" != "assets/www" ]; then
+             echo "    - ${dir}/" >> pubspec.yaml
+           fi
+         done
+         echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
+
+     - name: 7.5. Патч совместимости AGP Namespace для плагинов
+       run: |
+         cd build_flutter/android
+         cat << 'EOF' >> build.gradle
+         
+         subprojects {
+             afterEvaluate { project ->
+                 if (project.hasProperty("android")) {
+                     if (project.android.namespace == null) {
+                         if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
+                             project.android.namespace = project.android.defaultConfig.applicationId
+                         } else {
+                             project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
+                         }
+                     }
+                 }
+             }
+         }
+         EOF
+         echo "[УСПЕХ] Инжектор динамических пространств имен AGP успешно добавлен."
+
+     - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
+       run: |
+         cd build_flutter
+         flutter pub get
+         cd android
+         chmod +x gradlew
+         ./gradlew assembleRelease
+
+     - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
        uses: actions/upload-artifact@v4
        with:
          name: release-apk
-         path: build/apk/app-release.apk
+         path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
