@@ -62,7 +62,7 @@ jobs:
           path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
           ET.register_namespace('android', 'http://android.com')
           tree = ET.parse(path)
-          root = tree.getRoot()
+          root = tree.getroot()
           
           # Безопасное добавление сетевого разрешения без разрыва структуры тегов
           ns = {'android': 'http://android.com'}
