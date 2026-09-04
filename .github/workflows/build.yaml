@@ -32,7 +32,7 @@ jobs:
       - name: 1. Установка компилятора Flet CLI
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Компиляция Python-кода в HTML
+      - name: 2. Подготовка, компиляция и выжигание скрытых опечаток 127.0.0.0 из Flet JS
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -43,8 +43,14 @@ jobs:
               if os.path.isfile(item): shutil.copy2(item, os.path.join(dest, item))
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
-          cd .tmp_web_payload && flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
-          cd .. && rm -rf .tmp_web_payload
+          cd .tmp_web_payload
+          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+          cd ..
+          rm -rf .tmp_web_payload
+          
+          # Фикс внутренней опечатки Flet: принудительно переводим JS-контур на чистый loopback 127.0.0.1
+          find flet_web_dist/ -type f -exec sed -i 's/127.0.0.0/127.0.0.1/g' {} +
+          echo "[УСПЕХ] Все скрытые вызовы 127.0.0.0 внутри дистрибутива Flet переведены на 127.0.0.1"
 
       - name: 3. Создаем Flutter проект
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
