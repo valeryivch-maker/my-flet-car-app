@@ -52,7 +52,7 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
+          echo "[УСПЕХ] Python-контур скомпилирован in режиме HTML-рендеринга."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
@@ -79,14 +79,14 @@ jobs:
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
-          import 'package:shelf/shelf_io' as io;
+          import 'package:shelf/shelf_io.dart' as io;
           import 'package:shelf_static/shelf_static.dart';
           import 'dart:io';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Запуск изолированного локального веб-сервера для обхода SELinux HyperOS
+            // Запуск изолированного локального веб-сервера для обхода аномалий ядра
             final handler = createStaticHandler('assets/www', defaultDocument: 'index.html');
             final server = await io.serve(handler, InternetAddress.loopbackIPv4, 9999);
             print('Локальный сервер запущен на порту: ${server.port}');
@@ -141,7 +141,7 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Загрузка через легитимный внутренний порт loopback
+              // Загрузка через локальный loopback интерфейс
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
