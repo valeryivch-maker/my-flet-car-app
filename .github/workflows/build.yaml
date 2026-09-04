@@ -88,7 +88,6 @@ jobs:
           import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
-          import 'package:webview_flutter_android/src/android_webview_controller.dart';
           import 'package:shelf/shelf.dart';
           import 'package:shelf/shelf_io.dart' as io;
           import 'dart:io';
@@ -164,6 +163,7 @@ jobs:
                   ),
                 );
 
+              // Кроссплатформенное тотальное выжигание залипших редиректов подсетей
               _controller.clearCache();
               _controller.clearLocalStorage();
 
@@ -171,9 +171,6 @@ jobs:
                 final androidController = _controller.platform as AndroidWebViewController;
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
-                
-                // Каноническое отключение кэша подсети через нативный вызов WebSettings под API 4.12.0
-                androidController.webView.settings.setCacheMode(2);
               }
               
               _controller.loadRequest(Uri.parse('http://127.0.0'));
