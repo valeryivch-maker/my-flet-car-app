@@ -88,6 +88,7 @@ jobs:
           import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:webview_flutter_android/src/android_webview_controller.dart';
           import 'package:shelf/shelf.dart';
           import 'package:shelf/shelf_io.dart' as io;
           import 'dart:io';
@@ -163,7 +164,6 @@ jobs:
                   ),
                 );
 
-              // Тотальное выжигание залипших редиректов Chromium на уровне Android-слоя
               _controller.clearCache();
               _controller.clearLocalStorage();
 
@@ -172,8 +172,8 @@ jobs:
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
                 
-                // Принудительно запрещаем Chromium использовать старые сохраненные сессии кэша подсети
-                androidController.setCacheMode(AndroidCacheMode.disabled);
+                // Каноническое отключение кэша подсети через нативный вызов WebSettings под API 4.12.0
+                androidController.webView.settings.setCacheMode(2);
               }
               
               _controller.loadRequest(Uri.parse('http://127.0.0'));
