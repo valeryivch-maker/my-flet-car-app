@@ -67,11 +67,23 @@ jobs:
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
 
-      - name: 5.5. Патч AndroidManifest: Принудительное выделение сетевых прав INTERNET
+      - name: 5.5. Патч AndroidManifest через Python (Безопасная вставка прав сети)
         run: |
-          # Инжектируем легитимное разрешение на использование сокетов для рантайма shelf
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET"/>' build_flutter/android/app/src/main/AndroidManifest.xml
-          echo "[УСПЕХ] Права на запуск локальных сокетов успешно прописаны в манифест."
+          python -c "
+          manifest_path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
+          with open(manifest_path, 'r', encoding='utf-8') as f:
+              lines = f.readlines()
+          
+          updated_lines = []
+          for line in lines:
+              updated_lines.append(line)
+              if '<manifest' in line:
+                  updated_lines.append('    <uses-permission android:name=\"android.permission.INTERNET\"/>\n')
+          
+          with open(manifest_path, 'w', encoding='utf-8') as f:
+              f.writelines(updated_lines)
+          "
+          echo "[УСПЕХ] Манифест успешно пропатчен без конфликтов синтаксиса YAML."
 
       - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
@@ -111,7 +123,6 @@ jobs:
               }
             }
 
-            // Безопасный запуск сервера с защитой от фатального падения UI
             try {
               final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
               print('Сервер успешно запущен на порту: ${server.port}');
