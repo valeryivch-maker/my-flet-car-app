@@ -126,26 +126,13 @@ jobs:
 
               if (_controller.platform is AndroidWebViewController) {
                 final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
-                
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
-
-                // Стабильный offline-вызов лоадера через канонический фабричный прокси Google API v4.12.0
-                androidController.webView.setAssetLoader(
-                  const AndroidWebViewWidgetProxy().createWebViewAssetLoader(
-                    domain: '://android.com',
-                    pathHandlers: [
-                      const AndroidWebViewWidgetProxy().createAssetsPathHandler(
-                        assetsPath: 'www',
-                      ),
-                    ],
-                  ),
-                );
               }
 
-              // Перенаправление Chromium на изолированный CORS-безопасный домен ассетов
+              // Канонический вызов локальных ассетов через встроенный кроссплатформенный роутер Flutter
               _controller.loadRequest(
-                Uri.parse('https://://android.com/index.html')
+                Uri.parse('asset:///assets/www/index.html')
               );
             }
 
