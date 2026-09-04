@@ -70,8 +70,7 @@ jobs:
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
-
-      - name: 6. Инъекция нативного Shelf Asset Handler в main.dart
+      - name: 6. Инъекция нативного Shelf Asset Handler (Future Patched) в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -83,12 +82,13 @@ jobs:
           import 'package:shelf/shelf_io.dart' as io;
           import 'dart:io';
           import 'dart:typed_data';
+          import 'dart:async';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Нативный реактивный обработчик ассетов для обхода изоляции контейнера
-            Response assetHandler(Request request) async {
+            // Канонический асинхронный обработчик памяти приложения с Future-типизацией
+            Future<Response> assetHandler(Request request) async {
               try {
                 String path = request.url.path;
                 if (path.isEmpty || path == '/') path = 'index.html';
@@ -97,7 +97,7 @@ jobs:
                 final ByteData bytes = await rootBundle.load(assetKey);
                 final Uint8List list = bytes.buffer.asUint8List();
 
-                // Определение MIME-типов для Chromium рантайма
+                // Генерация MIME-заголовков для корректного парсинга внутри Chromium
                 String contentType = 'text/html';
                 if (path.endsWith('.js')) contentType = 'application/javascript';
                 if (path.endsWith('.css')) contentType = 'text/css';
@@ -106,13 +106,13 @@ jobs:
 
                 return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
               } catch (e) {
-                return Response.notFound('Файл ассета не найден в AssetBundle мобильного приложения');
+                return Response.notFound('Ресурс не найден внутри AssetBundle мобильного приложения');
               }
             }
 
-            // Старт сервера на внутреннем интерфейсе loopback
+            // Старт веб-сервера на внутреннем loopback адресе интерфейса
             final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
-            print('Внутренний CORS-сервер запущен на: ${server.port}');
+            print('Внутренний CORS-сервер запущен на порту: ${server.port}');
 
             runApp(const MyApp());
           }
@@ -164,7 +164,7 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Загрузка через легитимный локальный сокет
+              // Запрос страницы через легитимный веб-сокет loopback
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
