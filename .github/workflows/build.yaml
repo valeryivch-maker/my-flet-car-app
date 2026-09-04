@@ -67,7 +67,13 @@ jobs:
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
 
-      - name: 6. Инъекция нативного Shelf Asset Handler (Future Patched) в main.dart
+      - name: 5.5. Патч AndroidManifest: Принудительное выделение сетевых прав INTERNET
+        run: |
+          # Инжектируем легитимное разрешение на использование сокетов для рантайма shelf
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET"/>' build_flutter/android/app/src/main/AndroidManifest.xml
+          echo "[УСПЕХ] Права на запуск локальных сокетов успешно прописаны в манифест."
+
+      - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -101,11 +107,18 @@ jobs:
 
                 return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
               } catch (e) {
-                return Response.notFound('Ресурс не найден в AssetBundle приложения');
+                return Response.notFound('Ресурс не найден');
               }
             }
 
-            final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+            // Безопасный запуск сервера с защитой от фатального падения UI
+            try {
+              final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+              print('Сервер успешно запущен на порту: ${server.port}');
+            } catch (e) {
+              print('Ошибка инициализации сервера: $e');
+            }
+
             runApp(const MyApp());
           }
 
