@@ -130,10 +130,8 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Канонический вызов локальных ассетов через встроенный кроссплатформенный роутер Flutter
-              _controller.loadRequest(
-                Uri.parse('asset:///assets/www/index.html')
-              );
+              // Канонический метод загрузки локальных файлов из папки assets приложения
+              _controller.loadFlutterAsset('assets/www/index.html');
             }
 
             @override
