@@ -58,11 +58,13 @@ jobs:
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный базовый плагин webview_flutter от Google
+      - name: 4. Подключаем официальный базовый плагин webview_flutter и сервер shelf
         run: |
           cd build_flutter
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
+          flutter pub add shelf
+          flutter pub add shelf_static
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -70,16 +72,25 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Инъекция канонического WebViewAssetLoader и локального роутинга Flet
+      - name: 6. Инъекция локального shelf-сервера и роутинга в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:shelf/shelf_io' as io;
+          import 'package:shelf_static/shelf_static.dart';
+          import 'dart:io';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
+            
+            // Запуск изолированного локального веб-сервера для обхода SELinux HyperOS
+            final handler = createStaticHandler('assets/www', defaultDocument: 'index.html');
+            final server = await io.serve(handler, InternetAddress.loopbackIPv4, 9999);
+            print('Локальный сервер запущен на порту: ${server.port}');
+
             runApp(const MyApp());
           }
 
@@ -130,8 +141,8 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Канонический метод загрузки локальных ассетов от Google
-              _controller.loadFlutterAsset('assets/www/index.html');
+              // Загрузка через легитимный внутренний порт loopback
+              _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
             @override
@@ -170,6 +181,8 @@ jobs:
               sdk: flutter
             webview_flutter: ^4.10.0
             webview_flutter_android: ^4.12.0
+            shelf: ^1.4.1
+            shelf_static: ^1.1.2
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -220,7 +233,6 @@ jobs:
           flutter pub get
           cd android
           chmod +x gradlew
-          # Полное выжигание остатков старого кэша InAppWebView перед сборкой
           ./gradlew clean
           ./gradlew assembleRelease
 
