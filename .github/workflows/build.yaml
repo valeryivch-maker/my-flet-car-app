@@ -32,7 +32,7 @@ jobs:
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка, компиляция и рекурсивное выжигание 127.0.0.0 из JS-ядра Flet
+      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -47,10 +47,6 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          
-          # РЕКУРСИВНЫЙ ФИКС ОПЕЧАТКИ: переписываем жестко зашитый внутри Python-логики хост на легитимный loopback
-          find flet_web_dist/ -type f -exec sed -i 's/127.0.0.0/127.0.0.1/g' {} +
-          echo "[УСПЕХ] Все скрытые вызовы 127.0.0.0 внутри рантайма Flet выжжены и переведены на 127.0.0.1"
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
@@ -85,7 +81,7 @@ jobs:
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
 
-      - name: 6. Инъекция безопасного сервера Shelf и тотальной очистки кэша в main.dart
+      - name: 6. Инъекция интеллектуального прокси-сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -103,6 +99,12 @@ jobs:
             WidgetsFlutterBinding.ensureInitialized();
             
             Future<Response> assetHandler(Request request) async {
+              // Тотальный перехват внутренних редиректов Flet JS на уровне заголовков хоста сервера
+              final hostHeader = request.headers['host'] ?? '';
+              if (hostHeader.contains('127.0.0.0')) {
+                return Response.movedPermanently('http://127.0.0');
+              }
+
               try {
                 String path = request.url.path;
                 if (path.isEmpty || path == '/') path = 'index.html';
@@ -116,11 +118,19 @@ jobs:
                 if (path.endsWith('.png')) contentType = 'image/png';
                 if (path.endsWith('.wasm')) contentType = 'application/wasm';
                 
-                return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
-              } catch (e) { return Response.notFound('Ресурс не найден'); }
+                return Response.ok(list, headers: {
+                  'Content-Type': contentType, 
+                  'Access-Control-Allow-Origin': '*',
+                });
+              } catch (e) { 
+                return Response.notFound('Ресурс не найден'); 
+              }
             }
 
-            try { await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999); } catch (e) {}
+            try { 
+              // Запуск на loopback интерфейсах
+              await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+            } catch (e) {}
             runApp(const MyApp());
           }
 
@@ -152,7 +162,17 @@ jobs:
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(NavigationDelegate(onPageFinished: (url) { setState(() { _isLoading = false; }); }));
+                ..setNavigationDelegate(
+                  NavigationDelegate(
+                    onPageFinished: (url) { setState(() { _isLoading = false; }); },
+                    onWebResourceError: (WebResourceError error) {
+                      // Если Chromium выплевывает ошибку хоста, принудительно возвращаем его на 127.0.0.1
+                      if (error.description.contains('127.0.0.0') || error.url?.contains('127.0.0.0') == true) {
+                        _controller.loadRequest(Uri.parse('http://127.0.0'));
+                      }
+                    },
+                  ),
+                );
 
               _controller.clearCache();
               _controller.clearLocalStorage();
@@ -172,8 +192,7 @@ jobs:
           }
           EOF
 
-          # ГЕНЕРАЦИЯ PUBSPEC И ПОЛНАЯ СБОРКА GRADLE В КОНТЕЙНЕРЕ LINUX
-      - name: 7. Генерация pubspec.yaml
+      - name: 7. Generation pubspec.yaml
         run: |
           cd build_flutter && rm -f pubspec.yaml
           cat << 'EOF' > pubspec.yaml
