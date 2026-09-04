@@ -31,8 +31,7 @@ jobs:
           channel: 'stable'
 
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
-        run: |
-          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
+        run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
       - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
         run: |
@@ -52,11 +51,9 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
-        run: |
-          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
+        run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
       - name: 4. Подключаем официальный базовый плагин webview_flutter и сервер shelf
         run: |
@@ -69,7 +66,7 @@ jobs:
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
-          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
+
       - name: 6. Инъекция нативного Shelf Asset Handler (Future Patched) в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
@@ -87,7 +84,6 @@ jobs:
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Канонический асинхронный обработчик памяти приложения с Future-типизацией
             Future<Response> assetHandler(Request request) async {
               try {
                 String path = request.url.path;
@@ -97,7 +93,6 @@ jobs:
                 final ByteData bytes = await rootBundle.load(assetKey);
                 final Uint8List list = bytes.buffer.asUint8List();
 
-                // Генерация MIME-заголовков для корректного парсинга внутри Chromium
                 String contentType = 'text/html';
                 if (path.endsWith('.js')) contentType = 'application/javascript';
                 if (path.endsWith('.css')) contentType = 'text/css';
@@ -106,20 +101,16 @@ jobs:
 
                 return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
               } catch (e) {
-                return Response.notFound('Ресурс не найден внутри AssetBundle мобильного приложения');
+                return Response.notFound('Ресурс не найден в AssetBundle приложения');
               }
             }
 
-            // Старт веб-сервера на внутреннем loopback адресе интерфейса
             final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
-            print('Внутренний CORS-сервер запущен на порту: ${server.port}');
-
             runApp(const MyApp());
           }
 
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
-
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
@@ -133,7 +124,6 @@ jobs:
 
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
-
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
@@ -145,26 +135,21 @@ jobs:
             @override
             void initState() {
               super.initState();
-
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(
                   NavigationDelegate(
                     onPageFinished: (String url) {
-                      setState(() {
-                        _isLoading = false;
-                      });
+                      setState(() { _isLoading = false; });
                     },
                   ),
                 );
 
               if (_controller.platform is AndroidWebViewController) {
-                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
+                final androidController = _controller.platform as AndroidWebViewController;
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
               }
-
-              // Запрос страницы через легитимный веб-сокет loopback
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
@@ -176,10 +161,7 @@ jobs:
                   child: Stack(
                     children: [
                       WebViewWidget(controller: _controller),
-                      if (_isLoading)
-                        const Center(
-                          child: CircularProgressIndicator(color: Colors.amber),
-                        ),
+                      if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
                     ],
                   ),
                 ),
@@ -214,7 +196,6 @@ jobs:
             assets:
               - assets/www/
           EOF
-          
           cd assets/www
           find . -type d | while read -r dir; do
             if [ "$dir" != "." ]; then
@@ -222,32 +203,22 @@ jobs:
               echo "    - assets/www/${clean_dir}/" >> ../../pubspec.yaml
             fi
           done
-          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
 
       - name: 7.5. Патч совместимости AGP и инъекция глобальных Maven-репозиториев AndroidX
         run: |
           cd build_flutter/android
           cat << 'EOF' >> build.gradle
-
           subprojects {
-              project.repositories {
-                  google()
-                  mavenCentral()
-              }
+              project.repositories { google(); mavenCentral() }
               afterEvaluate { project ->
                   if (project.hasProperty("android")) {
                       if (project.android.namespace == null) {
-                          if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
-                              project.android.namespace = project.android.defaultConfig.applicationId
-                          } else {
-                              project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
-                          }
+                          project.android.namespace = project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null ? project.android.defaultConfig.applicationId : "com.pichillilorenzo.flutter_inappwebview"
                       }
                   }
               }
           }
           EOF
-          echo "[УСПЕХ] Глобальные репозитории google() и mavenCentral() успешно инжектированы."
 
       - name: 8. Принудительная прямая компиляция через нативный Gradle-движок с тотальной очисткой кэша
         run: |
