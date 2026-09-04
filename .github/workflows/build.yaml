@@ -80,7 +80,7 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-      - name: 6. Инъекция безопасного фонового сервера Shelf и CORS-перехватчика в main.dart
+      - name: 6. Инъекция безопасного сервера Shelf и тотальное выжигание кэша WebView в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -114,20 +114,15 @@ jobs:
                 return Response.ok(list, headers: {
                   'Content-Type': contentType, 
                   'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                 });
               } catch (e) { 
-                return Response.notFound('Ресурс не найден в AssetBundle мобильного приложения'); 
+                return Response.notFound('Ресурс не найден'); 
               }
             }
 
             try { 
-              // Намертво привязываем сокет к интерфейсу 127.0.0.1
-              final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
-              print('Внутренний CORS-сервер shelf успешно запущен на порту: ${server.port}');
-            } catch (e) {
-              print('Фатальный сбой привязчика портов shelf: $e');
-            }
+              await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+            } catch (e) {}
             
             runApp(const MyApp());
           }
@@ -162,32 +157,25 @@ jobs:
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(
                   NavigationDelegate(
-                    onPageStarted: (String url) {
-                      // Локальный JS-хук отлавливает и перебивает невалидные внутренние редиректы Flet JS на 127.0.0.0
-                      if (url.contains('127.0.0.0')) {
-                        _controller.loadRequest(Uri.parse('http://127.0.0'));
-                      }
-                    },
                     onPageFinished: (String url) { 
                       setState(() { _isLoading = false; }); 
                     },
-                    onNavigationRequest: (NavigationRequest request) {
-                      if (request.url.contains('127.0.0.0')) {
-                        _controller.loadRequest(Uri.parse('http://127.0.0'));
-                        return NavigationDecision.prevent;
-                      }
-                      return NavigationDecision.navigate;
-                    },
                   ),
                 );
+
+              // Тотальное выжигание залипших редиректов Chromium на уровне Android-слоя
+              _controller.clearCache();
+              _controller.clearLocalStorage();
 
               if (_controller.platform is AndroidWebViewController) {
                 final androidController = _controller.platform as AndroidWebViewController;
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
+                
+                // Принудительно запрещаем Chromium использовать старые сохраненные сессии кэша подсети
+                androidController.setCacheMode(AndroidCacheMode.disabled);
               }
               
-              // Первичный жесткий вызов канонического адреса хоста
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
