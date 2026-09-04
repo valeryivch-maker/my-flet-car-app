@@ -58,11 +58,10 @@ jobs:
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный базовый плагин webview_flutter и актуальный Android-контроллер
+      - name: 4. Подключаем официальный плагин InAppWebView v6 для полного обхода CORS
         run: |
           cd build_flutter
-          flutter pub add webview_flutter
-          flutter pub add webview_flutter_android
+          flutter pub add flutter_inappwebview:6.0.0
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -75,8 +74,7 @@ jobs:
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -105,33 +103,8 @@ jobs:
           }
 
           class _WebViewContainerState extends State<WebViewContainer> {
-            late final WebViewController _controller;
+            InAppWebViewController? webViewController;
             bool _isLoading = true;
-
-            @override
-            void initState() {
-              super.initState();
-
-              _controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(
-                  NavigationDelegate(
-                    onPageFinished: (String url) {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    },
-                  ),
-                );
-
-              if (_controller.platform is AndroidWebViewController) {
-                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
-                androidController.setMediaPlaybackRequiresUserGesture(false);
-                AndroidWebViewController.enableDebugging(true);
-              }
-
-              _controller.loadFlutterAsset('assets/www/index.html');
-            }
 
             @override
             Widget build(BuildContext context) {
@@ -140,7 +113,32 @@ jobs:
                 body: SafeArea(
                   child: Stack(
                     children: [
-                      WebViewWidget(controller: _controller),
+                      InAppWebView(
+                        initialUrlRequest: URLRequest(
+                          url: WebUri("http://localhost:8080/assets/www/index.html"),
+                        ),
+                        initialSettings: InAppWebViewSettings(
+                          javaScriptEnabled: true,
+                          allowFileAccessFromFileURLs: true,
+                          allowUniversalAccessFromFileURLs: true,
+                          useHybridComposition: true,
+                          // Виртуальный маппинг локальных файлов в домен localhost для обхода CORS
+                          webViewAssetLoader: WebViewAssetLoader(
+                            domain: "localhost:8080",
+                            pathHandlers: [
+                              AssetsPathHandler(path: "/assets/www/")
+                            ],
+                          ),
+                        ),
+                        onWebViewCreated: (controller) {
+                          webViewController = controller;
+                        },
+                        onLoadStop: (controller, url) {
+                          setState(() {
+                            _isLoading = false;
+                          });
+                        },
+                      ),
                       if (_isLoading)
                         const Center(
                           child: CircularProgressIndicator(color: Colors.amber),
@@ -167,8 +165,7 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            webview_flutter: ^4.10.0
-            webview_flutter_android: ^4.12.0
+            flutter_inappwebview: 6.0.0
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -179,7 +176,6 @@ jobs:
               - assets/www/
           EOF
           
-          # Строгий рекурсивный фикс путей без использования некорректного sed маппинга
           cd assets/www
           find . -type d | while read -r dir; do
             if [ "$dir" != "." ]; then
