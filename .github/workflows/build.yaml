@@ -2,8 +2,7 @@
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -24,65 +23,63 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Настройка Flutter (Фиксированная версия)
+      - name: Настройка Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
           channel: 'stable'
 
-      - name: 1. Установка компилятора Flet CLI в Linux-окружение
+      - name: 1. Установка компилятора Flet CLI
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+      - name: 2. Компиляция Python-кода в HTML
         run: |
           mkdir -p .tmp_web_payload
           python -c "
           import os, shutil
           dest = '.tmp_web_payload'
           for item in os.listdir('.'):
-              if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']:
-                  continue
-              if os.path.isfile(item):
-                  shutil.copy2(item, os.path.join(dest, item))
-              elif os.path.isdir(item):
-                  shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
+              if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']: continue
+              if os.path.isfile(item): shutil.copy2(item, os.path.join(dest, item))
+              elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
-          cd .tmp_web_payload
-          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
-          cd ..
-          rm -rf .tmp_web_payload
+          cd .tmp_web_payload && flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+          cd .. && rm -rf .tmp_web_payload
 
-      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
+      - name: 3. Создаем Flutter проект
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный базовый плагин webview_flutter и сервер shelf
-        run: |
-          cd build_flutter
-          flutter pub add webview_flutter
-          flutter pub add webview_flutter_android
-          flutter pub add shelf
+      - name: 4. Подключаем webview и shelf
+        run: cd build_flutter && flutter pub add webview_flutter webview_flutter_android shelf
 
-      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
-        run: |
-          mkdir -p build_flutter/assets/www
-          cp -r flet_web_dist/* build_flutter/assets/www/
+      - name: 5. Инъекция дистрибутива в ассеты
+        run: mkdir -p build_flutter/assets/www && cp -r flet_web_dist/* build_flutter/assets/www/
 
-      - name: 5.5. Патч AndroidManifest через Python (Вставка прав сети и флага CleartextTraffic)
+      - name: 5.5. Железобетонный патч AndroidManifest через XML ElementTree
         run: |
           python -c "
-          manifest_path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
-          with open(manifest_path, 'r', encoding='utf-8') as f:
-              text = f.read()
+          import xml.etree.ElementTree as ET
+          path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
+          ET.register_namespace('android', 'http://android.com')
+          tree = ET.parse(path)
+          root = tree.getRoot()
           
-          if '<uses-permission' not in text:
-              text = text.replace('<manifest', '<manifest>\n    <uses-permission android:name=\"android.permission.INTERNET\"/>')
+          # Безопасное добавление сетевого разрешения без разрыва структуры тегов
+          ns = {'android': 'http://android.com'}
+          has_net = any(p.attrib.get('{http://android.com}name') == 'android.permission.INTERNET' for p in root.findall('uses-permission'))
+          if not has_net:
+              perm = ET.Element('uses-permission', {'{http://android.com}name': 'android.permission.INTERNET'})
+              root.insert(0, perm)
           
-          text = text.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
+          # Легализация HTTP loopback трафика через чистую модификацию атрибутов узла application
+          app = root.find('application')
+          if app is not None:
+              app.set('{http://android.com}usesCleartextTraffic', 'true')
           
-          with open(manifest_path, 'w', encoding='utf-8') as f:
-              f.write(text)
+          tree.write(path, encoding='utf-8', xml_declaration=True)
           "
-          echo "[УСПЕХ] Манифест успешно пропатчен: INTERNET и CleartextTraffic добавлены."
+          echo "[УСПЕХ] Манифест успешно пересобран на базе объектного дерева XML."
+
       - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
@@ -99,35 +96,22 @@ jobs:
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            
             Future<Response> assetHandler(Request request) async {
               try {
                 String path = request.url.path;
                 if (path.isEmpty || path == '/') path = 'index.html';
-                
                 final String assetKey = 'assets/www/$path';
                 final ByteData bytes = await rootBundle.load(assetKey);
                 final Uint8List list = bytes.buffer.asUint8List();
-
                 String contentType = 'text/html';
                 if (path.endsWith('.js')) contentType = 'application/javascript';
                 if (path.endsWith('.css')) contentType = 'text/css';
                 if (path.endsWith('.png')) contentType = 'image/png';
                 if (path.endsWith('.wasm')) contentType = 'application/wasm';
-
                 return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
-              } catch (e) {
-                return Response.notFound('Ресурс не найден');
-              }
+              } catch (e) { return Response.notFound('Ресурс не найден'); }
             }
-
-            try {
-              final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
-              print('Сервер успешно запущен на порту: ${server.port}');
-            } catch (e) {
-              print('Ошибка инициализации сервера: $e');
-            }
-
+            try { await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999); } catch (e) {}
             runApp(const MyApp());
           }
 
@@ -159,17 +143,10 @@ jobs:
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(
-                  NavigationDelegate(
-                    onPageFinished: (String url) {
-                      setState(() { _isLoading = false; });
-                    },
-                  ),
-                );
-
+                ..setNavigationDelegate(NavigationDelegate(onPageFinished: (url) { setState(() { _isLoading = false; }); }));
               if (_controller.platform is AndroidWebViewController) {
-                final androidController = _controller.platform as AndroidWebViewController;
-                androidController.setMediaPlaybackRequiresUserGesture(false);
+                final c = _controller.platform as AndroidWebViewController;
+                c.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
               }
               _controller.loadRequest(Uri.parse('http://127.0.0'));
@@ -179,26 +156,20 @@ jobs:
             Widget build(BuildContext context) {
               return Scaffold(
                 backgroundColor: const Color(0xFF1E1E1E),
-                body: SafeArea(
-                  child: Stack(
-                    children: [
-                      WebViewWidget(controller: _controller),
-                      if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
-                    ],
-                  ),
-                ),
+                body: SafeArea(child: Stack(children: [
+                  WebViewWidget(controller: _controller),
+                  if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
+                ])),
               );
             }
           }
           EOF
 
-      - name: 7. Жесткая и каноническая генерация путей pubspec.yaml для Flet HTML
+      - name: 7. Генерация pubspec.yaml
         run: |
-          cd build_flutter
-          rm -f pubspec.yaml
+          cd build_flutter && rm -f pubspec.yaml
           cat << 'EOF' > pubspec.yaml
           name: flet_android
-          description: "An offline Flet Asset project."
           publish_to: 'none'
           version: 1.0.0+1
           environment:
@@ -226,32 +197,26 @@ jobs:
             fi
           done
 
-      - name: 7.5. Патч совместимости AGP и инъекция глобальных Maven-репозиториев AndroidX
+      - name: 7.5. Патч совместимости AGP
         run: |
           cd build_flutter/android
           cat << 'EOF' >> build.gradle
           subprojects {
               project.repositories { google(); mavenCentral() }
               afterEvaluate { project ->
-                  if (project.hasProperty("android")) {
-                      if (project.android.namespace == null) {
-                          project.android.namespace = project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null ? project.android.defaultConfig.applicationId : "com.pichillilorenzo.flutter_inappwebview"
-                      }
+                  if (project.hasProperty("android") && project.android.namespace == null) {
+                      project.android.namespace = project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null ? project.android.defaultConfig.applicationId : "com.pichillilorenzo.flutter_inappwebview"
                   }
               }
           }
           EOF
 
-      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок с тотальной очисткой кэша
+      - name: 8. Компиляция Gradle
         run: |
-          cd build_flutter
-          flutter pub get
-          cd android
-          chmod +x gradlew
-          ./gradlew clean
-          ./gradlew assembleRelease
+          cd build_flutter && flutter pub get
+          cd android && chmod +x gradlew && ./gradlew clean && ./gradlew assembleRelease
 
-      - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
+      - name: 9. Выгрузка готового APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
