@@ -67,24 +67,22 @@ jobs:
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
 
-      - name: 5.5. Патч AndroidManifest через Python (Безопасная вставка прав сети)
+      - name: 5.5. Патч AndroidManifest через Python (Вставка прав сети и флага CleartextTraffic)
         run: |
           python -c "
           manifest_path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
           with open(manifest_path, 'r', encoding='utf-8') as f:
-              lines = f.readlines()
+              text = f.read()
           
-          updated_lines = []
-          for line in lines:
-              updated_lines.append(line)
-              if '<manifest' in line:
-                  updated_lines.append('    <uses-permission android:name=\"android.permission.INTERNET\"/>\n')
+          if '<uses-permission' not in text:
+              text = text.replace('<manifest', '<manifest>\n    <uses-permission android:name=\"android.permission.INTERNET\"/>')
+          
+          text = text.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
           
           with open(manifest_path, 'w', encoding='utf-8') as f:
-              f.writelines(updated_lines)
+              f.write(text)
           "
-          echo "[УСПЕХ] Манифест успешно пропатчен без конфликтов синтаксиса YAML."
-
+          echo "[УСПЕХ] Манифест успешно пропатчен: INTERNET и CleartextTraffic добавлены."
       - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
