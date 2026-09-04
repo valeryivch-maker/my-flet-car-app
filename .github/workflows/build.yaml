@@ -34,7 +34,7 @@ jobs:
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка и компиляция Python-кода в режиме автономного SPA
+      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -49,20 +49,20 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Принудительный экспорт в режиме автономного веб-приложения со встроенным JS-рантаймом
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован в режиме автономного SPA."
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
           flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
 
-      - name: 4. Подключаем официальный плагин InAppWebView v6 для полного обхода CORS
+      - name: 4. Подключаем официальный базовый плагин webview_flutter от Google
         run: |
           cd build_flutter
-          flutter pub add flutter_inappwebview:6.0.0
+          flutter pub add webview_flutter
+          flutter pub add webview_flutter_android
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -75,7 +75,8 @@ jobs:
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+          import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:webview_flutter_android/webview_flutter_android.dart';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -104,8 +105,34 @@ jobs:
           }
 
           class _WebViewContainerState extends State<WebViewContainer> {
-            InAppWebViewController? webViewController;
+            late final WebViewController _controller;
             bool _isLoading = true;
+
+            @override
+            void initState() {
+              super.initState();
+
+              _controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..setNavigationDelegate(
+                  NavigationDelegate(
+                    onPageFinished: (String url) {
+                      setState(() {
+                        _isLoading = false;
+                      });
+                    },
+                  ),
+                );
+
+              if (_controller.platform is AndroidWebViewController) {
+                final AndroidWebViewController androidController = _controller.platform as AndroidWebViewController;
+                androidController.setMediaPlaybackRequiresUserGesture(false);
+                AndroidWebViewController.enableDebugging(true);
+              }
+
+              // Канонический метод загрузки локальных ассетов от Google
+              _controller.loadFlutterAsset('assets/www/index.html');
+            }
 
             @override
             Widget build(BuildContext context) {
@@ -114,31 +141,7 @@ jobs:
                 body: SafeArea(
                   child: Stack(
                     children: [
-                      InAppWebView(
-                        initialUrlRequest: URLRequest(
-                          url: WebUri("http://localhost:8080/assets/www/index.html"),
-                        ),
-                        initialSettings: InAppWebViewSettings(
-                          javaScriptEnabled: true,
-                          allowFileAccessFromFileURLs: true,
-                          allowUniversalAccessFromFileURLs: true,
-                          useHybridComposition: true,
-                          webViewAssetLoader: WebViewAssetLoader(
-                            domain: "localhost:8080",
-                            pathHandlers: [
-                              AssetsPathHandler(path: "/assets/www/")
-                            ],
-                          ),
-                        ),
-                        onWebViewCreated: (controller) {
-                          webViewController = controller;
-                        },
-                        onLoadStop: (controller, url) {
-                          setState(() {
-                            _isLoading = false;
-                          });
-                        },
-                      ),
+                      WebViewWidget(controller: _controller),
                       if (_isLoading)
                         const Center(
                           child: CircularProgressIndicator(color: Colors.amber),
@@ -165,7 +168,8 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            flutter_inappwebview: 6.0.0
+            webview_flutter: ^4.10.0
+            webview_flutter_android: ^4.12.0
           dev_dependencies:
             flutter_test:
               sdk: flutter
@@ -210,12 +214,14 @@ jobs:
           EOF
           echo "[УСПЕХ] Глобальные репозитории google() и mavenCentral() успешно инжектированы."
 
-      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
+      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок с тотальной очисткой кэша
         run: |
           cd build_flutter
           flutter pub get
           cd android
           chmod +x gradlew
+          # Полное выжигание остатков старого кэша InAppWebView перед сборкой
+          ./gradlew clean
           ./gradlew assembleRelease
 
       - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
