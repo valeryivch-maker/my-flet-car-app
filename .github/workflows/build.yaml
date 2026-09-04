@@ -1,4 +1,74 @@
-﻿      - name: 6. Инъекци канонического WebViewAssetLoader и локалного роутинга Flet
+﻿on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Чек-аут репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Настройка Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Настройка Flutter (Фиксированная версия)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: 'stable'
+
+      - name: 1. Установка компилятора Flet CLI в Linux-окружение
+        run: |
+          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
+
+      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+        run: |
+          mkdir -p .tmp_web_payload
+          python -c "
+          import os, shutil
+          dest = '.tmp_web_payload'
+          for item in os.listdir('.'):
+              if item in ['build_flutter', '.github', '.git', '.tmp_web_payload', 'gradle_pip_placeholder']:
+                  continue
+              if os.path.isfile(item):
+                  shutil.copy2(item, os.path.join(dest, item))
+              elif os.path.isdir(item):
+                  shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
+          "
+          cd .tmp_web_payload
+          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+          cd ..
+          rm -rf .tmp_web_payload
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
+
+      - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
+        run: |
+          flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
+
+      - name: 4. Подключаем официальный базовый плагин webview_flutter и актуальный Android-контроллер
+        run: |
+          cd build_flutter
+          flutter pub add webview_flutter
+          flutter pub add webview_flutter_android
+
+      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
+        run: |
+          mkdir -p build_flutter/assets/www
+          cp -r flet_web_dist/* build_flutter/assets/www/
+          echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
+
+      - name: 6. Инъекция канонического WebViewAssetLoader и локального роутинга Flet
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -98,3 +168,76 @@
             }
           }
           EOF
+
+      - name: 7. Жесткая и каноническая генерация путей pubspec.yaml для Flet HTML
+        run: |
+          cd build_flutter
+          rm -f pubspec.yaml
+          cat << 'EOF' > pubspec.yaml
+          name: flet_android
+          description: "An offline Flet Asset project."
+          publish_to: 'none'
+          version: 1.0.0+1
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+            webview_flutter: ^4.10.0
+            webview_flutter_android: ^4.12.0
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/www/
+          EOF
+          cd assets/www
+          find . -type d | while read -r dir; do
+            if [ "$dir" != "." ]; then
+              clean_dir=$(echo "$dir" | sed 's|^\./||')
+              echo "    - assets/www/${clean_dir}/" >> ../../pubspec.yaml
+            fi
+          done
+          echo "[УСПЕХ] Manifest путей pubspec.yaml динамически собран."
+
+      - name: 7.5. Патч совместимости AGP и инъекция глобальных Maven-репозиториев AndroidX
+        run: |
+          cd build_flutter/android
+          cat << 'EOF' >> build.gradle
+
+          subprojects {
+              project.repositories {
+                  google()
+                  mavenCentral()
+              }
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      if (project.android.namespace == null) {
+                          if (project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null) {
+                              project.android.namespace = project.android.defaultConfig.applicationId
+                          } else {
+                              project.android.namespace = "com.pichillilorenzo.flutter_inappwebview"
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+          echo "[УСПЕХ] Глобальные репозитории google() и mavenCentral() успешно инжектированы."
+
+      - name: 8. Принудительная прямая компиляция через нативный Gradle-движок
+        run: |
+          cd build_flutter
+          flutter pub get
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: 9. Выгрузка готового офлайн APK в артефакты GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
