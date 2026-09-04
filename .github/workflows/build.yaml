@@ -64,21 +64,16 @@ jobs:
           
           out = []
           for line in lines:
-              # Инжектируем легитимные сетевые разрешения перед закрытием манифеста
               if '</manifest>' in line:
                   out.append('    <uses-permission android:name=\"android.permission.INTERNET\"/>\n')
-              
-              # Инжектируем флаг разрешения локального Cleartext HTTP-трафика внутрь тега application
               if '<application' in line and 'android:usesCleartextTraffic' not in line:
                   line = line.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
-              
               out.append(line)
           
           with open(path, 'w', encoding='utf-8') as f:
               f.writelines(out)
           "
           echo "[УСПЕХ] Строковые параметры сети и loopback-трафика успешно инжектированы."
-
       - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
