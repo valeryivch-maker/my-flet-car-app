@@ -1,4 +1,6 @@
-﻿on:
+﻿name: Build Android Release (100% Offline WebView CORS Patched)
+
+on:
   push:
     branches:
       - main
@@ -75,7 +77,6 @@ jobs:
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
-          import 'package:webview_flutter_android/src/android_webview_controller.dart';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -129,13 +130,12 @@ jobs:
                 androidController.setMediaPlaybackRequiresUserGesture(false);
                 AndroidWebViewController.enableDebugging(true);
 
-                // Корректная регистрация лоадера через внутренний объект webView под плагин v4.12.0
+                // Стабильный offline-вызов лоадера через канонический фабричный прокси Google API v4.12.0
                 androidController.webView.setAssetLoader(
-                  WebViewAssetLoader(
+                  const AndroidWebViewWidgetProxy().createWebViewAssetLoader(
                     domain: '://android.com',
                     pathHandlers: [
-                      AssetsPathHandler(
-                        context: null,
+                      const AndroidWebViewWidgetProxy().createAssetsPathHandler(
                         assetsPath: 'www',
                       ),
                     ],
@@ -143,7 +143,7 @@ jobs:
                 );
               }
 
-              // Вызов локального дистрибутива
+              // Перенаправление Chromium на изолированный CORS-безопасный домен ассетов
               _controller.loadRequest(
                 Uri.parse('https://://android.com/index.html')
               );
