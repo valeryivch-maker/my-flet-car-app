@@ -130,7 +130,6 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Канонический метод загрузки локальных файлов из папки assets приложения
               _controller.loadFlutterAsset('assets/www/index.html');
             }
 
@@ -179,10 +178,12 @@ jobs:
             assets:
               - assets/www/
           EOF
+          
+          # Строгий рекурсивный фикс путей без использования некорректного sed маппинга
           cd assets/www
           find . -type d | while read -r dir; do
             if [ "$dir" != "." ]; then
-              clean_dir=$(echo "$dir" | sed 's|^\./||')
+              clean_dir=$(echo "$dir" | cut -c 3-)
               echo "    - assets/www/${clean_dir}/" >> ../../pubspec.yaml
             fi
           done
