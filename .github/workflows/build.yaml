@@ -32,7 +32,7 @@ jobs:
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+      - name: 2. Подготовка, компиляция и рекурсивное выжигание 127.0.0.0 из JS-ядра Flet
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -47,6 +47,10 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
+          
+          # РЕКУРСИВНЫЙ ФИКС ОПЕЧАТКИ: переписываем жестко зашитый внутри Python-логики хост на легитимный loopback
+          find flet_web_dist/ -type f -exec sed -i 's/127.0.0.0/127.0.0.1/g' {} +
+          echo "[УСПЕХ] Все скрытые вызовы 127.0.0.0 внутри рантайма Flet выжжены и переведены на 127.0.0.1"
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
@@ -80,7 +84,8 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-      - name: 6. Инъекция безопасного сервера Shelf и тотальное выжигание кэша WebView в main.dart
+
+      - name: 6. Инъекция безопасного сервера Shelf и тотальной очистки кэша в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -111,19 +116,11 @@ jobs:
                 if (path.endsWith('.png')) contentType = 'image/png';
                 if (path.endsWith('.wasm')) contentType = 'application/wasm';
                 
-                return Response.ok(list, headers: {
-                  'Content-Type': contentType, 
-                  'Access-Control-Allow-Origin': '*',
-                });
-              } catch (e) { 
-                return Response.notFound('Ресурс не найден'); 
-              }
+                return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
+              } catch (e) { return Response.notFound('Ресурс не найден'); }
             }
 
-            try { 
-              await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
-            } catch (e) {}
-            
+            try { await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999); } catch (e) {}
             runApp(const MyApp());
           }
 
@@ -155,24 +152,10 @@ jobs:
               super.initState();
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(
-                  NavigationDelegate(
-                    onPageFinished: (String url) { 
-                      setState(() { _isLoading = false; }); 
-                    },
-                  ),
-                );
+                ..setNavigationDelegate(NavigationDelegate(onPageFinished: (url) { setState(() { _isLoading = false; }); }));
 
-              // Кроссплатформенное тотальное выжигание залипших редиректов подсетей
               _controller.clearCache();
               _controller.clearLocalStorage();
-
-              if (_controller.platform is AndroidWebViewController) {
-                final androidController = _controller.platform as AndroidWebViewController;
-                androidController.setMediaPlaybackRequiresUserGesture(false);
-                AndroidWebViewController.enableDebugging(true);
-              }
-              
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
@@ -180,20 +163,16 @@ jobs:
             Widget build(BuildContext context) {
               return Scaffold(
                 backgroundColor: const Color(0xFF1E1E1E),
-                body: SafeArea(
-                  child: Stack(
-                    children: [
-                      WebViewWidget(controller: _controller),
-                      if (_isLoading) 
-                        const Center(child: CircularProgressIndicator(color: Colors.amber)),
-                    ],
-                  ),
-                ),
+                body: SafeArea(child: Stack(children: [
+                  WebViewWidget(controller: _controller),
+                  if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
+                ])),
               );
             }
           }
           EOF
 
+          # ГЕНЕРАЦИЯ PUBSPEC И ПОЛНАЯ СБОРКА GRADLE В КОНТЕЙНЕРЕ LINUX
       - name: 7. Генерация pubspec.yaml
         run: |
           cd build_flutter && rm -f pubspec.yaml
