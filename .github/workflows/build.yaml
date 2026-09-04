@@ -55,30 +55,29 @@ jobs:
       - name: 5. Инъекция дистрибутива в ассеты
         run: mkdir -p build_flutter/assets/www && cp -r flet_web_dist/* build_flutter/assets/www/
 
-      - name: 5.5. Железобетонный патч AndroidManifest через XML ElementTree
+      - name: 5.5. Безопасный текстовый патч AndroidManifest через Python
         run: |
           python -c "
-          import xml.etree.ElementTree as ET
           path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
-          ET.register_namespace('android', 'http://android.com')
-          tree = ET.parse(path)
-          root = tree.getroot()
+          with open(path, 'r', encoding='utf-8') as f:
+              lines = f.readlines()
           
-          # Безопасное добавление сетевого разрешения без разрыва структуры тегов
-          ns = {'android': 'http://android.com'}
-          has_net = any(p.attrib.get('{http://android.com}name') == 'android.permission.INTERNET' for p in root.findall('uses-permission'))
-          if not has_net:
-              perm = ET.Element('uses-permission', {'{http://android.com}name': 'android.permission.INTERNET'})
-              root.insert(0, perm)
+          out = []
+          for line in lines:
+              # Инжектируем легитимные сетевые разрешения перед закрытием манифеста
+              if '</manifest>' in line:
+                  out.append('    <uses-permission android:name=\"android.permission.INTERNET\"/>\n')
+              
+              # Инжектируем флаг разрешения локального Cleartext HTTP-трафика внутрь тега application
+              if '<application' in line and 'android:usesCleartextTraffic' not in line:
+                  line = line.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
+              
+              out.append(line)
           
-          # Легализация HTTP loopback трафика через чистую модификацию атрибутов узла application
-          app = root.find('application')
-          if app is not None:
-              app.set('{http://android.com}usesCleartextTraffic', 'true')
-          
-          tree.write(path, encoding='utf-8', xml_declaration=True)
+          with open(path, 'w', encoding='utf-8') as f:
+              f.writelines(out)
           "
-          echo "[УСПЕХ] Манифест успешно пересобран на базе объектного дерева XML."
+          echo "[УСПЕХ] Строковые параметры сети и loopback-трафика успешно инжектированы."
 
       - name: 6. Инъекция безопасного фонового сервера Shelf в main.dart
         run: |
