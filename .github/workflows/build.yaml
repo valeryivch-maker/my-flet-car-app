@@ -52,7 +52,7 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован in режиме HTML-рендеринга."
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
@@ -64,7 +64,6 @@ jobs:
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
           flutter pub add shelf
-          flutter pub add shelf_static
 
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -72,24 +71,48 @@ jobs:
           cp -r flet_web_dist/* build_flutter/assets/www/
           echo "[УСПЕХ] Веб-дистрибутив зашит во внутреннюю структуру assets/www/"
 
-      - name: 6. Инъекция локального shelf-сервера и роутинга в main.dart
+      - name: 6. Инъекция нативного Shelf Asset Handler в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
+          import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:shelf/shelf.dart';
           import 'package:shelf/shelf_io.dart' as io;
-          import 'package:shelf_static/shelf_static.dart';
           import 'dart:io';
+          import 'dart:typed_data';
 
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Запуск изолированного локального веб-сервера для обхода аномалий ядра
-            final handler = createStaticHandler('assets/www', defaultDocument: 'index.html');
-            final server = await io.serve(handler, InternetAddress.loopbackIPv4, 9999);
-            print('Локальный сервер запущен на порту: ${server.port}');
+            // Нативный реактивный обработчик ассетов для обхода изоляции контейнера
+            Response assetHandler(Request request) async {
+              try {
+                String path = request.url.path;
+                if (path.isEmpty || path == '/') path = 'index.html';
+                
+                final String assetKey = 'assets/www/$path';
+                final ByteData bytes = await rootBundle.load(assetKey);
+                final Uint8List list = bytes.buffer.asUint8List();
+
+                // Определение MIME-типов для Chromium рантайма
+                String contentType = 'text/html';
+                if (path.endsWith('.js')) contentType = 'application/javascript';
+                if (path.endsWith('.css')) contentType = 'text/css';
+                if (path.endsWith('.png')) contentType = 'image/png';
+                if (path.endsWith('.wasm')) contentType = 'application/wasm';
+
+                return Response.ok(list, headers: {'Content-Type': contentType, 'Access-Control-Allow-Origin': '*'});
+              } catch (e) {
+                return Response.notFound('Файл ассета не найден в AssetBundle мобильного приложения');
+              }
+            }
+
+            // Старт сервера на внутреннем интерфейсе loopback
+            final server = await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+            print('Внутренний CORS-сервер запущен на: ${server.port}');
 
             runApp(const MyApp());
           }
@@ -141,7 +164,7 @@ jobs:
                 AndroidWebViewController.enableDebugging(true);
               }
 
-              // Загрузка через локальный loopback интерфейс
+              // Загрузка через легитимный локальный сокет
               _controller.loadRequest(Uri.parse('http://127.0.0'));
             }
 
@@ -182,7 +205,6 @@ jobs:
             webview_flutter: ^4.10.0
             webview_flutter_android: ^4.12.0
             shelf: ^1.4.1
-            shelf_static: ^1.1.2
           dev_dependencies:
             flutter_test:
               sdk: flutter
