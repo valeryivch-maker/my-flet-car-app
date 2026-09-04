@@ -34,7 +34,7 @@ jobs:
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
 
-      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+      - name: 2. Подготовка и компиляция Python-кода в режиме автономного SPA
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -49,10 +49,11 @@ jobs:
                   shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
+          # Принудительный экспорт в режиме автономного веб-приложения со встроенным JS-рантаймом
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          echo "[УСПЕХ] Python-контур скомпилирован в режиме HTML-рендеринга."
+          echo "[УСПЕХ] Python-контур скомпилирован в режиме автономного SPA."
 
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: |
@@ -122,7 +123,6 @@ jobs:
                           allowFileAccessFromFileURLs: true,
                           allowUniversalAccessFromFileURLs: true,
                           useHybridComposition: true,
-                          // Виртуальный маппинг локальных файлов в домен localhost для обхода CORS
                           webViewAssetLoader: WebViewAssetLoader(
                             domain: "localhost:8080",
                             pathHandlers: [
