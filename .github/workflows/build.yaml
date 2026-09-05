@@ -76,7 +76,6 @@ jobs:
           import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
-          import 'dart:typed_data';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -116,22 +115,16 @@ jobs:
                     onPageFinished: (url) { setState(() { _isLoading = false; }); },
                   ),
                 )
-                // Сквозной проброс абсолютно всех консольных логов JS и ошибок ядра Flet в ADB терминал
-                ..setOnConsoleMessage((ConsoleMessage message) {
-                  debugPrint('===== [FLET JS CONSOLE] =====: ${message.message} (Line: ${message.lineNumber})');
-                })
-                // Тотальный перехват запросов к виртуальному домену без использования TCP портов и сокетов
-                ..setPlatformNavigationDelegate(
-                  AndroidWebViewController.NavigatorDelegate(
-                    onNavigationRequest: (NavigationRequest request) async {
-                      return NavigationDecision.navigate;
-                    },
-                  )..setOnHttpAuthRequest((request) {}),
+                // Канонический кроссплатформенный JavaScript-канал для вывода логов Flet в logcat
+                ..addJavaScriptChannel(
+                  'FlutterLogChannel',
+                  onMessageReceived: (JavaScriptMessage message) {
+                    debugPrint('===== [FLET JS CONSOLE] =====: ${message.message}');
+                  },
                 );
                 
               _controller.clearCache();
               _controller.clearLocalStorage();
-              // Переход на прямую каноническую загрузку локального ассета
               _controller.loadFlutterAsset('assets/www/index.html');
             }
             
