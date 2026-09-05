@@ -77,12 +77,14 @@ jobs:
               f.write(text)
           "
           echo "[УСПЕХ] Манифест полностью обезопасен от падения GPU."
-      - name: 6. Инъекция сверхстабильного WebViewController в main.dart
+      - name: 6. Инъекция in-memory HTML инжектора ресурсов в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
+          import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
+          import 'dart:convert';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -125,7 +127,20 @@ jobs:
                 
               _controller.clearCache();
               _controller.clearLocalStorage();
-              _controller.loadFlutterAsset('assets/www/index.html');
+              _loadHtmlDirectly();
+            }
+            
+            // Нативный инжектор ресурсов из ОЗУ для обхода tile_manager ограничений file:///
+            void _loadHtmlDirectly() async {
+              try {
+                String htmlContent = await rootBundle.loadString('assets/www/index.html');
+                
+                // Перевод загрузки в виртуальное адресное пространство строки данных
+                final String contentBase64 = base64Encode(const Utf8Encoder().convert(htmlContent));
+                _controller.loadRequest(Uri.parse('data:text/html;base64,$contentBase64'));
+              } catch (e) {
+                debugPrint('Ошибка инжектора ОЗУ: $e');
+              }
             }
             
             @override
