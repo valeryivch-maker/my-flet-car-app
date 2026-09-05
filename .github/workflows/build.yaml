@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в автономный WebAssembly бандл
+      - name: 2. Подготовка и компиляция Python-кода в оптимизированный CanvasKit бандл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -37,7 +37,8 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+          # Перевод рендерера на canvaskit для кардинального снижения tile memory в Chromium
+          flet publish main.py --web-renderer canvaskit --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
@@ -68,12 +69,13 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-      - name: 6. Инъекция сверхстабильного автономного WebView контейнера в main.dart
+      - name: 6. Инъекция безопасного WebView контейнера с защитой от OOM в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:webview_flutter_android/webview_flutter_android.dart';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -107,8 +109,14 @@ jobs:
             void initState() {
               super.initState();
               
-              // Инициализация канонического и 100% компилируемого контроллера 4.х версии
-              _controller = WebViewController()
+              final PlatformWebViewControllerCreationParams params;
+              if (WebViewPlatform.instance is AndroidWebViewPlatform) {
+                params = AndroidWebViewControllerCreationParams();
+              } else {
+                params = const PlatformWebViewControllerCreationParams();
+              }
+              
+              _controller = WebViewController.fromPlatformCreationParams(params)
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(
                   NavigationDelegate(
@@ -124,10 +132,22 @@ jobs:
                   },
                 );
                 
+              // Инъекция нативного перехватчика падения процесса рендеринга Chromium (Защита от краша приложения)
+              if (_controller.platform is AndroidWebViewController) {
+                final androidController = _controller.platform as AndroidWebViewController;
+                androidController.setWebViewClient(
+                  AndroidWebViewClient(
+                    onRenderProcessGone: (WebViewClient client, Uri? url, bool didCrash) {
+                      debugPrint('[КРИТИЧЕСКИЙ ЛОГ]: Процесс рендеринга Chromium упал по OOM. Перезапуск...');
+                      _controller.clearCache();
+                      _controller.loadFlutterAsset('assets/www/index.html');
+                    },
+                  ),
+                );
+              }
+                
               _controller.clearCache();
               _controller.clearLocalStorage();
-              
-              // Сверхстабильная загрузка локального AssetBundle, компилируемая без ошибок
               _controller.loadFlutterAsset('assets/www/index.html');
             }
             
