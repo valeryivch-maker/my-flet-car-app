@@ -170,8 +170,9 @@ jobs:
           chmod +x gradlew
           ./gradlew clean
           ./gradlew assembleRelease
-      - name: 9. Выгрузка готового APK из канонического каталога Gradle
+      - name: 9. Выгрузка готового APK (Сквозная маска поиска артефактов)
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
+          # Захват любого сгенерированного APK-файла внутри релизной папки
+          path: build_flutter/android/app/build/outputs/apk/release/*.apk
