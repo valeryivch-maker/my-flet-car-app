@@ -162,30 +162,16 @@ jobs:
               echo "    - assets/www/${clean_dir}/" >> ../../pubspec.yaml
             fi
           done
-      - name: 7.5. Патч совместимости AGP
+      - name: 8. Нативная компиляция через стабильный Gradle-враппер
         run: |
-          cd build_flutter/android
-          cat << 'EOF' >> build.gradle
-          subprojects {
-              project.repositories {
-                  google()
-                  mavenCentral()
-              }
-              afterEvaluate { project ->
-                  if (project.hasProperty("android") && project.android.namespace == null) {
-                      project.android.namespace = project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null ? project.android.defaultConfig.applicationId : "com.pichillilorenzo.flutter_inappwebview"
-                  }
-              }
-          }
-          EOF
-      - name: 8. Компиляция стабильного APK
-        run: |
-          cd build_flutter && flutter pub get
-          cd android && chmod +x gradlew && ./gradlew clean
-          cd .. && flutter build apk --release
-      - name: 9. Выгрузка готового APK (Синхронизация путей вывода ресурсов)
+          cd build_flutter
+          flutter pub get
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
+          ./gradlew assembleRelease
+      - name: 9. Выгрузка готового APK из канонического каталога Gradle
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          # Точный и скорректированный путь до скомпилированного релизного файла
-          path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
