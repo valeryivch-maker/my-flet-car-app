@@ -25,8 +25,9 @@ jobs:
           channel: 'stable'
       - name: 1. Установка компилятора Flet CLI и утилит оптимизации JS
         run: |
-          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-          sudo apt-get update && sudo apt-get install -y terser BeautifulSoup4
+          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 beautifulsoup4==4.12.3
+          # Скорректировано имя системного пакета парсера на python3-bs4
+          sudo apt-get update && sudo apt-get install -y terser python3-bs4
       - name: 2. Подготовка, компиляция и глубокий Inline-бандлинг ресурсов в один файл
         run: |
           mkdir -p .tmp_web_payload
@@ -157,8 +158,6 @@ jobs:
                 
               _controller.clearCache();
               _controller.clearLocalStorage();
-              
-              // Загрузка полностью самодостаточного, инлайнового монолитного HTML файла ассетов
               _controller.loadFlutterAsset('assets/www/index.html');
             }
             
