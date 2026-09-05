@@ -58,13 +58,11 @@ jobs:
           with open(path, 'r', encoding='utf-8') as f:
               text = f.read()
           
-          # Отключаем аппаратное ускорение для спасения видеопамяти Adreno 610
           if 'android:hardwareAccelerated=\"true\"' in text:
               text = text.replace('android:hardwareAccelerated=\"true\"', 'android:hardwareAccelerated=\"false\"')
           elif 'android:hardwareAccelerated' not in text:
               text = text.replace('<application', '<application android:hardwareAccelerated=\"false\"')
           
-          # Инъекция флага CleartextTraffic и разрешений
           if 'android:usesCleartextTraffic' not in text:
               text = text.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
           if 'android.permission.INTERNET' not in text:
@@ -180,12 +178,12 @@ jobs:
               }
           }
           EOF
-      - name: 8. Компиляция Gradle (С принудительным выключением Impeller Vulkan)
+      - name: 8. Компиляция стабильного APK
         run: |
           cd build_flutter && flutter pub get
           cd android && chmod +x gradlew && ./gradlew clean
-          # Отключение Impeller на этапе нативной трансляции ресурсов сборки
-          cd .. && flutter build apk --release --no-impeller
+          # Удален некорректный консольный флаг --no-impeller
+          cd .. && flutter build apk --release
       - name: 9. Выгрузка готового APK
         uses: actions/upload-artifact@v4
         with:
