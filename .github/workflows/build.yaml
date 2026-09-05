@@ -48,7 +48,6 @@ jobs:
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
           flutter pub add shelf
-          # Исправлена маска версии плагина на основе вывода линкера pub
           flutter pub add shelf_flutter_asset:^0.1.0
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
@@ -83,8 +82,9 @@ jobs:
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
+            # Исправлен синтаксис: удален именованный аргумент basePath под спецификацию v0.1.0
             final assetHandler = createAssetHandler(
-              basePath: 'assets/www',
+              'assets/www',
               defaultDocument: 'index.html',
             );
             
