@@ -23,12 +23,9 @@ jobs:
         with:
           flutter-version: '3.41.7'
           channel: 'stable'
-      - name: 1. Установка компилятора Flet CLI и утилит оптимизации JS
-        run: |
-          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2 beautifulsoup4==4.12.3
-          # Скорректировано имя системного пакета парсера на python3-bs4
-          sudo apt-get update && sudo apt-get install -y terser python3-bs4
-      - name: 2. Подготовка, компиляция и глубокий Inline-бандлинг ресурсов в один файл
+      - name: 1. Установка компилятора Flet CLI в Linux-окружение
+        run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
+      - name: 2. Подготовка и компиляция Python-кода в чистый раздельный HTML-бандл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -40,67 +37,29 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
+          # Никаких инлайнов! Сохраняем каноничную раздельную структуру для экономии ОЗУ
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-          
-          # Минификация JS кода перед инжектом
-          find flet_web_dist/ -name "*.js" -exec terser {} -c -m -o {} \;
-          
-          # Python-скрипт монолитной склейки JS и CSS прямо внутрь index.html
-          python -c "
-          import os, re
-          from bs4 import BeautifulSoup
-          
-          html_path = 'flet_web_dist/index.html'
-          with open(html_path, 'r', encoding='utf-8') as f:
-              soup = BeautifulSoup(f.read(), 'html.parser')
-              
-          for script in soup.find_all('script', src=True):
-              src = script['src']
-              local_js = os.path.join('flet_web_dist', src.lstrip('/'))
-              if os.path.exists(local_js):
-                  with open(local_js, 'r', encoding='utf-8') as js_f:
-                      new_script = soup.new_tag('script')
-                      new_script.string = js_f.read()
-                      script.replace_with(new_script)
-                      
-          for link in soup.find_all('link', rel='stylesheet'):
-              if link.get('href'):
-                  href = link['href']
-                  local_css = os.path.join('flet_web_dist', href.lstrip('/'))
-                  if os.path.exists(local_css):
-                      with open(local_css, 'r', encoding='utf-8') as css_f:
-                          new_style = soup.new_tag('style')
-                          new_style.string = css_f.read()
-                          link.replace_with(new_style)
-                          
-          with open(html_path, 'w', encoding='utf-8') as f:
-              f.write(str(soup))
-          "
-          echo "[УСПЕХ] Монолитный inline-бандл успешно упакован."
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем официальный стабильный плагин webview_flutter
+      - name: 4. Подключаем официальный веб-сервер shelf и плагины статики
         run: |
           cd build_flutter
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
+          flutter pub add shelf
+          flutter pub add shelf_static
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
-      - name: 5.5. Тотальный патч AndroidManifest (Отключение hardwareAccelerated для спасения плиток ОЗУ)
+      - name: 5.5. Патч AndroidManifest (Включение прав сети и CleartextTraffic)
         run: |
           python -c "
           path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
           with open(path, 'r', encoding='utf-8') as f:
               text = f.read()
-          
-          if 'android:hardwareAccelerated=\"true\"' in text:
-              text = text.replace('android:hardwareAccelerated=\"true\"', 'android:hardwareAccelerated=\"false\"')
-          elif 'android:hardwareAccelerated' not in text:
-              text = text.replace('<application', '<application android:hardwareAccelerated=\"false\"')
           
           if 'android:usesCleartextTraffic' not in text:
               text = text.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
@@ -110,15 +69,47 @@ jobs:
           with open(path, 'w', encoding='utf-8') as f:
               f.write(text)
           "
-      - name: 6. Инъекция сверхстабильного WebViewController в main.dart
+      - name: 6. Инъекция потокового веб-сервера Shelf Static в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:shelf/shelf.dart';
+          import 'package:shelf/shelf_io.dart' as io;
+          import 'package:shelf_static/shelf_static.dart';
+          import 'dart:io';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
+            
+            // Промышленный потоковый обработчик для экономии ОЗУ и обхода лимитов плиток
+            final staticHandler = createStaticHandler(
+              'assets/www',
+              defaultDocument: 'index.html',
+              serveFilesOutsidePath: false,
+            );
+            
+            final pipeline = const Pipeline()
+                .addMiddleware((innerHandler) {
+                  return (request) async {
+                    final response = await innerHandler(request);
+                    // CORS патч на уровне заголовков веб-сервера
+                    return response.change(headers: {
+                      'Access-Control-Allow-Origin': '*',
+                      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    });
+                  };
+                })
+                .addHandler(staticHandler);
+                
+            try {
+              // Поднятие стабильного инфинитного веб-сервера локальной петли
+              await io.serve(pipeline, InternetAddress.loopbackIPv4, 9999);
+            } catch (e) {
+              debugPrint('Ошибка запуска shelf: $e');
+            }
+            
             runApp(const MyApp());
           }
           
@@ -148,17 +139,12 @@ jobs:
             void initState() {
               super.initState();
               _controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..addJavaScriptChannel(
-                  'FlutterLogChannel',
-                  onMessageReceived: (JavaScriptMessage message) {
-                    debugPrint('===== [FLET JS CONSOLE] =====: ${message.message}');
-                  },
-                );
+                ..setJavaScriptMode(JavaScriptMode.unrestricted);
                 
               _controller.clearCache();
               _controller.clearLocalStorage();
-              _controller.loadFlutterAsset('assets/www/index.html');
+              // Загрузка через локальный прокси контур
+              _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
             }
             
             @override
@@ -184,6 +170,8 @@ jobs:
               sdk: flutter
             webview_flutter: ^4.10.0
             webview_flutter_android: ^4.12.0
+            shelf: ^1.4.1
+            shelf_static: ^1.1.2
           dev_dependencies:
             flutter_test:
               sdk: flutter
