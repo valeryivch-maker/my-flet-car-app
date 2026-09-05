@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в автономный WebAssembly (WASM) бандл
+      - name: 2. Подготовка и компиляция Python-кода в чистый Offline PWA / WASM бандл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -37,8 +37,8 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Публикация в режиме статического веб-приложения без внешних WebSocket сокетов бэкенда
-          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
+          # Включение флага --pwa для компиляции логики Python в клиентский WebAssembly (Pyodide)
+          flet publish main.py --pwa --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
@@ -49,7 +49,7 @@ jobs:
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
           flutter pub add shelf
-      - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
+      - name: 5. Инъекция автономного PWA-дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
@@ -94,6 +94,12 @@ jobs:
               try {
                 String path = request.url.path;
                 if (path.isEmpty || path == '/') path = 'index.html';
+                
+                // Перехват запросов локализации для предотвращения FileNotFoundException
+                if (path.contains('ru_ru.json') || path.contains('server_config')) {
+                  path = path.substring(path.lastIndexOf('/') + 1);
+                }
+                
                 final String assetKey = 'assets/www/$path';
                 final ByteData bytes = await rootBundle.load(assetKey);
                 final Uint8List list = bytes.buffer.asUint8List();
@@ -101,6 +107,7 @@ jobs:
                 String contentType = 'text/html';
                 if (path.endsWith('.js')) contentType = 'application/javascript';
                 if (path.endsWith('.css')) contentType = 'text/css';
+                if (path.endsWith('.json')) contentType = 'application/json';
                 if (path.endsWith('.png')) contentType = 'image/png';
                 if (path.endsWith('.wasm')) contentType = 'application/wasm';
                 
