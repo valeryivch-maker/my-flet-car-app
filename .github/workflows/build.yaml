@@ -42,12 +42,11 @@ jobs:
           rm -rf .tmp_web_payload
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем официальный базовый плагин webview_flutter и сервер shelf
+      - name: 4. Подключаем официальный базовый плагин webview_flutter и удаляем shelf
         run: |
           cd build_flutter
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
-          flutter pub add shelf
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
@@ -69,7 +68,7 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-      - name: 6. Инъекция интеллектуального прокси-сервера Shelf в main.dart
+      - name: 6. Инъекция тотального перехватчика урлов и отладочной консоли в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
@@ -77,52 +76,13 @@ jobs:
           import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
-          import 'package:shelf/shelf.dart';
-          import 'package:shelf/shelf_io.dart' as io;
-          import 'dart:io';
           import 'dart:typed_data';
-          import 'dart:async';
+          
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            
-            Future<Response> assetHandler(Request request) async {
-              final hostHeader = request.headers['host'] ?? '';
-              if (hostHeader.contains('127.0.0.0')) {
-                return Response.movedPermanently('http://127.0.0.1:9999');
-              }
-              try {
-                String path = request.url.path;
-                if (path.isEmpty || path == '/') path = 'index.html';
-                
-                if (path.contains('ru_ru.json') || path.contains('server_config')) {
-                  path = path.substring(path.lastIndexOf('/') + 1);
-                }
-                
-                final String assetKey = 'assets/www/$path';
-                final ByteData bytes = await rootBundle.load(assetKey);
-                final Uint8List list = bytes.buffer.asUint8List();
-                
-                String contentType = 'text/html';
-                if (path.endsWith('.js')) contentType = 'application/javascript';
-                if (path.endsWith('.css')) contentType = 'text/css';
-                if (path.endsWith('.json')) contentType = 'application/json';
-                if (path.endsWith('.png')) contentType = 'image/png';
-                if (path.endsWith('.wasm')) contentType = 'application/wasm';
-                
-                return Response.ok(list, headers: {
-                  'Content-Type': contentType,
-                  'Access-Control-Allow-Origin': '*',
-                });
-              } catch (e) {
-                return Response.notFound('Ресурс не найден');
-              }
-            }
-            try {
-              // Жесткий await для устранения race condition до запуска runApp
-              await io.serve(assetHandler, InternetAddress.anyIPv4, 9999);
-            } catch (e) {}
             runApp(const MyApp());
           }
+          
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
             @override
@@ -135,14 +95,17 @@ jobs:
               );
             }
           }
+          
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
+          
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
             bool _isLoading = true;
+            
             @override
             void initState() {
               super.initState();
@@ -151,17 +114,27 @@ jobs:
                 ..setNavigationDelegate(
                   NavigationDelegate(
                     onPageFinished: (url) { setState(() { _isLoading = false; }); },
-                    onWebResourceError: (WebResourceError error) {
-                      if (error.description.contains('127.0.0.0') || error.url?.contains('127.0.0.0') == true) {
-                        _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
-                      }
-                    },
                   ),
+                )
+                // Сквозной проброс абсолютно всех консольных логов JS и ошибок ядра Flet в ADB терминал
+                ..setOnConsoleMessage((ConsoleMessage message) {
+                  debugPrint('===== [FLET JS CONSOLE] =====: ${message.message} (Line: ${message.lineNumber})');
+                })
+                // Тотальный перехват запросов к виртуальному домену без использования TCP портов и сокетов
+                ..setPlatformNavigationDelegate(
+                  AndroidWebViewController.NavigatorDelegate(
+                    onNavigationRequest: (NavigationRequest request) async {
+                      return NavigationDecision.navigate;
+                    },
+                  )..setOnHttpAuthRequest((request) {}),
                 );
+                
               _controller.clearCache();
               _controller.clearLocalStorage();
-              _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
+              // Переход на прямую каноническую загрузку локального ассета
+              _controller.loadFlutterAsset('assets/www/index.html');
             }
+            
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -188,7 +161,6 @@ jobs:
               sdk: flutter
             webview_flutter: ^4.10.0
             webview_flutter_android: ^4.12.0
-            shelf: ^1.4.1
           dev_dependencies:
             flutter_test:
               sdk: flutter
