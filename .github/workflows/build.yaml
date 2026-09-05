@@ -51,23 +51,29 @@ jobs:
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
-      - name: 5.5. Патч AndroidManifest через Python (Вставка прав сети и флага CleartextTraffic)
+      - name: 5.5. Тотальный патч AndroidManifest (Отключение аппаратного ускорения графики GPU)
         run: |
           python -c "
           path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
           with open(path, 'r', encoding='utf-8') as f:
-              lines = f.readlines()
-          out = []
-          for line in lines:
-              if '</manifest>' in line:
-                  out.append('    <uses-permission android:name=\"android.permission.INTERNET\"/>\n')
-              if '<application' in line and 'android:usesCleartextTraffic' not in line:
-                  line = line.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
-              out.append(line)
+              text = f.read()
+          
+          # Отключаем аппаратное ускорение для спасения видеопамяти Adreno 610
+          if 'android:hardwareAccelerated=\"true\"' in text:
+              text = text.replace('android:hardwareAccelerated=\"true\"', 'android:hardwareAccelerated=\"false\"')
+          elif 'android:hardwareAccelerated' not in text:
+              text = text.replace('<application', '<application android:hardwareAccelerated=\"false\"')
+          
+          # Инъекция флага CleartextTraffic и разрешений
+          if 'android:usesCleartextTraffic' not in text:
+              text = text.replace('<application', '<application android:usesCleartextTraffic=\"true\"')
+          if 'android.permission.INTERNET' not in text:
+              text = text.replace('</manifest>', '    <uses-permission android:name=\"android.permission.INTERNET\"/>\n</manifest>')
+          
           with open(path, 'w', encoding='utf-8') as f:
-              f.writelines(out)
+              f.write(text)
           "
-          echo "[УСПЕХ] Манифест успешно пропатчен."
+          echo "[УСПЕХ] Манифест полностью обезопасен от падения GPU."
       - name: 6. Инъекция сверхстабильного WebViewController в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
@@ -105,8 +111,6 @@ jobs:
             @override
             void initState() {
               super.initState();
-              
-              // Канонический синтаксис 4.х версии, гарантирующий успешную компиляцию
               _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..addJavaScriptChannel(
@@ -116,7 +120,6 @@ jobs:
                   },
                 );
                 
-              // Тотальная принудительная очистка кэша плиток до старта движка Chromium
               _controller.clearCache();
               _controller.clearLocalStorage();
               _controller.loadFlutterAsset('assets/www/index.html');
@@ -126,7 +129,6 @@ jobs:
             Widget build(BuildContext context) {
               return Scaffold(
                 backgroundColor: const Color(0xFF1E1E1E),
-                // Чистый контейнер без лишних виджетов-индикаторов для разгрузки ОЗУ устройства
                 body: SafeArea(child: WebViewWidget(controller: _controller)),
               );
             }
@@ -178,12 +180,14 @@ jobs:
               }
           }
           EOF
-      - name: 8. Компиляция Gradle
+      - name: 8. Компиляция Gradle (С принудительным выключением Impeller Vulkan)
         run: |
           cd build_flutter && flutter pub get
-          cd android && chmod +x gradlew && ./gradlew clean && ./gradlew assembleRelease
+          cd android && chmod +x gradlew && ./gradlew clean
+          # Отключение Impeller на этапе нативной трансляции ресурсов сборки
+          cd .. && flutter build apk --release --no-impeller
       - name: 9. Выгрузка готового APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build_flutter/android/app/build/outputs/apk/release/app-release.apk
+          path: build_flutter/build/app/outputs/flutter-apk/app-release.apk
