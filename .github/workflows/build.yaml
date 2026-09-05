@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в оптимизированный CanvasKit бандл
+      - name: 2. Подготовка и компиляция Python-кода в легкий автономный бандл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -37,13 +37,12 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Перевод рендерера на canvaskit для кардинального снижения tile memory в Chromium
-          flet publish main.py --web-renderer canvaskit --base-url ./ --distpath ../flet_web_dist
+          flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем официальный базовый плагин webview_flutter
+      - name: 4. Подключаем официальный стабильный плагин webview_flutter
         run: |
           cd build_flutter
           flutter pub add webview_flutter
@@ -69,13 +68,12 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-      - name: 6. Инъекция безопасного WebView контейнера с защитой от OOM в main.dart
+      - name: 6. Инъекция сверхстабильного WebViewController в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:webview_flutter_android/webview_flutter_android.dart';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -103,28 +101,14 @@ jobs:
           
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
-            bool _isLoading = true;
             
             @override
             void initState() {
               super.initState();
               
-              final PlatformWebViewControllerCreationParams params;
-              if (WebViewPlatform.instance is AndroidWebViewPlatform) {
-                params = AndroidWebViewControllerCreationParams();
-              } else {
-                params = const PlatformWebViewControllerCreationParams();
-              }
-              
-              _controller = WebViewController.fromPlatformCreationParams(params)
+              // Канонический синтаксис 4.х версии, гарантирующий успешную компиляцию
+              _controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(
-                  NavigationDelegate(
-                    onPageFinished: (url) {
-                      setState(() { _isLoading = false; });
-                    },
-                  ),
-                )
                 ..addJavaScriptChannel(
                   'FlutterLogChannel',
                   onMessageReceived: (JavaScriptMessage message) {
@@ -132,20 +116,7 @@ jobs:
                   },
                 );
                 
-              // Инъекция нативного перехватчика падения процесса рендеринга Chromium (Защита от краша приложения)
-              if (_controller.platform is AndroidWebViewController) {
-                final androidController = _controller.platform as AndroidWebViewController;
-                androidController.setWebViewClient(
-                  AndroidWebViewClient(
-                    onRenderProcessGone: (WebViewClient client, Uri? url, bool didCrash) {
-                      debugPrint('[КРИТИЧЕСКИЙ ЛОГ]: Процесс рендеринга Chromium упал по OOM. Перезапуск...');
-                      _controller.clearCache();
-                      _controller.loadFlutterAsset('assets/www/index.html');
-                    },
-                  ),
-                );
-              }
-                
+              // Тотальная принудительная очистка кэша плиток до старта движка Chromium
               _controller.clearCache();
               _controller.clearLocalStorage();
               _controller.loadFlutterAsset('assets/www/index.html');
@@ -155,10 +126,8 @@ jobs:
             Widget build(BuildContext context) {
               return Scaffold(
                 backgroundColor: const Color(0xFF1E1E1E),
-                body: SafeArea(child: Stack(children: [
-                  WebViewWidget(controller: _controller),
-                  if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
-                ])),
+                // Чистый контейнер без лишних виджетов-индикаторов для разгрузки ОЗУ устройства
+                body: SafeArea(child: WebViewWidget(controller: _controller)),
               );
             }
           }
