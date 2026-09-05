@@ -42,13 +42,14 @@ jobs:
           rm -rf .tmp_web_payload
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-      - name: 4. Подключаем специализированный shelf_flutter_asset обработчик ресурсов
+      - name: 4. Подключаем официальный веб-сервер shelf и плагины статики ассетов
         run: |
           cd build_flutter
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
           flutter pub add shelf
-          flutter pub add shelf_flutter_asset
+          # Исправлена маска версии плагина на основе вывода линкера pub
+          flutter pub add shelf_flutter_asset:^0.1.0
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
@@ -82,7 +83,6 @@ jobs:
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
-            // Нативный инкапсулированный обработчик для стриминга ресурсов прямо из AssetBundle
             final assetHandler = createAssetHandler(
               basePath: 'assets/www',
               defaultDocument: 'index.html',
@@ -101,7 +101,6 @@ jobs:
                 .addHandler(assetHandler);
                 
             try {
-              // Инициализация прокси контура на loopback локального хоста
               await io.serve(pipeline, InternetAddress.loopbackIPv4, 9999);
             } catch (e) {
               debugPrint('Ошибка инициализации shelf: $e');
@@ -122,16 +121,13 @@ jobs:
               );
             }
           }
-          
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
-          
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
-            
             @override
             void initState() {
               super.initState();
@@ -142,7 +138,6 @@ jobs:
               _controller.clearLocalStorage();
               _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
             }
-            
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -167,7 +162,7 @@ jobs:
             webview_flutter: ^4.10.0
             webview_flutter_android: ^4.12.0
             shelf: ^1.4.1
-            shelf_flutter_asset: ^1.1.0
+            shelf_flutter_asset: ^0.1.0
           dev_dependencies:
             flutter_test:
               sdk: flutter
