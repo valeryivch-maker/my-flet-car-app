@@ -37,7 +37,6 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
-          # Корректный вызов сборщика без выдуманных аргументов
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -119,6 +118,7 @@ jobs:
               }
             }
             try {
+              // Жесткий await для устранения race condition до запуска runApp
               await io.serve(assetHandler, InternetAddress.anyIPv4, 9999);
             } catch (e) {}
             runApp(const MyApp());
