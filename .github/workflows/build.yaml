@@ -1,37 +1,30 @@
 ﻿name: Build Android Release (100% Offline WebView CORS Patched)
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Чек-аут репозитория
         uses: actions/checkout@v4
-
       - name: Настройка Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-
       - name: Настройка Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Настройка Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
           channel: 'stable'
-
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-
       - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
         run: |
           mkdir -p .tmp_web_payload
@@ -47,22 +40,18 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
-
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
-
       - name: 4. Подключаем официальный базовый плагин webview_flutter и сервер shelf
         run: |
           cd build_flutter
           flutter pub add webview_flutter
           flutter pub add webview_flutter_android
           flutter pub add shelf
-
       - name: 5. Инъекция автономного дистрибутива в ассеты мобильного приложения
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
-
       - name: 5.5. Патч AndroidManifest через Python (Вставка прав сети и флага CleartextTraffic)
         run: |
           python -c "
@@ -80,7 +69,6 @@ jobs:
               f.writelines(out)
           "
           echo "[УСПЕХ] Манифест успешно пропатчен."
-
       - name: 6. Инъекция интеллектуального прокси-сервера Shelf в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
@@ -94,17 +82,14 @@ jobs:
           import 'dart:io';
           import 'dart:typed_data';
           import 'dart:async';
-
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
             
             Future<Response> assetHandler(Request request) async {
-              // Тотальный перехват внутренних редиректов Flet JS на уровне заголовков хоста сервера
               final hostHeader = request.headers['host'] ?? '';
               if (hostHeader.contains('127.0.0.0')) {
-                return Response.movedPermanently('http://127.0.0');
+                return Response.movedPermanently('http://127.0.0.1:9999');
               }
-
               try {
                 String path = request.url.path;
                 if (path.isEmpty || path == '/') path = 'index.html';
@@ -119,21 +104,19 @@ jobs:
                 if (path.endsWith('.wasm')) contentType = 'application/wasm';
                 
                 return Response.ok(list, headers: {
-                  'Content-Type': contentType, 
+                  'Content-Type': contentType,
                   'Access-Control-Allow-Origin': '*',
                 });
-              } catch (e) { 
-                return Response.notFound('Ресурс не найден'); 
+              } catch (e) {
+                return Response.notFound('Ресурс не найден');
               }
             }
-
-            try { 
-              // Запуск на loopback интерфейсах
-              await io.serve(assetHandler, InternetAddress.loopbackIPv4, 9999);
+            try {
+              // Миграция сетевого биндинга на anyIPv4 для сквозного проксирования подсети
+              await io.serve(assetHandler, InternetAddress.anyIPv4, 9999);
             } catch (e) {}
             runApp(const MyApp());
           }
-
           class MyApp extends StatelessWidget {
             const MyApp({super.key});
             @override
@@ -146,17 +129,14 @@ jobs:
               );
             }
           }
-
           class WebViewContainer extends StatefulWidget {
             const WebViewContainer({super.key});
             @override
             State<WebViewContainer> createState() => _WebViewContainerState();
           }
-
           class _WebViewContainerState extends State<WebViewContainer> {
             late final WebViewController _controller;
             bool _isLoading = true;
-
             @override
             void initState() {
               super.initState();
@@ -166,19 +146,16 @@ jobs:
                   NavigationDelegate(
                     onPageFinished: (url) { setState(() { _isLoading = false; }); },
                     onWebResourceError: (WebResourceError error) {
-                      // Если Chromium выплевывает ошибку хоста, принудительно возвращаем его на 127.0.0.1
                       if (error.description.contains('127.0.0.0') || error.url?.contains('127.0.0.0') == true) {
-                        _controller.loadRequest(Uri.parse('http://127.0.0'));
+                        _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
                       }
                     },
                   ),
                 );
-
               _controller.clearCache();
               _controller.clearLocalStorage();
-              _controller.loadRequest(Uri.parse('http://127.0.0'));
+              _controller.loadRequest(Uri.parse('http://127.0.0.1:9999'));
             }
-
             @override
             Widget build(BuildContext context) {
               return Scaffold(
@@ -191,7 +168,6 @@ jobs:
             }
           }
           EOF
-
       - name: 7. Generation pubspec.yaml
         run: |
           cd build_flutter && rm -f pubspec.yaml
@@ -223,13 +199,15 @@ jobs:
               echo "    - assets/www/${clean_dir}/" >> ../../pubspec.yaml
             fi
           done
-
       - name: 7.5. Патч совместимости AGP
         run: |
           cd build_flutter/android
           cat << 'EOF' >> build.gradle
           subprojects {
-              project.repositories { google(); mavenCentral() }
+              project.repositories {
+                  google()
+                  mavenCentral()
+              }
               afterEvaluate { project ->
                   if (project.hasProperty("android") && project.android.namespace == null) {
                       project.android.namespace = project.android.hasProperty("defaultConfig") && project.android.defaultConfig.applicationId != null ? project.android.defaultConfig.applicationId : "com.pichillilorenzo.flutter_inappwebview"
@@ -237,12 +215,10 @@ jobs:
               }
           }
           EOF
-
       - name: 8. Компиляция Gradle
         run: |
           cd build_flutter && flutter pub get
           cd android && chmod +x gradlew && ./gradlew clean && ./gradlew assembleRelease
-
       - name: 9. Выгрузка готового APK
         uses: actions/upload-artifact@v4
         with:
