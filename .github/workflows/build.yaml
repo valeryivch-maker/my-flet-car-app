@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
       - name: 1. Установка компилятора Flet CLI в Linux-окружение
         run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в режиме чистого HTML
+      - name: 2. Подготовка и компиляция Python-кода в автономный WebAssembly (WASM) бандл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -37,6 +37,7 @@ jobs:
               elif os.path.isdir(item): shutil.copytree(item, os.path.join(dest, item), ignore=shutil.ignore_patterns('*.pyc', '__pycache__'), dirs_exist_ok=True)
           "
           cd .tmp_web_payload
+          # Публикация в режиме статического веб-приложения без внешних WebSocket сокетов бэкенда
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
@@ -112,7 +113,6 @@ jobs:
               }
             }
             try {
-              // Миграция сетевого биндинга на anyIPv4 для сквозного проксирования подсети
               await io.serve(assetHandler, InternetAddress.anyIPv4, 9999);
             } catch (e) {}
             runApp(const MyApp());
