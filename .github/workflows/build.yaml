@@ -23,9 +23,11 @@ jobs:
         with:
           flutter-version: '3.41.7'
           channel: 'stable'
-      - name: 1. Установка компилятора Flet CLI в Linux-окружение
-        run: pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-      - name: 2. Подготовка и компиляция Python-кода в легкий автономный бандл
+      - name: 1. Установка компилятора Flet CLI и утилит оптимизации JS
+        run: |
+          pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
+          sudo apt-get update && sudo apt-get install -y terser
+      - name: 2. Подготовка и компиляция Python-кода с глубокой минификацией JS бандла
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -40,6 +42,9 @@ jobs:
           flet publish main.py --web-renderer html --base-url ./ --distpath ../flet_web_dist
           cd ..
           rm -rf .tmp_web_payload
+          
+          # Глубокое сжатие JS кода для кардинального снижения tile memory в Chromium
+          find flet_web_dist/ -name "*.js" -exec terser {} -c -m -o {} \;
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
       - name: 4. Подключаем официальный стабильный плагин webview_flutter
@@ -51,7 +56,7 @@ jobs:
         run: |
           mkdir -p build_flutter/assets/www
           cp -r flet_web_dist/* build_flutter/assets/www/
-      - name: 5.5. Тотальный патч AndroidManifest (Отключение аппаратного ускорения графики GPU)
+      - name: 5.5. Тотальный патч AndroidManifest (Отключение hardwareAccelerated для спасения плиток ОЗУ)
         run: |
           python -c "
           path = 'build_flutter/android/app/src/main/AndroidManifest.xml'
@@ -174,5 +179,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          # Точное приземление на физический каталог вывода артефактов
           path: build_flutter/build/app/outputs/flutter-apk/*.apk
