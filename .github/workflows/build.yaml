@@ -26,8 +26,8 @@ jobs:
       - name: 1. Установка компилятора Flet CLI и утилит оптимизации JS
         run: |
           pip install flet==0.23.2 requests==2.32.3 certifi==2024.7.4 urllib3==2.2.2
-          sudo apt-get update && sudo apt-get install -y terser
-      - name: 2. Подготовка и компиляция Python-кода с глубокой минификацией JS бандла
+          sudo apt-get update && sudo apt-get install -y terser BeautifulSoup4
+      - name: 2. Подготовка, компиляция и глубокий Inline-бандлинг ресурсов в один файл
         run: |
           mkdir -p .tmp_web_payload
           python -c "
@@ -43,8 +43,41 @@ jobs:
           cd ..
           rm -rf .tmp_web_payload
           
-          # Глубокое сжатие JS кода для кардинального снижения tile memory в Chromium
+          # Минификация JS кода перед инжектом
           find flet_web_dist/ -name "*.js" -exec terser {} -c -m -o {} \;
+          
+          # Python-скрипт монолитной склейки JS и CSS прямо внутрь index.html
+          python -c "
+          import os, re
+          from bs4 import BeautifulSoup
+          
+          html_path = 'flet_web_dist/index.html'
+          with open(html_path, 'r', encoding='utf-8') as f:
+              soup = BeautifulSoup(f.read(), 'html.parser')
+              
+          for script in soup.find_all('script', src=True):
+              src = script['src']
+              local_js = os.path.join('flet_web_dist', src.lstrip('/'))
+              if os.path.exists(local_js):
+                  with open(local_js, 'r', encoding='utf-8') as js_f:
+                      new_script = soup.new_tag('script')
+                      new_script.string = js_f.read()
+                      script.replace_with(new_script)
+                      
+          for link in soup.find_all('link', rel='stylesheet'):
+              if link.get('href'):
+                  href = link['href']
+                  local_css = os.path.join('flet_web_dist', href.lstrip('/'))
+                  if os.path.exists(local_css):
+                      with open(local_css, 'r', encoding='utf-8') as css_f:
+                          new_style = soup.new_tag('style')
+                          new_style.string = css_f.read()
+                          link.replace_with(new_style)
+                          
+          with open(html_path, 'w', encoding='utf-8') as f:
+              f.write(str(soup))
+          "
+          echo "[УСПЕХ] Монолитный inline-бандл успешно упакован."
       - name: 3. Создаем чистый Flutter проект с фиксацией ID организации
         run: flutter create --template=app --org com.example --project-name=flet_android --platforms=android build_flutter
       - name: 4. Подключаем официальный стабильный плагин webview_flutter
@@ -76,15 +109,12 @@ jobs:
           with open(path, 'w', encoding='utf-8') as f:
               f.write(text)
           "
-          echo "[УСПЕХ] Манифест полностью обезопасен от падения GPU."
-      - name: 6. Инъекция in-memory HTML инжектора ресурсов в main.dart
+      - name: 6. Инъекция сверхстабильного WebViewController в main.dart
         run: |
           rm -f build_flutter/lib/main.dart
           cat << 'EOF' > build_flutter/lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:flutter/services.dart' show rootBundle;
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'dart:convert';
           
           void main() async {
             WidgetsFlutterBinding.ensureInitialized();
@@ -127,20 +157,9 @@ jobs:
                 
               _controller.clearCache();
               _controller.clearLocalStorage();
-              _loadHtmlDirectly();
-            }
-            
-            // Нативный инжектор ресурсов из ОЗУ для обхода tile_manager ограничений file:///
-            void _loadHtmlDirectly() async {
-              try {
-                String htmlContent = await rootBundle.loadString('assets/www/index.html');
-                
-                // Перевод загрузки в виртуальное адресное пространство строки данных
-                final String contentBase64 = base64Encode(const Utf8Encoder().convert(htmlContent));
-                _controller.loadRequest(Uri.parse('data:text/html;base64,$contentBase64'));
-              } catch (e) {
-                debugPrint('Ошибка инжектора ОЗУ: $e');
-              }
+              
+              // Загрузка полностью самодостаточного, инлайнового монолитного HTML файла ассетов
+              _controller.loadFlutterAsset('assets/www/index.html');
             }
             
             @override
