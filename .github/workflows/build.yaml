@@ -1,0 +1,112 @@
+﻿name: Build Android Release (Pure Native Flet CPython APK with Custom Package and Timestamp)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Чек-аут репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Настройка Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Настройка и развертывание Flutter SDK в системный PATH
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: 'stable'
+
+      - name: Установка необходимых Linux-зависимостей для сборщика Flutter/Flet
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev mesa-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Установка официального компилятора Flet CLI
+        run: pip install flet==0.23.2
+
+      - name: Тотальная зачистка скрытых старых кэшей и конфигураций
+        run: |
+          rm -f flet-config.json flet.json flet.yaml python_debug_log.txt
+          rm -rf .flet build output_apk
+
+      - name: Ремонт network.py
+        run: |
+          if [ -f "network.py" ]; then
+            sed -i 's|https://telegram.org|https://149.154.167|g' network.py
+            sed -i 's|SSL_VERIFY_MODE = True|SSL_VERIFY_MODE = False|g' network.py
+          fi
+
+      - name: Принудительная генерация flet.yaml
+        run: |
+          cat << 'EOF' > flet.yaml
+          app:
+            name: "carjournal"
+            package: "com.flet.carjournal"
+            version: "1.0.0"
+            build_number: 1
+            main_script: "main.py"
+            port: 8555
+            dependencies:
+              - requests==2.32.3
+              - certifi==2024.7.4
+              - urllib3==2.2.2
+              - plyer==2.1.0
+            exclude:
+              - "app.py"
+              - "cron_weekly_check.py"
+              - "patch*.py"
+              - "generate.py"
+              - "python_debug_log.txt"
+              - ".github/*"
+              - "README.md"
+          android:
+            permissions:
+              - android.permission.INTERNET
+              - android.permission.READ_EXTERNAL_STORAGE
+              - android.permission.WRITE_EXTERNAL_STORAGE
+              - android.permission.MANAGE_EXTERNAL_STORAGE
+          EOF
+
+      - name: Формирование временного штампа сборки по Москве (UTC+3)
+        run: |
+          sudo ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+          echo "APK_TIMESTAMP=$(date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
+
+      - name: Создание жесткого файла ограничений для PIP (Фиксация flet-embed)
+        run: |
+          echo "flet-embed==0.23.2" > constraints.txt
+          echo "flet-runtime==0.23.2" >> constraints.txt
+          echo "PIP_CONSTRAINT=${{ github.workspace }}/constraints.txt" >> $GITHUB_ENV
+
+      - name: Генерация ключа подписи приложения
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias carjournalkey -keyalg RSA -keysize 2048 -validity 10000 -storepass "CarJournalPassword123" -keypass "CarJournalPassword123" -dname "CN=Valery, O=CarJournal, C=RU"
+
+      - name: Активация изолированного фонового демона-патчера
+        run: python patch_runner.py &
+
+      - name: Нативная компиляция проекта (с фиксацией версий окружения)
+        run: flet build apk --project "carjournal" --product "carjournal" -vv
+
+      - name: Переименование готового файла под кастомный временной штамп
+        run: |
+          mkdir -p output_apk
+          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}.apk
+
+      - name: Выгрузка датированного нативного АРК-артефакта
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}
+          path: output_apk/*.apk
