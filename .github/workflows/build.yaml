@@ -53,10 +53,10 @@ jobs:
           fi
       - name: Принудительная генерация flet.yaml
         run: |
+          rm -f flet.yaml
           cat << 'EOF' > flet.yaml
           app:
             name: "carjournal"
-            product: "Бортовой Журнал"
             package: "com.flet.carjournal"
             version: "1.2.6"
             build_number: 12
@@ -77,6 +77,7 @@ jobs:
               - "README.md"
               - "network.py"
           android:
+            product: "Бортовой Журнал"
             permissions:
               - android.permission.INTERNET
               - android.permission.READ_EXTERNAL_STORAGE
@@ -104,7 +105,7 @@ jobs:
 
       - name: Нативная компиляция проекта (с фиксацией версий окружения)
         run: |
-          flet build apk --project "carjournal" --product "Бортовой Журнал" -vv
+          flet build apk -vv
 
       - name: Переименование готового файла под кастомный временной штамп
         run: |
