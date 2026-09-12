@@ -42,7 +42,7 @@ jobs:
           rm -rf flet-config.json flet.json flet.yaml python_debug_log.txt
           rm -rf .flet build output_apk
 
-      - name: Ремонт network.py и копирование в рабочие папки рантайма
+      - name: Ремонт network.py и подготовка мобильного шлюза
         run: |
           if [ -f "network_template" ]; then
             cp network_template network.py
@@ -75,7 +75,6 @@ jobs:
               - "python_debug_log.txt"
               - ".github/*"
               - "README.md"
-              - "network.py"
           android:
             product: "Бортовой Журнал"
             permissions:
@@ -87,7 +86,7 @@ jobs:
 
       - name: Формирование временного штампа сборки по Москве (UTC+3)
         run: |
-          sudo ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+          sudo ln -sf /usr/share/share/zoneinfo/Europe/Moscow /etc/localtime
           echo "APK_TIMESTAMP=$(date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
 
       - name: Создание жесткого файла ограничений для pip (Фиксация flet-embed)
