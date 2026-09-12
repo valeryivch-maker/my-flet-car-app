@@ -55,7 +55,8 @@ jobs:
         run: |
           cat << 'EOF' > flet.yaml
           app:
-            name: "Бортовой Журнал"
+            name: "carjournal"
+            product: "Бортовой Журнал"
             package: "com.flet.carjournal"
             version: "1.2.6"
             build_number: 12
