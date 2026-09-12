@@ -42,10 +42,12 @@ jobs:
           rm -rf flet-config.json flet.json flet.yaml python_debug_log.txt
           rm -rf .flet build output_apk
 
-      - name: Подготовка сетевого файла в корне репозитория
+      - name: Ремонт network.py и подготовка мобильного шлюза
         run: |
           if [ -f "network_template" ]; then
             cp network_template network.py
+          fi
+          if [ -f "network.py" ]; then
             sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
             sed -i 's|SSL_VERIFY_MODE = True|SSL_VERIFY_MODE = False|g' network.py
           fi
@@ -55,6 +57,7 @@ jobs:
           cat << 'EOF' > flet.yaml
           app:
             name: "carjournal"
+            product: "Бортовой Журнал"
             package: "com.flet.carjournal"
             version: "1.2.6"
             build_number: 12
@@ -97,22 +100,8 @@ jobs:
         run: |
           keytool -genkey -v -keystore release.keystore -alias carjournalkey -keyalg RSA -keysize 2048 -validity 10000 -storepass "CarJournal Password123" -keypass "CarJournal Password123" -dname "CN=Valery, O=CarJournal, C=RU"
 
-      - name: Активация изолированного фонового демона-патчера и принудительный впрыск network.py в рантайм
-        run: |
-          python patch_runner.py &
-          # Фоновый скрипт-монитор, который принудительно закинет network.py во временную папку сборщика, как только она появится
-          (
-            while true; do
-              TARGET_DIR=$(find /tmp -type d -name "serious_python_temp*" 2>/dev/null | head -n 1)
-              if [ ! -z "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
-                if [ ! -f "$TARGET_DIR/network.py" ] && [ -f "${{ github.workspace }}/network.py" ]; then
-                  cp "${{ github.workspace }}/network.py" "$TARGET_DIR/network.py"
-                  echo "[WORKFLOW INJECTOR] network.py успешно впрыснут в песочницу $TARGET_DIR"
-                fi
-              fi
-              sleep 0.1
-            done
-          ) &
+      - name: Активация изолированного фонового демона-патчера
+        run: python patch_runner.py &
 
       - name: Нативная компиляция проекта по чистому YAML
         run: |

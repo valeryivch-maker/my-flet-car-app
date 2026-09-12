@@ -2,6 +2,7 @@
 import os
 import time
 import warnings
+import getpass
 from datetime import datetime
 
 # Автономная защита ресурсов локализации на Android
@@ -41,17 +42,21 @@ def show_message(text: str):
             _current_page_ref.update()
         except:
             pass
-
 def run_local_telegram_sync():
-    """Синхронизация базы из папки загрузок Telegram Desktop на ПК."""
+    """Автоматически определяет имя пользователя Windows и адаптирует путь импорта."""
     import shutil
     import glob
-    user_profile = os.environ.get("USERPROFILE", "C:\\Users\\User")
+    
+    user_profile = os.environ.get("USERPROFILE")
+    if not user_profile:
+        current_user = getpass.getuser()
+        user_profile = f"C:\\Users\\{current_user}"
+        
     possible_paths = [
         os.path.join(user_profile, "Downloads", "Telegram Desktop"),
-        os.path.join(user_profile, "Загрузки", "Telegram Desktop"),
-        r"C:\Users\User\Загрузки\Telegram Desktop"
+        os.path.join(user_profile, "Загрузки", "Telegram Desktop")
     ]
+    
     tg_downloads_path = None
     for p in possible_paths:
         if os.path.exists(p):
@@ -72,6 +77,8 @@ def run_local_telegram_sync():
         return True
     except:
         return False
+
+
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
@@ -124,7 +131,6 @@ def main(page: ft.Page):
         import asyncio
         loop = asyncio.get_running_loop()
         try:
-            # Динамический импорт для обхода ограничений компилятора Serious Python
             import network
             success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
             if success or os.name != "nt":
@@ -173,7 +179,7 @@ def main(page: ft.Page):
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]
+                selected_car = match[0]  # Фикс дедлока: извлекаем чистую строку из массива
                 engine.app_state['selected_car'] = selected_car
 
         if not selected_car or selected_car not in cars_dict:
@@ -249,7 +255,6 @@ def main(page: ft.Page):
             engine.app_state['view_mode'] = 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'
             rebuild_ui()
 
-        # Динамический проброс сетевого модуля в панели действий views
         import network
         action_panel = views.build_action_panel(
             page, current_db, selected_car, async_mobile_import, async_pc_import,
