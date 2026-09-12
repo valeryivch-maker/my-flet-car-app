@@ -113,16 +113,9 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
-    page.theme = ft.Theme(
-        color_scheme_seed=ft.Colors.AMBER,
-        scrollbar_theme=ft.ScrollbarTheme(
-            track_visibility=True,
-            thumb_visibility=True,
-            thickness=10,
-            radius=4,
-            thumb_color=ft.Colors.AMBER_700
-        )
-    )
+    
+    # Облегченная тема без принудительных Scrollbar элементов для защиты GPU от SIGSEGV
+    page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
@@ -190,7 +183,7 @@ def main(page: ft.Page):
 
         selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
         
-        # Исправлено: извлекаем чистую строку из массива, если selected_car оказался списком
+        # Гарантированное извлечение строкового типа данных из списков
         if isinstance(selected_car, list) and selected_car:
             selected_car = selected_car[0]
             
@@ -257,7 +250,7 @@ def main(page: ft.Page):
                 try:
                     import threading
                     import network
-                    current_car_name = selected_car if not isinstance(selected_car, list) else selected_car[0]
+                    current_car_name = selected_car[0] if isinstance(selected_car, list) else selected_car
                     if hasattr(network, 'LAST_SENT_ALERTS') and current_car_name in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[current_car_name] = None
                     def trigger_alerts_worker():
