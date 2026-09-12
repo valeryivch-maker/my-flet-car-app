@@ -104,7 +104,7 @@ jobs:
 
       - name: Нативная компиляция проекта (с фиксацией версий окружения)
         run: |
-          flet build apk --name "carjournal" --product "Бортовой Журнал" -vv
+          flet build apk --project "carjournal" --product "Бортовой Журнал" -vv
 
       - name: Переименование готового файла под кастомный временной штамп
         run: |
