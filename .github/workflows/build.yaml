@@ -39,7 +39,7 @@ jobs:
 
       - name: Тотальная зачистка скрытых старых кэшей и конфигураций
         run: |
-          rm -f flet-config.json flet.json flet.yaml python_debug_log.txt
+          rm -rf flet-config.json flet.json flet.yaml python_debug_log.txt
           rm -rf .flet build output_apk
 
       - name: Ремонт network.py и копирование в рабочие папки рантайма
@@ -51,45 +51,38 @@ jobs:
             sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
             sed -i 's|SSL_VERIFY_MODE = True|SSL_VERIFY_MODE = False|g' network.py
           fi
-      - name: Принудительная генерация приоритетного flet.json с русской локализацией ярлыка
+      - name: Принудительная генерация flet.yaml с латинским ID и русским ярлыком
         run: |
-          cat << 'EOF' > flet.json
-          {
-            "app": {
-              "name": "carjournal",
-              "product": "Бортовой Журнал",
-              "package": "com.flet.carjournal",
-              "version": "1.2.6",
-              "build_number": 12,
-              "main_script": "main.py",
-              "port": 8555,
-              "dependencies": [
-                "requests==2.32.3",
-                "certifi==2024.7.4",
-                "urllib3==2.2.2",
-                "plyer==2.1.0"
-              ],
-              "exclude": [
-                "app.py",
-                "cron_weekly_check.py",
-                "patch*.py",
-                "generate.py",
-                "python_debug_log.txt",
-                ".github/*",
-                "README.md",
-                "network.py"
-              ]
-            },
-            "android": {
-              "product": "Бортовой Журнал",
-              "permissions": [
-                "android.permission.INTERNET",
-                "android.permission.READ_EXTERNAL_STORAGE",
-                "android.permission.WRITE_EXTERNAL_STORAGE",
-                "android.permission.MANAGE_EXTERNAL_STORAGE"
-              ]
-            }
-          }
+          rm -rf flet.yaml flet.json
+          cat << 'EOF' > flet.yaml
+          app:
+            name: "carjournal"
+            package: "com.flet.carjournal"
+            version: "1.2.6"
+            build_number: 12
+            main_script: "main.py"
+            port: 8555
+            dependencies:
+              - requests==2.32.3
+              - certifi==2024.7.4
+              - urllib3==2.2.2
+              - plyer==2.1.0
+            exclude:
+              - "app.py"
+              - "cron_weekly_check.py"
+              - "patch*.py"
+              - "generate.py"
+              - "python_debug_log.txt"
+              - ".github/*"
+              - "README.md"
+              - "network.py"
+          android:
+            product: "Бортовой Журнал"
+            permissions:
+              - android.permission.INTERNET
+              - android.permission.READ_EXTERNAL_STORAGE
+              - android.permission.WRITE_EXTERNAL_STORAGE
+              - android.permission.MANAGE_EXTERNAL_STORAGE
           EOF
 
       - name: Формирование временного штампа сборки по Москве (UTC+3)
@@ -110,9 +103,9 @@ jobs:
       - name: Активация изолированного фонового демона-патчера
         run: python patch_runner.py &
 
-      - name: Нативная компиляция проекта по JSON-конфигурации
+      - name: Нативная компиляция проекта по чистому YAML
         run: |
-          flet build apk --project "carjournal" --product "Бортовой Журнал" -vv
+          flet build apk -vv
 
       - name: Переименование готового файла под кастомный временной штамп
         run: |
