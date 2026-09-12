@@ -2,8 +2,8 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 200766,
-                "date": "31.07.2026"
+                "value": 201402,
+                "date": "06.09.2026"
             },
             "daily_mileage": 25,
             "odometer_history": [
@@ -46,6 +46,10 @@
                 {
                     "value": 200307,
                     "date": "13.07.2026"
+                },
+                {
+                    "value": 201077,
+                    "date": "13.08.2026"
                 }
             ],
             "maintenance_data": {
@@ -111,28 +115,28 @@
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 7646,
-                    "rem_days": 305,
+                    "rem_km": 6723,
+                    "rem_days": 268,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 24632,
-                    "rem_days": 985,
+                    "rem_km": 23709,
+                    "rem_days": 948,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 35242,
-                    "rem_days": 1409,
+                    "rem_km": 34319,
+                    "rem_days": 1372,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 30412,
-                    "rem_days": 1216,
+                    "rem_km": 29489,
+                    "rem_days": 1179,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -60458,
-                    "rem_days": -2418,
+                    "rem_km": -61381,
+                    "rem_days": -2455,
                     "is_overdue": true
                 }
             },
@@ -196,6 +200,36 @@
                     "odometer": 200766,
                     "consumption": 11.32,
                     "comment": "БРСМ г. Харькова"
+                },
+                {
+                    "date": "13.08.2026",
+                    "type": "Газ",
+                    "liters": 37.24,
+                    "price": 41.39,
+                    "cost": 1541.37,
+                    "odometer": 201077,
+                    "consumption": 11.97,
+                    "comment": "БРСМ Юбилейный 45а"
+                },
+                {
+                    "date": "17.08.2026",
+                    "type": "Бензин",
+                    "liters": 13.01,
+                    "price": 76.89,
+                    "cost": 1000.34,
+                    "odometer": 201177,
+                    "consumption": 0.82,
+                    "comment": "БРСМ Свистуна, 11"
+                },
+                {
+                    "date": "06.09.2026",
+                    "type": "Газ",
+                    "liters": 35.13,
+                    "price": 42.49,
+                    "cost": 1492.67,
+                    "odometer": 201402,
+                    "consumption": 10.81,
+                    "comment": "БРСМ пр-т Юбилейный 45а"
                 }
             ],
             "repair_history": [
@@ -207,6 +241,26 @@
                     "part_code": "34566545",
                     "cost": 200.0,
                     "comment": "норма"
+                },
+                {
+                    "repair_name": "Промывка левого наружного шруса",
+                    "category": "Ходовая",
+                    "odometer": 201381,
+                    "date": "03.09.2026",
+                    "part_name": "Гайка, смазка ШРУС, хомуты пыльника, пластиковые хомуты",
+                    "part_code": "Рынок Барабашово",
+                    "cost": 300.0,
+                    "comment": ""
+                },
+                {
+                    "repair_name": "защита двигателя",
+                    "category": "Кузов",
+                    "odometer": 201381,
+                    "date": "03.09.2026",
+                    "part_name": "",
+                    "part_code": "",
+                    "cost": 0.0,
+                    "comment": "Выравнивание"
                 }
             ]
         },

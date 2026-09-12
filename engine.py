@@ -1,22 +1,14 @@
-﻿import json
-import os
+﻿import os
+import json
 from datetime import datetime, timedelta
 
-
-
-import os
-import sys
-if 'ANDROID_BOOTLOGO' in os.environ or os.name != 'nt':
-    DB_FILE = 'Carjournal_database.json'
-    CONFIG_FILE = 'app_config.txt'
-else:
-    DB_FILE = 'Carjournal_database.json'
-    CONFIG_FILE = 'app_config.txt'
+# Имена файлов конфигурации и базы данных приложения
+DB_FILE = "Carjournal_database.json"
+CONFIG_FILE = "app_config.txt"
 DB_PATH = DB_FILE
 
-
 def save_config_to_disk(file_id):
-    """Принудительно записывает file_id на диск."""
+    """Принудительно записывает file_id на диск в файл конфигурации."""
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"last_file_id": file_id}, f, ensure_ascii=False, indent=4)
@@ -24,7 +16,7 @@ def save_config_to_disk(file_id):
         print(f"[DEBUG CONFIG] Ошибка записи конфига: {e}")
 
 def load_config_from_disk():
-    """Читает file_id с диска."""
+    """Читает file_id с диска из файла конфигурации."""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -35,17 +27,17 @@ def load_config_from_disk():
             print(f"[DEBUG CONFIG] Ошибка чтения конфига: {e}")
     return None
 
-# Умный класс-обертка для app_state, перехватывающий запись ключей
 class SmartAppState(dict):
+    """Умный класс-обертка для app_state, перехватывающий запись ключей."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
         # Если network.py записывает новый last_file_id, мгновенно сохраняем его на диск
         if key == "last_file_id" and value is not None:
             save_config_to_disk(value)
-            
+
     def get(self, key, default=None):
         if key == "last_file_id":
             val = super().get(key, default)
@@ -56,16 +48,14 @@ class SmartAppState(dict):
             return val
         return super().get(key, default)
 
-# Инициализируем состояние приложения как умный словарь
-# Сразу же при загрузке модуля подтягиваем сохраненный file_id с диска, если он существует
+# Инициализируем глобальное состояние приложения как умный словарь
 saved_id = load_config_from_disk()
-
 app_state = SmartAppState({
     "active_tab": 0,
     "newly_added_cars": [],
     "view_mode": "list",
     "selected_car": "Chevrolet lacetti",
-    "last_file_id": saved_id  # Теперь ID готов к выдаче сразу после перезапуска приложения
+    "last_file_id": saved_id
 })
 
 def get_default_car_data():
@@ -100,21 +90,28 @@ def recalculate_auto_daily_mileage(car_profile):
     """Вычисляет реальный пробег в сутки на основе скользящего среднего между соседними записями."""
     history = car_profile.get("odometer_history", [])
     if len(history) < 2:
-        return int(car_profile.get("daily_mileage", 45))
-        
+        try:
+            return int(car_profile.get("daily_mileage", 45))
+        except Exception:
+            return 45
+
     try:
         # Сортируем историю строго по хронологии дат
-        sorted_hist = sorted(history, key=lambda x: datetime.strptime(x.get("date", "01.01.2000"), "%d.%m.%Y") if x.get("date") else datetime.min)
-        
+        sorted_hist = sorted(
+            history, 
+            key=lambda x: datetime.strptime(x.get("date", "01.01.2000"), "%d.%m.%Y") if x.get("date") else datetime.min
+        )
         rates = []
         # Проходим по парам соседних (последовательных) записей пробега
         for i in range(1, len(sorted_hist)):
             prev_entry = sorted_hist[i-1]
             curr_entry = sorted_hist[i]
             
+            if not prev_entry.get("date") or not curr_entry.get("date"):
+                continue
+                
             d1 = datetime.strptime(prev_entry["date"], "%d.%m.%Y")
             d2 = datetime.strptime(curr_entry["date"], "%d.%m.%Y")
-            
             days = (d2 - d1).days
             km = int(curr_entry["value"]) - int(prev_entry["value"])
             
@@ -125,20 +122,16 @@ def recalculate_auto_daily_mileage(car_profile):
             if days > 0 and km > 0:
                 rates.append(km / days)
                 
-        # Если удалось посчитать отрезки, берём среднее по последним 4 периодам (свежая статистика)
+        # Если удалось посчитать отрезки, берем среднее по последним 4 периодам (свежая статистика)
         if rates:
-            recent_rates = rates[-4:]  # Берём только актуальный плавающий интервал поездок
+            recent_rates = rates[-4:]
             calculated_rate = int(sum(recent_rates) / len(recent_rates))
-            
             # Защита от опечаток и случайных лишних нулей при вводе км (ограничение 1000 км/день)
             if calculated_rate > 1000:
                 return int(car_profile.get("daily_mileage", 45))
-                
             return max(1, calculated_rate)
-            
     except Exception:
         pass
-        
     return int(car_profile.get("daily_mileage", 45))
 
 def calculate_task_status(task_info, current_odometer, daily_mileage):
@@ -151,7 +144,6 @@ def calculate_task_status(task_info, current_odometer, daily_mileage):
     else:
         rem_days = 9999
     return {"rem_km": rem_km, "rem_days": rem_days, "is_overdue": rem_km <= 0}
-
 def get_maintenance_predictions(car_profile):
     """Генерация пакета прогнозов по всем компонентам ТО."""
     current_odometer = car_profile.get("odometer", {}).get("value", 0)
@@ -167,17 +159,21 @@ def load_data():
     if not os.path.exists(DB_FILE):
         try:
             initial_data = {"cars": {"Chevrolet lacetti": get_default_car_data()}}
-            initial_data["cars"]["Chevrolet lacetti"]["predictions"] = get_maintenance_predictions(initial_data["cars"]["Chevrolet lacetti"])
+            initial_data["cars"]["Chevrolet lacetti"]["predictions"] = get_maintenance_predictions(
+                initial_data["cars"]["Chevrolet lacetti"]
+            )
             save_data(initial_data)
             return initial_data
         except Exception:
             return {"cars": {"Chevrolet lacetti": {}}}
+            
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
+            
         if not data or "cars" not in data or not data["cars"]:
             data = {"cars": {"Chevrolet lacetti": get_default_car_data()}}
-        
+            
         for car_name, car_profile in list(data["cars"].items()):
             try:
                 if "odometer" not in car_profile:
@@ -192,22 +188,21 @@ def load_data():
                     car_profile["history"] = []
                 if "fuel_history" not in car_profile:
                     car_profile["fuel_history"] = []
+                    
                 try:
                     car_profile["daily_mileage"] = recalculate_auto_daily_mileage(car_profile)
                 except Exception:
                     car_profile["daily_mileage"] = 45
-                
-                for task_name, task_info in car_profile["maintenance_data"].items():
+                    
+                for task_name, task_info in car_profile.get("maintenance_data", {}).items():
                     if "last_service" not in task_info:
                         task_info["last_service"] = car_profile["odometer"]["value"]
                     if "interval" not in task_info:
                         task_info["interval"] = 10000
                     if "date" not in task_info:
                         task_info["date"] = datetime.now().strftime("%d.%m.%Y")
-                try:
-                    car_profile["predictions"] = get_maintenance_predictions(car_profile)
-                except Exception:
-                    car_profile["predictions"] = {}
+                        
+                car_profile["predictions"] = get_maintenance_predictions(car_profile)
             except Exception:
                 pass
         return data
@@ -215,101 +210,175 @@ def load_data():
         return {"cars": {"Chevrolet lacetti": get_default_car_data()}}
 
 def save_data(data):
+    """Преобразует словарь данных в JSON и пишет на диск."""
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception as e:
         print(f"Ошибка записи на диск: {e}")
 
-# Функции аналитики восстановлены автоматически
+def rename_car_profile(data, old_name, new_name):
+    """Безопасно переименовывает автомобиль в кэше и пишет на диск."""
+    if "cars" not in data or old_name not in data["cars"]:
+        return False, "Автомобиль со старым именем не найден."
+    if new_name in data["cars"]:
+        return False, "Автомобиль с таким именем уже существует."
+    if not new_name.strip():
+        return False, "Имя автомобиля не может быть пустым."
+        
+    data["cars"][new_name] = data["cars"].pop(old_name)
+    save_data(data)
+    return True, "Автомобиль успешно переименован."
+
+def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str, comment=""):
+    """Добавляет запись о заправке на основе литров и общей суммы."""
+    if "fuel_history" not in car_profile:
+        car_profile["fuel_history"] = []
+        
+    liters = float(liters)
+    cost = float(total_cost)
+    odometer = int(odometer)
+    
+    price = round(cost / liters, 2) if liters > 0 else 0.0
+    consumption = 0.0
+    
+    same_type_logs = [log for log in car_profile["fuel_history"] if log.get("type") == f_type]
+    if same_type_logs:
+        same_type_logs.sort(key=lambda x: x.get("odometer", 0))
+        prev_log = same_type_logs[-1]
+        delta_km = odometer - prev_log.get("odometer", 0)
+        if delta_km > 0:
+            consumption = round((liters / delta_km) * 100, 2)
+            
+    new_record = {
+        "date": date_str,
+        "type": f_type,
+        "liters": liters,
+        "price": price,
+        "cost": cost,
+        "odometer": odometer,
+        "consumption": consumption,
+        "comment": comment
+    }
+    car_profile["fuel_history"].append(new_record)
+    return new_record
+
 def calculate_cost_per_km_brsm(car_profile):
-    fuel_history = car_profile.get('fuel_history', [])
-    if not fuel_history: return 0.0
-    gas_logs = sorted([log for log in fuel_history if log.get('type') == 'Газ'], key=lambda x: x.get('odometer', 0))
-    petrol_logs = sorted([log for log in fuel_history if log.get('type') == 'Бензин'], key=lambda x: x.get('odometer', 0))
+    """Вычисляет стоимость 1 км пути на основе крайних заправок БРСМ (Газ/Бензин)."""
+    fuel_history = car_profile.get("fuel_history", [])
+    if not fuel_history:
+        return 0.0
+        
+    gas_logs = sorted([log for log in fuel_history if log.get("type") == "Газ"], key=lambda x: x.get("odometer", 0))
+    petrol_logs = sorted([log for log in fuel_history if log.get("type") == "Бензин"], key=lambda x: x.get("odometer", 0))
+    
     gas_cost_per_km = 0.0
     petrol_cost_per_km = 0.0
+    
     if gas_logs:
         last_gas = gas_logs[-1]
-        consumption = last_gas.get('consumption', 0.0)
-        price = last_gas.get('price', 0.0)
-        if consumption > 0: gas_cost_per_km = (consumption / 100.0) * price
+        consumption = last_gas.get("consumption", 0.0)
+        price = last_gas.get("price", 0.0)
+        if consumption > 0:
+            gas_cost_per_km = (consumption / 100.0) * price
+            
     if petrol_logs:
         last_petrol = petrol_logs[-1]
-        consumption = last_petrol.get('consumption', 0.0)
-        price = last_petrol.get('price', 0.0)
-        if consumption > 0: petrol_cost_per_km = (consumption / 100.0) * price
-    if gas_cost_per_km > 0: return round(gas_cost_per_km, 2)
+        consumption = last_petrol.get("consumption", 0.0)
+        price = last_petrol.get("price", 0.0)
+        if consumption > 0:
+            petrol_cost_per_km = (consumption / 100.0) * price
+            
+    if gas_cost_per_km > 0:
+        return round(gas_cost_per_km, 2)
     return round(petrol_cost_per_km, 2)
 
-
 def calculate_fuel_stats(car_profile, days=30):
-    from datetime import datetime, timedelta
+    """Вычисляет общие расходы (ТО + Топливо) в грн за выбранный период дней."""
     now = datetime.now()
     cutoff_date = now - timedelta(days=days)
     fuel_spent = 0.0
     maintenance_spent = 0.0
-    fuel_history = car_profile.get('fuel_history', [])
+    
+    fuel_history = car_profile.get("fuel_history", [])
     for record in fuel_history:
         try:
-            r_date = datetime.strptime(record.get('date', ''), '%d.%m.%Y')
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
             if r_date >= cutoff_date:
-                fuel_spent += float(record.get('cost', 0.0))
-        except: continue
-    history = car_profile.get('history', [])
+                fuel_spent += float(record.get("cost", 0.0))
+        except:
+            continue
+            
+    history = car_profile.get("history", [])
     for record in history:
         try:
-            r_date = datetime.strptime(record.get('date', ''), '%d.%m.%Y')
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
             if r_date >= cutoff_date:
-                maintenance_spent += float(record.get('cost', 0.0))
-        except: continue
+                maintenance_spent += float(record.get("cost", 0.0))
+        except:
+            continue
+            
     return {
-        'fuel_spent': round(fuel_spent, 2),
-        'maintenance_spent': round(maintenance_spent, 2),
-        'total_spent': round(fuel_spent + maintenance_spent, 2)
+        "fuel_spent": round(fuel_spent, 2),
+        "maintenance_spent": round(maintenance_spent, 2),
+        "total_spent": round(fuel_spent + maintenance_spent, 2)
     }
 
-
 def calculate_gbo_economy_points(car_profile):
-    fuel_history = car_profile.get('fuel_history', [])
-    if not fuel_history: return []
+    """Расчет окупаемости ГБО с защитой от одиночных бензиновых чеков."""
+    fuel_history = car_profile.get("fuel_history", [])
+    if not fuel_history:
+        return []
+        
     gas_logs = []
     petrol_logs = []
+    
     for log in fuel_history:
-        f_type = log.get('type')
-        odo_val = int(log.get('odometer', 0))
-        cost_val = float(log.get('cost', 0.0))
-        cons_val = float(log.get('consumption', 0.0))
-        price_val = float(log.get('price', 0.0))
-        item = {'odometer': odo_val, 'cost': cost_val, 'consumption': cons_val, 'price': price_val}
-        if f_type == 'Газ': gas_logs.append(item)
-        elif f_type == 'Бензин': petrol_logs.append(item)
-    gas_logs.sort(key=lambda x: x['odometer'])
-    petrol_logs.sort(key=lambda x: x['odometer'])
-    if not gas_logs: return []
-    base_petrol_price = petrol_logs[-1]['price'] if petrol_logs else 54.0
+        f_type = log.get("type")
+        odo_val = int(log.get("odometer", 0))
+        cost_val = float(log.get("cost", 0.0))
+        cons_val = float(log.get("consumption", 0.0))
+        price_val = float(log.get("price", 0.0))
+        item = {"odometer": odo_val, "cost": cost_val, "consumption": cons_val, "price": price_val}
+        if f_type in ["Газ", "Gas"]:
+            gas_logs.append(item)
+        elif f_type in ["Бензин", "Petrol"]:
+            petrol_logs.append(item)
+            
+    gas_logs.sort(key=lambda x: x["odometer"])
+    petrol_logs.sort(key=lambda x: x["odometer"])
+    
+    if not gas_logs:
+        return []
+        
+    base_petrol_price = petrol_logs[-1]["price"] if petrol_logs else 54.0
     base_petrol_consumption = 8.5
-    valid_petrol_cons = [log['consumption'] for log in petrol_logs if log['consumption'] > 0]
+    
+    valid_petrol_cons = [log["consumption"] for log in petrol_logs if log["consumption"] > 0]
     if valid_petrol_cons:
         base_petrol_consumption = sum(valid_petrol_cons) / len(valid_petrol_cons)
     else:
-        valid_gas_cons = [log['consumption'] for log in gas_logs if log['consumption'] > 0]
+        valid_gas_cons = [log["consumption"] for log in gas_logs if log["consumption"] > 0]
         if valid_gas_cons:
             base_petrol_consumption = (sum(valid_gas_cons) / len(valid_gas_cons)) * 0.85
+            
     points = []
     accumulated_gas_cost = 0.0
-    start_odo = gas_logs[0]['odometer']
+    start_odo = gas_logs[0]["odometer"]
+    
     for log in gas_logs:
-        current_odo = log['odometer']
+        current_odo = log["odometer"]
         delta_km = current_odo - start_odo
-        accumulated_gas_cost += log['cost']
+        accumulated_gas_cost += log["cost"]
+        
         if delta_km > 0:
             accumulated_alternative_cost = (delta_km / 100.0) * base_petrol_consumption * base_petrol_price
         else:
             accumulated_alternative_cost = accumulated_gas_cost
+            
         points.append({
-            'km': delta_km,
-            'economy': round(accumulated_alternative_cost - accumulated_gas_cost, 2),
-            'gas_cost': round(accumulated_gas_cost, 2)
+            "km": delta_km,
+            "economy": round(accumulated_alternative_cost - accumulated_gas_cost, 2),
+            "gas_cost": round(accumulated_gas_cost, 2)
         })
     return points
