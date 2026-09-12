@@ -5,15 +5,22 @@ import warnings
 import getpass
 from datetime import datetime
 
-# Автономная защита ресурсов локализации на Android
+# Автономная защита ресурсов локализации с привязкой к песочнице Android
 try:
-    if not os.path.exists("server_config"):
-        os.makedirs("server_config", exist_ok=True)
-    if not os.path.exists("server_config/ru_ru.json"):
-        with open("server_config/ru_ru.json", "w", encoding="utf-8") as f_loc:
+    sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+    if sandbox_dir in ["/", "/data", ""]:
+        sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    config_dir = os.path.join(sandbox_dir, "server_config")
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+        
+    config_file = os.path.join(config_dir, "ru_ru.json")
+    if not os.path.exists(config_file):
+        with open(config_file, "w", encoding="utf-8") as f_loc:
             f_loc.write('{"status": "fallback", "locale": "ru_RU"}')
 except Exception as loc_err:
-    print(f"[PATCH_RESOURCE_WARNING] Не удалось создать мультилокализацию: {loc_err}")
+    print(f"[PATCH_RESOURCE_WARNING] Не удалось создать локализацию: {loc_err}")
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -178,7 +185,6 @@ def main(page: ft.Page):
 
         selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
         
-        # Гарантированное приведение типов: извлекаем строку, если selected_car оказался массивом
         if isinstance(selected_car, list) and selected_car:
             selected_car = selected_car[0]
             
@@ -245,7 +251,6 @@ def main(page: ft.Page):
                 try:
                     import threading
                     import network
-                    # Безопасное извлечение имени машины для сетевых алертов
                     current_car_name = selected_car[0] if isinstance(selected_car, list) else selected_car
                     if hasattr(network, 'LAST_SENT_ALERTS') and current_car_name in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[current_car_name] = None
