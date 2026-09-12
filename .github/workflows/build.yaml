@@ -104,7 +104,7 @@ jobs:
 
       - name: Нативная компиляция проекта по чистому YAML
         run: |
-          flet build apk --project "carjournal" --product "Бортовой Журнал" -vv
+          flet build apk -vv
 
       - name: Переименование готового файла под кастомный временной штамп
         run: |
