@@ -1,8 +1,4 @@
 ﻿import os
-import engine
-# Берем точное имя файла базы данных, которое использует само приложение
-DB_REAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), getattr(engine, "DB_FILE", "database.txt"))
-LAST_SENT_ALERTS = {}
 import flet as ft
 import json
 import io
@@ -13,14 +9,46 @@ import urllib3
 from concurrent.futures import ThreadPoolExecutor
 import engine
 
+# Отключаем предупреждения о незащищенных SSL-соединениях
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Ограничиваем количество воркеров для стабильности на Android
 network_executor = ThreadPoolExecutor(max_workers=2)
+LAST_SENT_ALERTS = {}
 
-BOT_TOKEN = "СЮДА_GITHUB_ACTIONS_ПОДСТАВИТ_ТОКЕН"
-
+# Плейсхолдеры для подстановки секретов в GitHub Actions
+BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
 TELEGRAM_IP = "149.154.167.220"
-BASE_URL = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}"
-BASE_FILE_URL = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}"
+
+# Адаптивное определение путей к базе данных для песочницы Android 11
+sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
+if sandbox_dir in ["/", "/data", ""]:
+    try:
+        from plyer import storagepath
+        sandbox_dir = storagepath.get_application_dir()
+    except Exception:
+        sandbox_dir = os.path.dirname(os.path.abspath(__file__))
+if "app_flutter" not in sandbox_dir:
+    sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+
+DB_REAL_PATH = os.path.join(sandbox_dir, "Carjournal_database.json")
+
+# Конфигурация для Android: трафик идет по домену, но перехватывается нативный сокет
+BASE_URL = f"https://telegram.org{BOT_TOKEN}"
+BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
+
+def patched_create_connection(address, *args, **kwargs):
+    """Нативный перехват DNS на уровне сокетов CPython для Android."""
+    host, port = address
+    if host == "api.telegram.org" or host == "telegram.org":
+        host = TELEGRAM_IP
+    return original_create_connection((host, port), *args, **kwargs)
+
+import urllib3.util.connection as urllib3_conn
+if not hasattr(urllib3_conn, '_original_create_connection'):
+    original_create_connection = urllib3_conn.create_connection
+    urllib3_conn._original_create_connection = original_create_connection
+    urllib3_conn.create_connection = patched_create_connection
 
 URL_EXPORT = f"{BASE_URL}/sendDocument"
 URL_UPDATES = f"{BASE_URL}/getUpdates"
@@ -33,35 +61,37 @@ CUSTOM_HEADERS = {
 }
 
 def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict, show_message_callback):
+    """Отображает диалоговое окно облачной синхронизации для Android-версии."""
+    try:
+        import asyncio
+        asyncio.run_coroutine_threadsafe(page.permission.request_permission_async(), page.loop)
+    except Exception as e:
+        print(f"[ПРАВА] Ошибка плагина разрешений Android: {e}")
+
     if mode == "export":
         def async_export_worker():
             try:
-                print("\n[DEBUG] Воркер экспорта запущен!")
-                import engine
+                print("\n[DEBUG] Воркер экспорта Android запущен!")
                 current_db_data = engine.load_data()
                 if not current_db_data or "cars" not in current_db_data:
                     current_db_data = {"cars": {}, "history": []}
-                
                 json_text = json.dumps(current_db_data, ensure_ascii=False, indent=4)
                 file_stream = io.BytesIO(json_text.encode("utf-8"))
-                file_stream.name = "CarJournal_database.json"
-                
+                file_stream.name = "Carjournal_database.json"
                 payload_data = {
                     "chat_id": 1036911003,
-                    "caption": "Резервная копия базы Журнала ТО"
+                    "caption": "Резервная копия базы (Android)"
                 }
                 payload_files = {"document": file_stream}
-                
                 response = requests.post(
-                    URL_EXPORT, 
-                    data=payload_data, 
-                    files=payload_files, 
+                    URL_EXPORT,
+                    data=payload_data,
+                    files=payload_files,
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
-                    timeout=15, 
-                    verify=False
+                    timeout=15,
+                    verify=True
                 )
-                
                 if response.status_code == 200:
                     async def success_msg_task():
                         show_message_callback("Бэкап успешно отправлен в Telegram!")
@@ -74,52 +104,98 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 async def fail_msg_task():
                     show_message_callback(f"Сбой сети: {str(ex)}")
                 page.run_task(fail_msg_task)
-                
         network_executor.submit(async_export_worker)
-        
     elif mode == "import":
         progress_ring = ft.ProgressRing(width=30, height=30, stroke_width=3)
-        status_text = ft.Text("Поиск последнего бэкапа in Telegram...", size=14)
+        status_text = ft.Text("Поиск последнего бэкапа в Telegram...", size=14)
         
         def close_dialog(e):
             dialog.open = False
             page.update()
-            
+
         def async_import_worker():
             def safe_update_ui(text, close_win=False):
-                status_text.value = text
-                if close_win:
-                    dialog.open = False
-                page.update()
-
+                async def ui_task():
+                    status_text.value = text
+                    if close_win:
+                        dialog.open = False
+                        page.update()
+                page.run_task(ui_task)
             try:
-                print("\n[DEBUG] Воркер импорта запущен через чистое ядро!")
-                safe_update_ui("Подключение к Telegram и скачивание бэкапа...")
+                print("\n[DEBUG] Воркер импорта Android запущен!")
+                try:
+                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=True)
+                    time.sleep(0.5)
+                except:
+                    pass
                 
-                # Вызываем нашу протестированную функцию данных
-                success = auto_import_last_file()
-                
-                if success:
-                    # Обновляем оперативную память приложения новыми данными
-                    import engine
-                    db_data_ref.clear()
-                    db_data_ref.update(engine.load_data())
-                    
-                    # Безопасный асинхронный коллбэк для перерисовки графики
-                    async def finalize_success():
-                        show_message_callback("База успешно восстановлена из облака!")
-                        if page.data and "refresh_ui" in page.data:
-                            page.data["refresh_ui"]()
-                    
-                    page.run_task(finalize_success)
-                    safe_update_ui("Синхронизация успешна!", close_win=True)
-                else:
-                    safe_update_ui("Ошибка: Свежий бэкап не найден или поврежден.")
-                    
-            except Exception as ex:
-                print("[КРИТИЧЕСКИЙ СБОЙ В ПОТОКЕ ИМПОРТА]")
-                safe_update_ui(f"Ошибка рантайма: {str(ex)}")
+                print("[DEBUG] Запрашиваем getUpdates...")
+                response = requests.get(
+                    URL_UPDATES,
+                    headers=CUSTOM_HEADERS,
+                    proxies={"http": None, "https": None},
+                    timeout=12,
+                    verify=True
+                )
+                if response.status_code != 200:
+                    safe_update_ui(f"Ошибка сети: Код {response.status_code}")
+                    return
 
+                updates = response.json().get("result", [])
+                backup_file_id = None
+                for update in reversed(updates):
+                    try:
+                        message = update.get("message", {})
+                        if not message:
+                            continue
+                        document = message.get("document", {})
+                        if document and "json" in str(document.get("file_name", "")).lower():
+                            backup_file_id = document.get("file_id")
+                            break
+                    except:
+                        continue
+                if not backup_file_id:
+                    safe_update_ui("Бэкап в облаке не найден!")
+                    return
+
+                safe_update_ui("Скачивание файла...")
+                file_info_res = requests.get(
+                    URL_FILE_INFO,
+                    params={"file_id": backup_file_id},
+                    headers=CUSTOM_HEADERS,
+                    proxies={"http": None, "https": None},
+                    timeout=12,
+                    verify=True
+                )
+                
+                file_path = file_info_res.json().get("result", {}).get("file_path")
+                download_res = requests.get(
+                    URL_DOWNLOAD_BASE + file_path,
+                    headers=CUSTOM_HEADERS,
+                    proxies={"http": None, "https": None},
+                    timeout=12,
+                    verify=True
+                )
+
+                try:
+                    imported_json = json.loads(download_res.text)
+                    if "cars" in imported_json:
+                        engine.save_data(imported_json)
+                        db_data_ref.clear()
+                        db_data_ref.update(engine.load_data())
+                        
+                        async def finalize_success():
+                            show_message_callback("База успешно восстановлена!")
+                            if page.data and "refresh_ui" in page.data:
+                                page.data["refresh_ui"]()
+                        page.run_task(finalize_success)
+                        safe_update_ui("Синхронизация успешна!", close_win=True)
+                    else:
+                        safe_update_ui("Файл поврежден.")
+                except Exception:
+                    safe_update_ui("Ошибка чтения JSON-структуры")
+            except Exception as ex:
+                safe_update_ui(f"Ошибка: {str(ex)}")
         confirm_btn = ft.FilledButton(
             "Начать импорт",
             style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)
@@ -133,14 +209,10 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
         
         action_container = ft.Container(content=confirm_btn)
         dialog = ft.AlertDialog(
-            title=ft.Text("Облачный Импорт"),
-            content=ft.Column(
-                [status_text, ft.Container(height=10), action_container],
-                tight=True,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER
-            ),
+            title=ft.Text("Облачный Импорт (Android)"),
+            content=ft.Column([status_text, ft.Container(height=10), action_container], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             actions=[ft.TextButton("Отмена", on_click=close_dialog)],
-            actions_alignment=ft.MainAxisAlignment.END,
+            actions_alignment=ft.MainAxisAlignment.END
         )
         page.overlay.append(dialog)
         dialog.open = True
@@ -148,57 +220,58 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
 
 def send_telegram_alert_message(text_msg):
-    """Внутренний фоновый воркер отправки критических уведомлений."""
-    url = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/sendMessage"
+    """Внутренний фоновый воркер отправки критических уведомлений на Android."""
+    url = f"https://telegram.org{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": 1036911003,
         "text": text_msg,
         "parse_mode": "HTML"
     }
     try:
-        requests.post(url, data=payload, headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=10, verify=False)
+        requests.post(
+            url, 
+            data=payload, 
+            headers=CUSTOM_HEADERS, 
+            proxies={"http": None, "https": None},
+            timeout=10, 
+            verify=True
+        )
     except Exception:
         pass
-
 def check_and_send_alerts(car_profile, car_name=None):
-    """Сканирует прогнозы, исправляет имя None и защищает от дублирования алертов."""
+    """Сканирует прогнозы износа и отправляет алерты по сокетам."""
     global LAST_SENT_ALERTS
     predictions = car_profile.get("predictions", {})
     alerts_to_send = []
-    
-    # Исправление бага None: берем переданное имя или ищем в app_state
+
     if not car_name:
         car_name = engine.app_state.get("selected_car", "Мой Автомобиль")
-        
+
     for task_name, pred in predictions.items():
         rem_km = pred.get("rem_km", 9999)
         if rem_km <= 500:
             status = f"<b>ПРОСРОЧЕНО</b> на {-rem_km} км!" if rem_km < 0 else f"осталось всего {rem_km} км."
-            alerts_to_send.append(f"• ⚠️ <b>{task_name}</b>: {status}")
-            
+            alerts_to_send.append(f" <b>{task_name}</b>: {status}")
+
     if alerts_to_send:
         full_message_body = "\n".join(alerts_to_send)
-        
-        # Флуд-контроль: если для этой машины алерты не изменились, игнорируем повторную отправку
         if LAST_SENT_ALERTS.get(car_name) == full_message_body:
             return
-            
         LAST_SENT_ALERTS[car_name] = full_message_body
-        
-        msg_header = f"🚨 <b>Внимание! Критический износ ТО</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
+        msg_header = f" <b>Внимание! Критический износ TO</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
         full_message = msg_header + full_message_body
-        
         network_executor.submit(send_telegram_alert_message, full_message)
 
-def auto_import_last_file():
-    """Чистая функция импорта базы данных без привязки к контексту страницы."""
+
+def auto_import_last_file(page=None, show_message_callback=None):
+    """Автоматический импорт базы при старте Android-приложения."""
     import requests
     import engine
     target_file_id = engine.app_state.get("last_file_id")
     if not target_file_id:
         try:
-            url_updates = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getUpdates?offset=-1&limit=10"
-            response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+            url_updates = f"https://telegram.org{BOT_TOKEN}/getUpdates?offset=-1&limit=10"
+            response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=True, timeout=10)
             if response.status_code == 200:
                 res_data = response.json()
                 for result in reversed(res_data.get("result", [])):
@@ -209,21 +282,69 @@ def auto_import_last_file():
                         break
         except Exception:
             pass
+
     if not target_file_id:
+        if show_message_callback:
+            show_message_callback("Свежий бэкап не найден в Telegram")
         return False
+
     try:
-        url_file_info = f"https://{TELEGRAM_IP}/bot{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
+        url_file_info = f"https://telegram.org{BOT_TOKEN}/getFile?file_id={target_file_id}"
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=True, timeout=10).json()
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
-            url_download = f"https://{TELEGRAM_IP}/file/bot{BOT_TOKEN}/{file_path}"
-            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
+            url_download = f"https://telegram.org{BOT_TOKEN}/{file_path}"
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=True, timeout=10)
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
                     f.write(db_resp.text)
-                import engine
                 engine.load_data()
+                if show_message_callback:
+                    show_message_callback("База успешно импортирована!")
                 return True
     except Exception:
         pass
+    if show_message_callback:
+        show_message_callback("Не удалось скачать бэкап")
     return False
+
+
+def auto_export_file_to_telegram(page, show_message_callback):
+    """Автоматический экспорт базы данных в Telegram с Android-устройства."""
+    import requests
+    url = f"https://telegram.org{BOT_TOKEN}/sendDocument"
+
+    def show_alert(msg_text):
+        def close_dialog(_):
+            dialog.open = False
+            page.update()
+        dialog = ft.AlertDialog(
+            title=ft.Text("Синхронизация базы (Android)"),
+            content=ft.Text(msg_text),
+            actions=[ft.TextButton("OK", on_click=close_dialog)]
+        )
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
+    if not os.path.exists(DB_REAL_PATH):
+        show_alert("Ошибка: Файл базы данных не найден.")
+        return
+
+    try:
+        with open(DB_REAL_PATH, "rb") as file_data:
+            files = {"document": ("Carjournal_database.json", file_data)}
+            payload = {"chat_id": 1036911003, "caption": "Резервная копия базы (Android)"}
+            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=True, timeout=10)
+            if resp.status_code == 200:
+                resp_json = resp.json()
+                if resp_json.get("ok"):
+                    doc_info = resp_json["result"].get("document", {})
+                    engine.app_state["last_file_id"] = doc_info.get("file_id")
+                    show_alert("База успешно экспортирована в Telegram!")
+                else:
+                    show_alert(f"Ошибка сервера: {resp.status_code}")
+            else:
+                show_alert(f"Ошибка сети: {resp.status_code}")
+    except Exception as e:
+        show_alert(f"Ошибка шлюза: {str(e)}")
