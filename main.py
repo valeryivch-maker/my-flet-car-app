@@ -5,16 +5,19 @@ import warnings
 import getpass
 from datetime import datetime
 
-# Автономная защита ресурсов локализации с привязкой к песочнице Android
+# Автономная защита ресурсов локализации с жесткой привязкой к песочнице Android 11+
 try:
+    # Динамически определяем легитимную директорию песочницы приложения
     sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
     if sandbox_dir in ["/", "/data", ""]:
         sandbox_dir = os.path.dirname(os.path.abspath(__file__))
     
+    # Формируем абсолютный путь к папке конфигурации
     config_dir = os.path.join(sandbox_dir, "server_config")
     if not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
         
+    # Формируем абсолютный путь к файлу локализации
     config_file = os.path.join(config_dir, "ru_ru.json")
     if not os.path.exists(config_file):
         with open(config_file, "w", encoding="utf-8") as f_loc:
@@ -183,8 +186,7 @@ def main(page: ft.Page):
             page.update()
             return
 
-        selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
-        
+        selected_car = engine.app_state.get('selected_car')
         if isinstance(selected_car, list) and selected_car:
             selected_car = selected_car[0]
             
