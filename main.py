@@ -73,9 +73,10 @@ def run_local_telegram_sync():
         
     try:
         found_files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(found_files, "Carjournal_database.json")
+        shutil.copy2(found_files[0], "Carjournal_database.json")
         return True
-    except:
+    except Exception as ex:
+        print(f"[DEBUG IMPORT] Ошибка копирования: {ex}")
         return False
 
 
@@ -175,11 +176,16 @@ def main(page: ft.Page):
             page.update()
             return
 
-        selected_car = engine.app_state.get('selected_car')
+        selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
+        
+        # Гарантированное приведение типов: извлекаем строку, если selected_car оказался массивом
+        if isinstance(selected_car, list) and selected_car:
+            selected_car = selected_car[0]
+            
         if selected_car:
             match = [c for c in car_names if str(c).lower().strip() == str(selected_car).lower().strip()]
             if match:
-                selected_car = match[0]  # Фикс дедлока: извлекаем чистую строку из массива
+                selected_car = match[0]
                 engine.app_state['selected_car'] = selected_car
 
         if not selected_car or selected_car not in cars_dict:
@@ -239,11 +245,13 @@ def main(page: ft.Page):
                 try:
                     import threading
                     import network
-                    if hasattr(network, 'LAST_SENT_ALERTS') and selected_car in network.LAST_SENT_ALERTS:
-                        network.LAST_SENT_ALERTS[selected_car] = None
+                    # Безопасное извлечение имени машины для сетевых алертов
+                    current_car_name = selected_car[0] if isinstance(selected_car, list) else selected_car
+                    if hasattr(network, 'LAST_SENT_ALERTS') and current_car_name in network.LAST_SENT_ALERTS:
+                        network.LAST_SENT_ALERTS[current_car_name] = None
                     def trigger_alerts_worker():
                         if hasattr(network, 'check_and_send_alerts'):
-                            network.check_and_send_alerts(car_profile, car_name=selected_car)
+                            network.check_and_send_alerts(car_profile, car_name=current_car_name)
                     threading.Thread(target=trigger_alerts_worker, daemon=True).start()
                 except Exception as t_err:
                     print(f"[ALERT TRIGGER ERROR]: {t_err}")
@@ -307,11 +315,13 @@ def main(page: ft.Page):
                 import network
                 current_db_data = engine.load_data()
                 sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
+                if isinstance(sel_car, list) and sel_car:
+                    sel_car = sel_car[0]
                 if current_db_data and "cars" in current_db_data and sel_car in current_db_data["cars"]:
                     car_prof = current_db_data["cars"][sel_car]
                     network.check_and_send_alerts(car_prof, car_name=sel_car)
-            except:
-                pass
+            except Exception as e:
+                print(f"[DEBUG START ALERTS WORKER ERROR]: {e}")
         threading.Thread(target=trigger_start_alerts_worker, daemon=True).start()
     except Exception as start_err:
         print(f"[START ALERT TRIGGER ERROR]: {start_err}")
