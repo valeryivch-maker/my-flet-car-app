@@ -27,7 +27,6 @@ if cwd_dir not in sys.path:
     except:
         pass
 
-import network
 import flet as ft
 import engine
 import views
@@ -69,7 +68,7 @@ def run_local_telegram_sync():
         
     try:
         found_files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(found_files[0], "Carjournal_database.json")
+        shutil.copy2(found_files, "Carjournal_database.json")
         return True
     except:
         return False
@@ -125,6 +124,8 @@ def main(page: ft.Page):
         import asyncio
         loop = asyncio.get_running_loop()
         try:
+            # Динамический импорт для обхода ограничений компилятора Serious Python
+            import network
             success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
             if success or os.name != "nt":
                 page.data.pop("db_data", None)
@@ -231,6 +232,7 @@ def main(page: ft.Page):
 
                 try:
                     import threading
+                    import network
                     if hasattr(network, 'LAST_SENT_ALERTS') and selected_car in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[selected_car] = None
                     def trigger_alerts_worker():
@@ -247,13 +249,15 @@ def main(page: ft.Page):
             engine.app_state['view_mode'] = 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'
             rebuild_ui()
 
+        # Динамический проброс сетевого модуля в панели действий views
+        import network
         action_panel = views.build_action_panel(
             page, current_db, selected_car, async_mobile_import, async_pc_import,
             toggle_analytics_click, network, show_message, refresh_ui
         )
 
         odo_hist = car_profile.get("odometer_history", [])
-        hist_text = "Historia пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
+        hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
 
         header_card = ft.Card(
             content=ft.Container(
@@ -290,18 +294,19 @@ def main(page: ft.Page):
     # Стартовая инициализация
     rebuild_ui()
 
-    # Фоновая проверка критического износа ТО
+    # Фоновая проверка критического износа ТО при старте
     try:
         import threading
         def trigger_start_alerts_worker():
-            import sys
-            net_mod = sys.modules.get('network', __import__('network'))
-            if hasattr(net_mod, 'check_and_send_alerts'):
+            try:
+                import network
                 current_db_data = engine.load_data()
                 sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
                 if current_db_data and "cars" in current_db_data and sel_car in current_db_data["cars"]:
                     car_prof = current_db_data["cars"][sel_car]
-                    net_mod.check_and_send_alerts(car_prof, car_name=sel_car)
+                    network.check_and_send_alerts(car_prof, car_name=sel_car)
+            except:
+                pass
         threading.Thread(target=trigger_start_alerts_worker, daemon=True).start()
     except Exception as start_err:
         print(f"[START ALERT TRIGGER ERROR]: {start_err}")
