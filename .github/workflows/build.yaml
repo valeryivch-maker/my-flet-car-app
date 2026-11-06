@@ -23,6 +23,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Установка Flutter SDK (3.19.6)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Проверка Flutter
+        run: flutter --version
+
       - name: Установка Linux-зависимостей для сборки
         run: |
           sudo apt-get update
