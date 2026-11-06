@@ -8,7 +8,7 @@ from datetime import datetime
 # Стабилизация путей песочницы для Android 11+
 try:
     if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
-        sandbox_dir = os.environ.get("FLET_APP_DIR", "/data/data/com.flet.carjournal/files")
+        sandbox_dir = os.environ.get("FLET_APP_STORAGE_DATA", "/data/data/com.flet.carjournal/files")
         if sandbox_dir in ["/", "/data", ""]:
             sandbox_dir = os.path.dirname(os.path.abspath(__file__))
         if "app_flutter" not in sandbox_dir:
@@ -56,7 +56,6 @@ def show_message(text: str):
             pass
 
 def run_local_telegram_sync():
-    # На Android этот метод не используется
     if os.name != "nt":
         return False
     import shutil
@@ -98,6 +97,16 @@ def run_local_telegram_sync():
 def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
+    
+    # Пробуем установить базовые параметры, даже если что-то пойдет не так
+    try:
+        page.title = "Журнал ТО"
+        page.theme_mode = ft.ThemeMode.LIGHT
+        page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
+        page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
+    except Exception as e:
+        print(f"[CRITICAL] Ошибка инициализации Page: {e}")
+
     orig_update = page.update
     state_holder = {'last_time': 0.0}
 
@@ -113,11 +122,6 @@ def main(page: ft.Page):
 
     page.update = throttled_update
     page.scroll = ft.ScrollMode.AUTO
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
-    
-    page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
-    page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
 
@@ -321,7 +325,17 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
 
-    rebuild_ui()
+    # === БЕЗОПАСНЫЙ СТАРТ ===
+    try:
+        rebuild_ui()
+    except Exception as e:
+        print(f"[CRITICAL] Ошибка при построении UI: {e}")
+        # Показываем пользователю хоть что-то, если произошла ошибка
+        try:
+            page.add(ft.Text(f"Ошибка запуска: {str(e)}", color=ft.Colors.RED))
+            page.update()
+        except:
+            pass
 
     try:
         import threading

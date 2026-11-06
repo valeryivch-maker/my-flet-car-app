@@ -3,22 +3,18 @@ import json
 from datetime import datetime, timedelta
 
 # === АДАПТАЦИЯ ПУТЕЙ ДЛЯ ANDROID ===
-def get_db_path():
-    # Пытаемся взять путь из переменных окружения Flet (для Android)
+def get_storage_dir():
+    # 1. Пытаемся взять путь из переменных окружения Flet (для Android)
     storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
-    if storage_dir:
-        return os.path.join(storage_dir, "Carjournal_database.json")
-    # Для десктопа берем текущую директорию
-    return os.path.join(os.getcwd(), "Carjournal_database.json")
+    if storage_dir and os.path.exists(storage_dir):
+        return storage_dir
+    
+    # 2. Для десктопа берем текущую директорию
+    return os.getcwd()
 
-def get_config_path():
-    storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
-    if storage_dir:
-        return os.path.join(storage_dir, "app_config.txt")
-    return os.path.join(os.getcwd(), "app_config.txt")
-
-DB_FILE = get_db_path()
-CONFIG_FILE = get_config_path()
+DB_DIR = get_storage_dir()
+DB_FILE = os.path.join(DB_DIR, "Carjournal_database.json")
+CONFIG_FILE = os.path.join(DB_DIR, "app_config.txt")
 
 def save_config_to_disk(file_id):
     try:
@@ -162,8 +158,9 @@ def load_data():
             )
             save_data(initial_data)
             return initial_data
-        except Exception:
-            return {"cars": {"Chevrolet lacetti": {}}, "shops": [], "guides": []}
+        except Exception as e:
+            print(f"[CRITICAL] Не удалось создать БД: {e}")
+            return {"cars": {"Chevrolet lacetti": get_default_car_data()}, "shops": [], "guides": []}
             
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -209,7 +206,8 @@ def load_data():
             except Exception:
                 pass
         return data
-    except Exception:
+    except Exception as e:
+        print(f"[CRITICAL] Ошибка чтения БД: {e}")
         return {"cars": {"Chevrolet lacetti": get_default_car_data()}, "shops": [], "guides": []}
 
 def save_data(data):
@@ -217,7 +215,7 @@ def save_data(data):
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception as e:
-        print(f"Ошибка записи на диск: {e}")
+        print(f"[CRITICAL] Ошибка записи БД: {e}")
 
 def rename_car_profile(data, old_name, new_name):
     if "cars" not in data or old_name not in data["cars"]:
