@@ -47,24 +47,29 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Копируем шаблон в рабочую директорию
           if [ -f "network_template.py" ]; then
             cp network_template.py network.py
           elif [ -f "network_template" ]; then
             cp network_template network.py
           fi
           
-          # Подставляем секреты в код (заменяем плейсхолдеры)
           if [ -f "network.py" ]; then
             sed -i "s/{{ TELEGRAM_BOT_TOKEN }}/$TELEGRAM_BOT_TOKEN/g" network.py
             sed -i "s/{{ TELEGRAM_CHAT_ID }}/$TELEGRAM_CHAT_ID/g" network.py
-            
-            # Оставляем замену домена на случай, если где-то остались старые ссылки
             sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
             sed -i 's|SSL_VERIFY_MODE = True|SSL_VERIFY_MODE = False|g' network.py
           fi
 
-      - name: Принудительная генерация flet.yaml с латинским ID и русским ярлыком
+      - name: Принудительная генерация requirements.txt
+        run: |
+          cat << 'EOF' > requirements.txt
+          requests==2.32.3
+          certifi==2024.7.4
+          urllib3==2.2.2
+          plyer==2.1.0
+          EOF
+
+      - name: Принудительная генерация flet.yaml с зависимостями
         run: |
           rm -rf flet.yaml flet.json
           cat << 'EOF' > flet.yaml
