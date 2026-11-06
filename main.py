@@ -5,7 +5,7 @@ import warnings
 import getpass
 from datetime import datetime
 
-# Стабилизация путей песочницы для Android 11+ (Защита от PermissionError)
+# Стабилизация путей песочницы для Android 11+
 try:
     if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
         sandbox_dir = os.environ.get("FLET_APP_DIR", "/data/data/com.flet.carjournal/files")
@@ -54,8 +54,11 @@ def show_message(text: str):
             _current_page_ref.update()
         except:
             pass
+
 def run_local_telegram_sync():
-    """Автоматически определяет имя пользователя Windows и адаптирует путь импорта."""
+    # На Android этот метод не используется
+    if os.name != "nt":
+        return False
     import shutil
     import glob
     
@@ -85,7 +88,7 @@ def run_local_telegram_sync():
         
     try:
         found_files.sort(key=os.path.getmtime, reverse=True)
-        shutil.copy2(found_files[0], "Carjournal_database.json")
+        shutil.copy2(found_files[0], engine.DB_FILE)
         return True
     except Exception as ex:
         print(f"[DEBUG IMPORT] Ошибка копирования: {ex}")
@@ -99,7 +102,6 @@ def main(page: ft.Page):
     state_holder = {'last_time': 0.0}
 
     def throttled_update(*args, **kwargs):
-        """Безопасный троттлинг интерфейса без блокировки основного UI-потока."""
         if os.name == 'nt':
             orig_update(*args, **kwargs)
             return
@@ -114,14 +116,12 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
     
-    # Облегченная тема без принудительных Scrollbar элементов для защиты GPU от SIGSEGV
     page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
     page.title = "Журнал ТО"
     page.window_width = 1200
     page.window_height = 800
 
     def refresh_ui():
-        """Полное обновление интерфейса."""
         page.controls.clear()
         page.update()
         rebuild_ui()
@@ -183,7 +183,6 @@ def main(page: ft.Page):
 
         selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
         
-        # Гарантированное извлечение строкового типа данных из списков
         if isinstance(selected_car, list) and selected_car:
             selected_car = selected_car[0]
             
@@ -276,6 +275,16 @@ def main(page: ft.Page):
         odo_hist = car_profile.get("odometer_history", [])
         hist_text = "История пробега: " + " ".join([f"{h['value']} км ({h['date']})" for h in odo_hist[-2:]]) if odo_hist else "История пробега пуста"
 
+        def send_full_report(e):
+            try:
+                report_text = engine.generate_report_full(car_profile, selected_car)
+                network.send_telegram_alert_message(report_text)
+                page.snack_bar = ft.SnackBar(ft.Text("Полный отчет отправлен в Telegram!"), open=True)
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка отправки: {ex}"), open=True)
+                page.update()
+
         header_card = ft.Card(
             content=ft.Container(
                 padding=12,
@@ -288,12 +297,16 @@ def main(page: ft.Page):
                         ft.ElevatedButton("Обновить пробег и прогноз", on_click=update_forecast_click, height=45, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE),
                         ft.ElevatedButton("История пробега", on_click=lambda _: views.show_car_odometer_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), height=45)
                     ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10),
+                    
                     ft.Text("Учет расходов на топливо", size=14, weight=ft.FontWeight.BOLD),
                     ft.Row([
                         ft.ElevatedButton("Заправить авто", icon=ft.Icons.LOCAL_GAS_STATION, bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE, on_click=lambda _: views.show_add_fuel_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40),
                         ft.ElevatedButton("Журнал заправок", icon=ft.Icons.LIST_ALT, on_click=lambda _: views.show_fuel_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40)
                     ], spacing=10),
+                    
                     ft.ElevatedButton("Журнал ремонтов", icon=ft.Icons.BUILD_CIRCLE, color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_GREY_700, on_click=lambda _: views.show_repair_history_dialog(page, current_db, car_profile, rebuild_ui, show_message), expand=True, height=40),
+                    
+                    ft.ElevatedButton("📊 Отправить полный отчет в TG", icon=ft.Icons.SEND, color=ft.Colors.WHITE, bgcolor=ft.Colors.GREEN_700, on_click=send_full_report, expand=True, height=45),
                 ], spacing=12)
             )
         )
@@ -308,13 +321,12 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
 
-    # Стартовая инициализация
     rebuild_ui()
 
-    # Фоновая проверка критического износа ТО при старте
     try:
         import threading
         def trigger_start_alerts_worker():
+            time.sleep(2) 
             try:
                 import network
                 current_db_data = engine.load_data()
@@ -326,6 +338,7 @@ def main(page: ft.Page):
                     network.check_and_send_alerts(car_prof, car_name=sel_car)
             except Exception as e:
                 print(f"[DEBUG START ALERTS WORKER ERROR]: {e}")
+                
         threading.Thread(target=trigger_start_alerts_worker, daemon=True).start()
     except Exception as start_err:
         print(f"[START ALERT TRIGGER ERROR]: {start_err}")

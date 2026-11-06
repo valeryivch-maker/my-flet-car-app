@@ -2,8 +2,8 @@
     "cars": {
         "Chevrolet lacetti": {
             "odometer": {
-                "value": 201480,
-                "date": "08.09.2026"
+                "value": 202384,
+                "date": "04.11.2026"
             },
             "daily_mileage": 25,
             "odometer_history": [
@@ -110,33 +110,36 @@
                     "task": "Замена масла + фильтры",
                     "odometer": 199104,
                     "date": "23.05.2026",
-                    "comment": ""
+                    "comment": "",
+                    "part_name": "",
+                    "part_code": "",
+                    "cost": 0.0
                 }
             ],
             "predictions": {
                 "Замена масла + фильтры": {
-                    "rem_km": 6702,
-                    "rem_days": 268,
+                    "rem_km": 5720,
+                    "rem_days": 228,
                     "is_overdue": false
                 },
                 "Замена ГРМ (ремень, помпа)": {
-                    "rem_km": 23688,
-                    "rem_days": 947,
+                    "rem_km": 22706,
+                    "rem_days": 908,
                     "is_overdue": false
                 },
                 "Замена антифриза": {
-                    "rem_km": 34298,
-                    "rem_days": 1371,
+                    "rem_km": 33316,
+                    "rem_days": 1332,
                     "is_overdue": false
                 },
                 "Тормозная жидкость": {
-                    "rem_km": 29468,
-                    "rem_days": 1178,
+                    "rem_km": 28486,
+                    "rem_days": 1139,
                     "is_overdue": false
                 },
                 "Обслуживание кондиционера": {
-                    "rem_km": -61402,
-                    "rem_days": -2456,
+                    "rem_km": -62384,
+                    "rem_days": -2495,
                     "is_overdue": true
                 }
             },
@@ -230,6 +233,46 @@
                     "odometer": 201402,
                     "consumption": 10.81,
                     "comment": "БРСМ пр-т Юбилейный 45а"
+                },
+                {
+                    "date": "07.10.2026",
+                    "type": "Бензин",
+                    "liters": 11.91,
+                    "price": 83.99,
+                    "cost": 1000.32,
+                    "odometer": 202015,
+                    "consumption": 1.42,
+                    "comment": "БРСМ, пер. Достатка, 19"
+                },
+                {
+                    "date": "12.10.2026",
+                    "type": "Газ",
+                    "liters": 35.41,
+                    "price": 43.99,
+                    "cost": 1557.68,
+                    "odometer": 202059,
+                    "consumption": 11.46,
+                    "comment": "БРСМ, Свитуна ,11"
+                },
+                {
+                    "date": "23.09.2026",
+                    "type": "Газ",
+                    "liters": 37.12,
+                    "price": 41.49,
+                    "cost": 1540.11,
+                    "odometer": 201750,
+                    "consumption": 10.67,
+                    "comment": "БРСМ, Юбилейный, 45А(километраж выдуманный)"
+                },
+                {
+                    "date": "03.11.2026",
+                    "type": "Газ",
+                    "liters": 35.3,
+                    "price": 55.49,
+                    "cost": 1958.8,
+                    "odometer": 202384,
+                    "consumption": 10.86,
+                    "comment": "БРСМ, Свистуна, 11"
                 }
             ],
             "repair_history": [
@@ -271,6 +314,16 @@
                     "part_code": "",
                     "cost": 0.0,
                     "comment": ""
+                },
+                {
+                    "repair_name": "Переобувка на зимнюю резину",
+                    "category": "Ходовая",
+                    "odometer": 202420,
+                    "date": "04.11.2026",
+                    "part_name": "",
+                    "part_code": "",
+                    "cost": 1125.0,
+                    "comment": "Надо покупать диски"
                 }
             ]
         },

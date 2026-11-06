@@ -2,13 +2,25 @@
 import json
 from datetime import datetime, timedelta
 
-# Имена файлов конфигурации и базы данных приложения
-DB_FILE = "Carjournal_database.json"
-CONFIG_FILE = "app_config.txt"
-DB_PATH = DB_FILE
+# === АДАПТАЦИЯ ПУТЕЙ ДЛЯ ANDROID ===
+def get_db_path():
+    # Пытаемся взять путь из переменных окружения Flet (для Android)
+    storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
+    if storage_dir:
+        return os.path.join(storage_dir, "Carjournal_database.json")
+    # Для десктопа берем текущую директорию
+    return os.path.join(os.getcwd(), "Carjournal_database.json")
+
+def get_config_path():
+    storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
+    if storage_dir:
+        return os.path.join(storage_dir, "app_config.txt")
+    return os.path.join(os.getcwd(), "app_config.txt")
+
+DB_FILE = get_db_path()
+CONFIG_FILE = get_config_path()
 
 def save_config_to_disk(file_id):
-    """Принудительно записывает file_id на диск в файл конфигурации."""
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"last_file_id": file_id}, f, ensure_ascii=False, indent=4)
@@ -16,7 +28,6 @@ def save_config_to_disk(file_id):
         print(f"[DEBUG CONFIG] Ошибка записи конфига: {e}")
 
 def load_config_from_disk():
-    """Читает file_id с диска из файла конфигурации."""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -28,13 +39,11 @@ def load_config_from_disk():
     return None
 
 class SmartAppState(dict):
-    """Умный класс-обертка для app_state, перехватывающий запись ключей."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        # Если network.py записывает новый last_file_id, мгновенно сохраняем его на диск
         if key == "last_file_id" and value is not None:
             save_config_to_disk(value)
 
@@ -48,7 +57,6 @@ class SmartAppState(dict):
             return val
         return super().get(key, default)
 
-# Инициализируем глобальное состояние приложения как умный словарь
 saved_id = load_config_from_disk()
 app_state = SmartAppState({
     "active_tab": 0,
@@ -59,7 +67,6 @@ app_state = SmartAppState({
 })
 
 def get_default_car_data():
-    """Генерирует демонстрационный шаблон данных для первого запуска."""
     current_date = datetime.now().strftime("%d.%m.%Y")
     past_date = (datetime.now() - timedelta(days=30)).strftime("%d.%m.%Y")
     return {
@@ -80,14 +87,12 @@ def get_default_car_data():
     }
 
 def parse_h_date(item):
-    """Глобальная функция парсинга дат для сортировки истории."""
     try:
         return datetime.strptime(item["date"], "%d.%m.%Y")
     except:
         return datetime.min
 
 def recalculate_auto_daily_mileage(car_profile):
-    """Вычисляет реальный пробег в сутки на основе скользящего среднего между соседними записями."""
     history = car_profile.get("odometer_history", [])
     if len(history) < 2:
         try:
@@ -96,13 +101,11 @@ def recalculate_auto_daily_mileage(car_profile):
             return 45
 
     try:
-        # Сортируем историю строго по хронологии дат
         sorted_hist = sorted(
             history, 
             key=lambda x: datetime.strptime(x.get("date", "01.01.2000"), "%d.%m.%Y") if x.get("date") else datetime.min
         )
         rates = []
-        # Проходим по парам соседних (последовательных) записей пробега
         for i in range(1, len(sorted_hist)):
             prev_entry = sorted_hist[i-1]
             curr_entry = sorted_hist[i]
@@ -115,18 +118,15 @@ def recalculate_auto_daily_mileage(car_profile):
             days = (d2 - d1).days
             km = int(curr_entry["value"]) - int(prev_entry["value"])
             
-            # Если записи сделаны в один день, считаем как за 1 день, чтобы избежать деления на ноль
             if days == 0 and km > 0:
                 days = 1
                 
             if days > 0 and km > 0:
                 rates.append(km / days)
                 
-        # Если удалось посчитать отрезки, берем среднее по последним 4 периодам (свежая статистика)
         if rates:
             recent_rates = rates[-4:]
             calculated_rate = int(sum(recent_rates) / len(recent_rates))
-            # Защита от опечаток и случайных лишних нулей при вводе км (ограничение 1000 км/день)
             if calculated_rate > 1000:
                 return int(car_profile.get("daily_mileage", 45))
             return max(1, calculated_rate)
@@ -135,7 +135,6 @@ def recalculate_auto_daily_mileage(car_profile):
     return int(car_profile.get("daily_mileage", 45))
 
 def calculate_task_status(task_info, current_odometer, daily_mileage):
-    """Вычисляет остаток ресурса до ТО в километрах и днях."""
     last_service = task_info.get("last_service", current_odometer)
     interval = task_info.get("interval", 10000)
     rem_km = (last_service + interval) - current_odometer
@@ -144,8 +143,8 @@ def calculate_task_status(task_info, current_odometer, daily_mileage):
     else:
         rem_days = 9999
     return {"rem_km": rem_km, "rem_days": rem_days, "is_overdue": rem_km <= 0}
+
 def get_maintenance_predictions(car_profile):
-    """Генерация пакета прогнозов по всем компонентам ТО."""
     current_odometer = car_profile.get("odometer", {}).get("value", 0)
     daily_mileage = car_profile.get("daily_mileage", 45)
     maintenance_data = car_profile.get("maintenance_data", {})
@@ -155,25 +154,29 @@ def get_maintenance_predictions(car_profile):
     return predictions
 
 def load_data():
-    """Загружает базу из файла и адаптирует под обновления."""
     if not os.path.exists(DB_FILE):
         try:
-            initial_data = {"cars": {"Chevrolet lacetti": get_default_car_data()}}
+            initial_data = {"cars": {"Chevrolet lacetti": get_default_car_data()}, "shops": [], "guides": []}
             initial_data["cars"]["Chevrolet lacetti"]["predictions"] = get_maintenance_predictions(
                 initial_data["cars"]["Chevrolet lacetti"]
             )
             save_data(initial_data)
             return initial_data
         except Exception:
-            return {"cars": {"Chevrolet lacetti": {}}}
+            return {"cars": {"Chevrolet lacetti": {}}, "shops": [], "guides": []}
             
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             
         if not data or "cars" not in data or not data["cars"]:
-            data = {"cars": {"Chevrolet lacetti": get_default_car_data()}}
+            data = {"cars": {"Chevrolet lacetti": get_default_car_data()}, "shops": [], "guides": []}
             
+        if "shops" not in data:
+            data["shops"] = []
+        if "guides" not in data:
+            data["guides"] = []
+
         for car_name, car_profile in list(data["cars"].items()):
             try:
                 if "odometer" not in car_profile:
@@ -207,10 +210,9 @@ def load_data():
                 pass
         return data
     except Exception:
-        return {"cars": {"Chevrolet lacetti": get_default_car_data()}}
+        return {"cars": {"Chevrolet lacetti": get_default_car_data()}, "shops": [], "guides": []}
 
 def save_data(data):
-    """Преобразует словарь данных в JSON и пишет на диск."""
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
@@ -218,7 +220,6 @@ def save_data(data):
         print(f"Ошибка записи на диск: {e}")
 
 def rename_car_profile(data, old_name, new_name):
-    """Безопасно переименовывает автомобиль в кэше и пишет на диск."""
     if "cars" not in data or old_name not in data["cars"]:
         return False, "Автомобиль со старым именем не найден."
     if new_name in data["cars"]:
@@ -231,7 +232,6 @@ def rename_car_profile(data, old_name, new_name):
     return True, "Автомобиль успешно переименован."
 
 def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str, comment=""):
-    """Добавляет запись о заправке на основе литров и общей суммы."""
     if "fuel_history" not in car_profile:
         car_profile["fuel_history"] = []
         
@@ -264,7 +264,6 @@ def add_fuel_record(car_profile, f_type, liters, total_cost, odometer, date_str,
     return new_record
 
 def calculate_cost_per_km_brsm(car_profile):
-    """Вычисляет стоимость 1 км пути на основе крайних заправок БРСМ (Газ/Бензин)."""
     fuel_history = car_profile.get("fuel_history", [])
     if not fuel_history:
         return 0.0
@@ -294,7 +293,6 @@ def calculate_cost_per_km_brsm(car_profile):
     return round(petrol_cost_per_km, 2)
 
 def calculate_fuel_stats(car_profile, days=30):
-    """Вычисляет общие расходы (ТО + Топливо) в грн за выбранный период дней."""
     now = datetime.now()
     cutoff_date = now - timedelta(days=days)
     fuel_spent = 0.0
@@ -325,7 +323,6 @@ def calculate_fuel_stats(car_profile, days=30):
     }
 
 def calculate_gbo_economy_points(car_profile):
-    """Расчет окупаемости ГБО с защитой от одиночных бензиновых чеков."""
     fuel_history = car_profile.get("fuel_history", [])
     if not fuel_history:
         return []
@@ -339,10 +336,11 @@ def calculate_gbo_economy_points(car_profile):
         cost_val = float(log.get("cost", 0.0))
         cons_val = float(log.get("consumption", 0.0))
         price_val = float(log.get("price", 0.0))
+        
         item = {"odometer": odo_val, "cost": cost_val, "consumption": cons_val, "price": price_val}
-        if f_type in ["Газ", "Gas"]:
+        if f_type == "Газ":
             gas_logs.append(item)
-        elif f_type in ["Бензин", "Petrol"]:
+        elif f_type == "Бензин":
             petrol_logs.append(item)
             
     gas_logs.sort(key=lambda x: x["odometer"])
@@ -350,35 +348,181 @@ def calculate_gbo_economy_points(car_profile):
     
     if not gas_logs:
         return []
-        
-    base_petrol_price = petrol_logs[-1]["price"] if petrol_logs else 54.0
-    base_petrol_consumption = 8.5
+
+    total_gas_km = 0
+    if len(gas_logs) >= 2:
+        total_gas_km = gas_logs[-1]["odometer"] - gas_logs[0]["odometer"]
+
+    total_gas_cost = sum([log["cost"] for log in gas_logs])
+
+    recent_petrol_prices = [log["price"] for log in petrol_logs[-3:]]
+    base_petrol_price = sum(recent_petrol_prices) / len(recent_petrol_prices) if recent_petrol_prices else 75.0
     
-    valid_petrol_cons = [log["consumption"] for log in petrol_logs if log["consumption"] > 0]
+    valid_petrol_cons = [log["consumption"] for log in petrol_logs if log["consumption"] > 5.0]
+    
     if valid_petrol_cons:
         base_petrol_consumption = sum(valid_petrol_cons) / len(valid_petrol_cons)
     else:
         valid_gas_cons = [log["consumption"] for log in gas_logs if log["consumption"] > 0]
         if valid_gas_cons:
             base_petrol_consumption = (sum(valid_gas_cons) / len(valid_gas_cons)) * 0.85
-            
-    points = []
-    accumulated_gas_cost = 0.0
-    start_odo = gas_logs[0]["odometer"]
-    
-    for log in gas_logs:
-        current_odo = log["odometer"]
-        delta_km = current_odo - start_odo
-        accumulated_gas_cost += log["cost"]
-        
-        if delta_km > 0:
-            accumulated_alternative_cost = (delta_km / 100.0) * base_petrol_consumption * base_petrol_price
         else:
-            accumulated_alternative_cost = accumulated_gas_cost
+            base_petrol_consumption = 8.5 
+
+    alt_petrol_liters = (total_gas_km / 100.0) * base_petrol_consumption
+    alt_petrol_cost = alt_petrol_liters * base_petrol_price
+
+    economy = alt_petrol_cost - total_gas_cost
+
+    return [{
+        "km": total_gas_km,
+        "economy": round(economy, 2),
+        "gas_cost": round(total_gas_cost, 2)
+    }]
+
+# =========================================================
+# МОДУЛЬ ОТЧЕТОВ ДЛЯ TELEGRAM
+# =========================================================
+
+def generate_report_expenses(car_profile, car_name, days=None):
+    now = datetime.now()
+    fuel_cost = 0.0
+    repair_cost = 0.0
+    fuel_liters = 0.0
+    
+    for record in car_profile.get("fuel_history", []):
+        try:
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
+            if days is None or r_date >= (now - timedelta(days=days)):
+                fuel_cost += float(record.get("cost", 0.0))
+                fuel_liters += float(record.get("liters", 0.0))
+        except:
+            continue
             
-        points.append({
-            "km": delta_km,
-            "economy": round(accumulated_alternative_cost - accumulated_gas_cost, 2),
-            "gas_cost": round(accumulated_gas_cost, 2)
-        })
-    return points
+    for record in car_profile.get("history", []):
+        try:
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
+            if days is None or r_date >= (now - timedelta(days=days)):
+                repair_cost += float(record.get("cost", 0.0))
+        except:
+            continue
+            
+    for record in car_profile.get("repair_history", []):
+        try:
+            r_date = datetime.strptime(record.get("date", ""), "%d.%m.%Y")
+            if days is None or r_date >= (now - timedelta(days=days)):
+                repair_cost += float(record.get("cost", 0.0))
+        except:
+            continue
+
+    total_cost = fuel_cost + repair_cost
+    period_text = f"за последние {days} дней" if days else "за всё время"
+
+    report = f"📊 <b>Финансовый отчет</b>\n"
+    report += f"🚗 Автомобиль: <b>{car_name}</b>\n"
+    report += f"📅 Период: <b>{period_text}</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    report += f"⛽ <b>Топливо:</b>\n"
+    report += f"   Залито: <code>{round(fuel_liters, 2)} л</code>\n"
+    report += f"   Потрачено: <b>{round(fuel_cost, 2)} грн</b>\n\n"
+    report += f"🛠 <b>Ремонт и ТО:</b>\n"
+    report += f"   Потрачено: <b>{round(repair_cost, 2)} грн</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    report += f"💰 <b>ИТОГО ЗАТРАТ: {round(total_cost, 2)} грн</b>\n"
+    
+    return report
+
+def generate_report_maintenance(car_profile, car_name):
+    current_km = car_profile.get("odometer", {}).get("value", 0)
+    tasks = car_profile.get("maintenance_data", {})
+    daily = car_profile.get("daily_mileage", 45)
+    
+    report = f"🛠 <b>Статус регламентов ТО</b>\n"
+    report += f"🚗 Автомобиль: <b>{car_name}</b>\n"
+    report += f"📍 Текущий пробег: <b>{current_km} км</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    
+    if not tasks:
+        report += "Нет активных регламентов.\n"
+        return report
+
+    overdue = []
+    warning = []
+    ok = []
+
+    for t_name, t_data in tasks.items():
+        remains = (t_data.get("last_service", 0) + t_data.get("interval", 0)) - current_km
+        if remains <= 0:
+            overdue.append(f"🔴 <b>{t_name}</b>: ПРОСРОЧЕНО на {-remains} км!")
+        elif remains <= 500:
+            warning.append(f"🟡 <b>{t_name}</b>: осталось {remains} км")
+        else:
+            f_str = (datetime.now() + timedelta(days=remains/daily)).strftime("%d.%m.%Y") if daily > 0 else "-"
+            ok.append(f"🟢 <b>{t_name}</b>: {remains} км (до {f_str})")
+
+    if overdue:
+        report += "⚠️ <b>СРОЧНО ЗАМЕНИТЬ:</b>\n" + "\n".join(overdue) + "\n\n"
+    if warning:
+        report += "⏳ <b>СКОРО ЗАМЕНА:</b>\n" + "\n".join(warning) + "\n\n"
+    if ok:
+        report += "✅ <b>В НОРМЕ:</b>\n" + "\n".join(ok) + "\n"
+        
+    return report
+
+def generate_report_full(car_profile, car_name):
+    current_km = car_profile.get("odometer", {}).get("value", 0)
+    odo_date = car_profile.get("odometer", {}).get("date", "-")
+    
+    exp_all = generate_report_expenses(car_profile, car_name, days=None)
+    cost_per_km = calculate_cost_per_km_brsm(car_profile)
+    gbo_points = calculate_gbo_economy_points(car_profile)
+    gbo_econ = gbo_points[0]["economy"] if gbo_points else 0.0
+    
+    report = f"🚘 <b>Полный отчет по автомобилю</b>\n"
+    report += f"Название: <b>{car_name}</b>\n"
+    report += f"Пробег: <b>{current_km} км</b> (от {odo_date})\n"
+    report += f"Стоимость 1 км: <b>{cost_per_km} грн</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    
+    if gbo_econ > 0:
+        report += f"🌿 <b>Экономия на ГБО:</b> +{gbo_econ} грн\n"
+        report += f"━━━━━━━━━━━━━━━━━━━━\n"
+        
+    report += exp_all + "\n"
+    return report
+
+# =========================================================
+# СПРАВОЧНИКИ (МАГАЗИНЫ И ИНСТРУКЦИИ)
+# =========================================================
+
+def generate_shops_report(data):
+    shops = data.get("shops", [])
+    if not shops:
+        return "🏪 <b>Справочник магазинов пуст.</b>"
+        
+    report = f"🏪 <b>Мои магазины и артикулы</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    
+    for shop in shops:
+        report += f"🏬 <b>{shop.get('name')}</b>\n"
+        if shop.get('phone'): report += f"📞 {shop.get('phone')}\n"
+        if shop.get('address'): report += f"📍 {shop.get('address')}\n"
+        if shop.get('parts'): report += f"🔧 Запчасти: <i>{shop.get('parts')}</i>\n"
+        report += "\n"
+        
+    return report
+
+def generate_guides_report(data):
+    guides = data.get("guides", [])
+    if not guides:
+        return "📚 <b>Справочник технологий пуст.</b>"
+        
+    report = f"📚 <b>Мои технологии ремонта</b>\n"
+    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+    
+    for guide in guides:
+        report += f"🔹 <b>{guide.get('title')}</b>\n"
+        if guide.get('car_model'): report += f"🚗 Модель: <i>{guide.get('car_model')}</i>\n"
+        report += f"{guide.get('text')}\n\n"
+        
+    return report

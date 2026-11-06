@@ -17,30 +17,28 @@ network_executor = ThreadPoolExecutor(max_workers=2)
 LAST_SENT_ALERTS = {}
 
 # Плейсхолдеры для подстановки секретов в GitHub Actions
-BOT_TOKEN = "8859678783:AAFDa97SuNwBorffMeG59Ad9zYb7u7VqnPw"
+BOT_TOKEN = "{{ TELEGRAM_BOT_TOKEN }}"
 TELEGRAM_IP = "149.154.167.220"
+CHAT_ID = "{{ TELEGRAM_CHAT_ID }}"
 
-# Адаптивное определение путей к базе данных для песочницы Android 11
-sandbox_dir = os.environ.get("FLET_APP_DIR", os.path.expanduser("~"))
-if sandbox_dir in ["/", "/data", ""]:
-    try:
-        from plyer import storagepath
-        sandbox_dir = storagepath.get_application_dir()
-    except Exception:
-        sandbox_dir = os.path.dirname(os.path.abspath(__file__))
-if "app_flutter" not in sandbox_dir:
-    sandbox_dir = os.path.join(os.path.expanduser("~"), "files")
+# === АДАПТАЦИЯ ПУТЕЙ ДЛЯ ANDROID ===
+# Flet на Android хранит доступные для записи файлы в FLET_APP_STORAGE_DATA
+storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
+if not storage_dir:
+    # Для десктопа берем папку, где лежит база (от engine)
+    storage_dir = os.path.dirname(os.path.abspath(engine.DB_FILE))
 
-DB_REAL_PATH = os.path.join(sandbox_dir, "Carjournal_database.json")
+DB_REAL_PATH = os.path.join(storage_dir, "Carjournal_database.json")
 
-# Конфигурация для Android: трафик идет по домену, но перехватывается нативный сокет
-BASE_URL = f"https://telegram.org{BOT_TOKEN}"
-BASE_FILE_URL = f"https://telegram.org{BOT_TOKEN}"
+# === НАСТРОЙКА СЕТИ ===
+# Используем api.telegram.org (с патчем сокета он будет перенаправлен на IP)
+BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+BASE_FILE_URL = f"https://api.telegram.org/file/bot{BOT_TOKEN}"
 
 def patched_create_connection(address, *args, **kwargs):
     """Нативный перехват DNS на уровне сокетов CPython для Android."""
     host, port = address
-    if host == "api.telegram.org" or host == "telegram.org":
+    if host == "api.telegram.org":
         host = TELEGRAM_IP
     return original_create_connection((host, port), *args, **kwargs)
 
@@ -79,7 +77,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                 file_stream = io.BytesIO(json_text.encode("utf-8"))
                 file_stream.name = "Carjournal_database.json"
                 payload_data = {
-                    "chat_id": 1036911003,
+                    "chat_id": CHAT_ID,
                     "caption": "Резервная копия базы (Android)"
                 }
                 payload_files = {"document": file_stream}
@@ -90,7 +88,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=15,
-                    verify=True
+                    verify=False
                 )
                 if response.status_code == 200:
                     async def success_msg_task():
@@ -124,7 +122,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
             try:
                 print("\n[DEBUG] Воркер импорта Android запущен!")
                 try:
-                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=True)
+                    requests.post(f"{BASE_URL}/deleteWebhook", headers=CUSTOM_HEADERS, proxies={"http": None, "https": None}, timeout=5, verify=False)
                     time.sleep(0.5)
                 except:
                     pass
@@ -135,7 +133,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12,
-                    verify=True
+                    verify=False
                 )
                 if response.status_code != 200:
                     safe_update_ui(f"Ошибка сети: Код {response.status_code}")
@@ -165,7 +163,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12,
-                    verify=True
+                    verify=False
                 )
                 
                 file_path = file_info_res.json().get("result", {}).get("file_path")
@@ -174,7 +172,7 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
                     headers=CUSTOM_HEADERS,
                     proxies={"http": None, "https": None},
                     timeout=12,
-                    verify=True
+                    verify=False
                 )
 
                 try:
@@ -221,9 +219,9 @@ def show_custom_file_manager_dialog(page: ft.Page, mode: str, db_data_ref: dict,
 
 def send_telegram_alert_message(text_msg):
     """Внутренний фоновый воркер отправки критических уведомлений на Android."""
-    url = f"https://telegram.org{BOT_TOKEN}/sendMessage"
+    url = f"{BASE_URL}/sendMessage"
     payload = {
-        "chat_id": 1036911003,
+        "chat_id": CHAT_ID,
         "text": text_msg,
         "parse_mode": "HTML"
     }
@@ -234,10 +232,11 @@ def send_telegram_alert_message(text_msg):
             headers=CUSTOM_HEADERS, 
             proxies={"http": None, "https": None},
             timeout=10, 
-            verify=True
+            verify=False
         )
     except Exception:
         pass
+
 def check_and_send_alerts(car_profile, car_name=None):
     """Сканирует прогнозы износа и отправляет алерты по сокетам."""
     global LAST_SENT_ALERTS
@@ -251,27 +250,25 @@ def check_and_send_alerts(car_profile, car_name=None):
         rem_km = pred.get("rem_km", 9999)
         if rem_km <= 500:
             status = f"<b>ПРОСРОЧЕНО</b> на {-rem_km} км!" if rem_km < 0 else f"осталось всего {rem_km} км."
-            alerts_to_send.append(f" <b>{task_name}</b>: {status}")
+            alerts_to_send.append(f" ⚠️ <b>{task_name}</b>: {status}")
 
     if alerts_to_send:
         full_message_body = "\n".join(alerts_to_send)
         if LAST_SENT_ALERTS.get(car_name) == full_message_body:
             return
         LAST_SENT_ALERTS[car_name] = full_message_body
-        msg_header = f" <b>Внимание! Критический износ TO</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
+        msg_header = f"🚨 <b>Внимание! Критический износ TO</b>\nАвтомобиль: <b>{car_name}</b>\n\n"
         full_message = msg_header + full_message_body
         network_executor.submit(send_telegram_alert_message, full_message)
 
 
 def auto_import_last_file(page=None, show_message_callback=None):
     """Автоматический импорт базы при старте Android-приложения."""
-    import requests
-    import engine
     target_file_id = engine.app_state.get("last_file_id")
     if not target_file_id:
         try:
-            url_updates = f"https://telegram.org{BOT_TOKEN}/getUpdates?offset=-1&limit=10"
-            response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=True, timeout=10)
+            url_updates = f"{BASE_URL}/getUpdates?offset=-1&limit=10"
+            response = requests.get(url_updates, headers=CUSTOM_HEADERS, verify=False, timeout=10)
             if response.status_code == 200:
                 res_data = response.json()
                 for result in reversed(res_data.get("result", [])):
@@ -289,12 +286,12 @@ def auto_import_last_file(page=None, show_message_callback=None):
         return False
 
     try:
-        url_file_info = f"https://telegram.org{BOT_TOKEN}/getFile?file_id={target_file_id}"
-        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=True, timeout=10).json()
+        url_file_info = f"{BASE_URL}/getFile?file_id={target_file_id}"
+        file_info_resp = requests.get(url_file_info, headers=CUSTOM_HEADERS, verify=False, timeout=10).json()
         if file_info_resp.get("ok"):
             file_path = file_info_resp["result"]["file_path"]
-            url_download = f"https://telegram.org{BOT_TOKEN}/{file_path}"
-            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=True, timeout=10)
+            url_download = f"{BASE_FILE_URL}/{file_path}"
+            db_resp = requests.get(url_download, headers=CUSTOM_HEADERS, verify=False, timeout=10)
             if db_resp.status_code == 200:
                 with open(DB_REAL_PATH, "w", encoding="utf-8") as f:
                     f.write(db_resp.text)
@@ -311,8 +308,7 @@ def auto_import_last_file(page=None, show_message_callback=None):
 
 def auto_export_file_to_telegram(page, show_message_callback):
     """Автоматический экспорт базы данных в Telegram с Android-устройства."""
-    import requests
-    url = f"https://telegram.org{BOT_TOKEN}/sendDocument"
+    url = f"{BASE_URL}/sendDocument"
 
     def show_alert(msg_text):
         def close_dialog(_):
@@ -334,14 +330,14 @@ def auto_export_file_to_telegram(page, show_message_callback):
     try:
         with open(DB_REAL_PATH, "rb") as file_data:
             files = {"document": ("Carjournal_database.json", file_data)}
-            payload = {"chat_id": 1036911003, "caption": "Резервная копия базы (Android)"}
-            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=True, timeout=10)
+            payload = {"chat_id": CHAT_ID, "caption": "Резервная копия базы (Android)"}
+            resp = requests.post(url, data=payload, files=files, headers=CUSTOM_HEADERS, verify=False, timeout=10)
             if resp.status_code == 200:
                 resp_json = resp.json()
                 if resp_json.get("ok"):
                     doc_info = resp_json["result"].get("document", {})
                     engine.app_state["last_file_id"] = doc_info.get("file_id")
-                    show_alert("База успешно экспортирована в Telegram!")
+                    show_alert("База данных успешно экспортирована в Telegram!")
                 else:
                     show_alert(f"Ошибка сервера: {resp.status_code}")
             else:
