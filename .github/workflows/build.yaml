@@ -23,17 +23,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Установка Flutter SDK (3.19.6)
+      - name: Установка Flutter SDK (3.22.2)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          flutter-version: '3.22.2'
           channel: 'stable'
           cache: true
-
-      - name: Установка Android SDK Platform 33 и NDK
-        run: |
-          # Устанавливаем всё, что нужно для Flutter 3.19, заранее
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.2" "ndk;25.1.8937393" || true
 
       - name: Установка Linux-зависимостей для сборки
         run: |
@@ -69,7 +64,7 @@ jobs:
           plyer==2.1.0
           EOF
 
-      - name: Создание pyproject.toml (только min_sdk)
+      - name: Создание pyproject.toml с настройками Android
         run: |
           cat << 'EOF' > pyproject.toml
           [tool.flet]
@@ -83,11 +78,12 @@ jobs:
 
           [tool.flet.android]
           min_sdk_version = 23
+          target_sdk_version = 33
+          compile_sdk_version = 34
           EOF
 
       - name: Сборка APK
         env:
-          # Увеличиваем память для Gradle
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
         run: |
           flet build apk -v
