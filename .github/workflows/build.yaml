@@ -30,6 +30,12 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Установка Android SDK Platform 33
+        run: |
+          # Устанавливаем platforms;android-33, который требует Flutter 3.19
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" || \
+          yes | $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33"
+
       - name: Установка Linux-зависимостей для сборки
         run: |
           sudo apt-get update
