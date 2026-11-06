@@ -2,17 +2,26 @@
 import os
 import time
 import warnings
-import getpass
+import traceback
 from datetime import datetime
 
-# Стабилизация путей песочницы для Android 11+
+# === ПЕРЕХВАТ ОШИБОК В ФАЙЛ ===
+def log_error_to_file(error_msg):
+    try:
+        # Пытаемся сохранить в папку приложения
+        log_dir = os.environ.get("FLET_APP_STORAGE_DATA", os.getcwd())
+        log_path = os.path.join(log_dir, "error_log.txt")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]\n{error_msg}\n")
+    except Exception as e:
+        print(f"Не удалось записать лог: {e}")
+
+# === БЕЗОПАСНЫЙ СТАРТ ===
 try:
     if "ANDROID_BOOTLOGO" in os.environ or os.name != "nt":
         sandbox_dir = os.environ.get("FLET_APP_STORAGE_DATA", "/data/data/com.flet.carjournal/files")
         if sandbox_dir in ["/", "/data", ""]:
             sandbox_dir = os.path.dirname(os.path.abspath(__file__))
-        if "app_flutter" not in sandbox_dir:
-            sandbox_dir = os.path.join(os.path.expanduser("~"), "files") if os.path.expanduser("~") != "~" else sandbox_dir
     else:
         sandbox_dir = os.getcwd()
 
@@ -25,7 +34,7 @@ try:
             f_loc.write('{"status": "fallback", "locale": "ru_RU"}')
             
 except Exception as loc_err:
-    print(f"[PATCH_RESOURCE_WARNING] Резервный обход локализации: {loc_err}")
+    log_error_to_file(f"Ошибка локализации: {loc_err}")
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -40,17 +49,24 @@ if cwd_dir not in sys.path:
     except:
         pass
 
-import flet as ft
-import engine
-import views
+# === ИМПОРТ FLET И МОДУЛЕЙ ===
+try:
+    import flet as ft
+    import engine
+    import views
+    import network
+except Exception as import_err:
+    log_error_to_file(f"Критическая ошибка импорта: {import_err}")
+    # Если импорт упал, мы не можем запустить Flet, выбрасываем ошибку дальше
+    raise
 
 _current_page_ref = None
 
 def show_message(text: str):
     global _current_page_ref
     if _current_page_ref:
-        _current_page_ref.snack_bar = ft.SnackBar(ft.Text(text), open=True)
         try:
+            _current_page_ref.snack_bar = ft.SnackBar(ft.Text(text), open=True)
             _current_page_ref.update()
         except:
             pass
@@ -63,6 +79,7 @@ def run_local_telegram_sync():
     
     user_profile = os.environ.get("USERPROFILE")
     if not user_profile:
+        import getpass
         current_user = getpass.getuser()
         user_profile = f"C:\\Users\\{current_user}"
         
@@ -90,7 +107,7 @@ def run_local_telegram_sync():
         shutil.copy2(found_files[0], engine.DB_FILE)
         return True
     except Exception as ex:
-        print(f"[DEBUG IMPORT] Ошибка копирования: {ex}")
+        log_error_to_file(f"Ошибка локального импорта: {ex}")
         return False
 
 
@@ -98,14 +115,14 @@ def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
     
-    # Пробуем установить базовые параметры, даже если что-то пойдет не так
     try:
         page.title = "Журнал ТО"
         page.theme_mode = ft.ThemeMode.LIGHT
         page.bgcolor = ft.Colors.SURFACE_CONTAINER_LOW
         page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
+        page.scroll = ft.ScrollMode.AUTO
     except Exception as e:
-        print(f"[CRITICAL] Ошибка инициализации Page: {e}")
+        log_error_to_file(f"Ошибка настройки Page: {e}")
 
     orig_update = page.update
     state_holder = {'last_time': 0.0}
@@ -118,30 +135,35 @@ def main(page: ft.Page):
         if now - state_holder['last_time'] < 0.25:
             return
         state_holder.update({'last_time': now})
-        orig_update(*args, **kwargs)
+        try:
+            orig_update(*args, **kwargs)
+        except Exception as e:
+            log_error_to_file(f"Ошибка обновления UI: {e}")
 
     page.update = throttled_update
-    page.scroll = ft.ScrollMode.AUTO
-    page.window_width = 1200
-    page.window_height = 800
 
     def refresh_ui():
-        page.controls.clear()
-        page.update()
-        rebuild_ui()
+        try:
+            page.controls.clear()
+            page.update()
+            rebuild_ui()
+        except Exception as e:
+            log_error_to_file(f"Ошибка refresh_ui: {e}")
 
     page.data = {"refresh_ui": refresh_ui}
 
     def rebuild_ui():
-        page.clean()
-        render_main_layout()
+        try:
+            page.clean()
+            render_main_layout()
+        except Exception as e:
+            log_error_to_file(f"Ошибка rebuild_ui: {e}")
 
     async def async_mobile_import(e=None):
         show_message(" Запрос файла из Telegram...")
         import asyncio
         loop = asyncio.get_running_loop()
         try:
-            import network
             success = await loop.run_in_executor(None, lambda: network.auto_import_last_file())
             if success or os.name != "nt":
                 page.data.pop("db_data", None)
@@ -150,6 +172,7 @@ def main(page: ft.Page):
             else:
                 show_message("[X] Не удалось получить новый файл")
         except Exception as err:
+            log_error_to_file(f"Ошибка async_mobile_import: {err}")
             show_message(f"[X] Ошибка импорта: {str(err)}")
 
     async def async_pc_import(e=None):
@@ -165,24 +188,27 @@ def main(page: ft.Page):
             else:
                 show_message("[X] Файлы импорта не найдены.")
         except Exception as db_err:
-            print(f'[CRITICAL] Сбой СУБД: {db_err}')
+            log_error_to_file(f"Ошибка async_pc_import: {db_err}")
 
     def render_main_layout():
         try:
             current_db = engine.load_data()
         except Exception as db_err:
-            print(f'[CRITICAL] Сбой СУБД: {db_err}')
+            log_error_to_file(f"Критическая ошибка engine.load_data: {db_err}")
             current_db = {'cars': {}}
 
         cars_dict = current_db.get('cars', {})
         car_names = list(cars_dict.keys())
 
         if not cars_dict or not car_names:
-            page.add(ft.Container(
-                content=ft.Text('База данных пуста. Пожалуйста, импортируйте базу.', size=16, weight=ft.FontWeight.BOLD),
-                alignment=ft.alignment.center, padding=50
-            ))
-            page.update()
+            try:
+                page.add(ft.Container(
+                    content=ft.Text('База данных пуста. Пожалуйста, импортируйте базу.', size=16, weight=ft.FontWeight.BOLD),
+                    alignment=ft.alignment.center, padding=50
+                ))
+                page.update()
+            except Exception as e:
+                log_error_to_file(f"Ошибка отрисовки пустой базы: {e}")
             return
 
         selected_car = engine.app_state.get('selected_car', car_names[0] if car_names else None)
@@ -252,7 +278,6 @@ def main(page: ft.Page):
 
                 try:
                     import threading
-                    import network
                     current_car_name = selected_car[0] if isinstance(selected_car, list) else selected_car
                     if hasattr(network, 'LAST_SENT_ALERTS') and current_car_name in network.LAST_SENT_ALERTS:
                         network.LAST_SENT_ALERTS[current_car_name] = None
@@ -261,8 +286,9 @@ def main(page: ft.Page):
                             network.check_and_send_alerts(car_profile, car_name=current_car_name)
                     threading.Thread(target=trigger_alerts_worker, daemon=True).start()
                 except Exception as t_err:
-                    print(f"[ALERT TRIGGER ERROR]: {t_err}")
+                    log_error_to_file(f"Ошибка алертов: {t_err}")
             except Exception as ex:
+                log_error_to_file(f"Ошибка update_forecast_click: {ex}")
                 page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка СУБД: {str(ex)}"), open=True)
                 page.update()
 
@@ -270,7 +296,6 @@ def main(page: ft.Page):
             engine.app_state['view_mode'] = 'analytics' if engine.app_state.get('view_mode', 'list') != 'analytics' else 'list'
             rebuild_ui()
 
-        import network
         action_panel = views.build_action_panel(
             page, current_db, selected_car, async_mobile_import, async_pc_import,
             toggle_analytics_click, network, show_message, refresh_ui
@@ -286,6 +311,7 @@ def main(page: ft.Page):
                 page.snack_bar = ft.SnackBar(ft.Text("Полный отчет отправлен в Telegram!"), open=True)
                 page.update()
             except Exception as ex:
+                log_error_to_file(f"Ошибка send_full_report: {ex}")
                 page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка отправки: {ex}"), open=True)
                 page.update()
 
@@ -325,12 +351,11 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
 
-    # === БЕЗОПАСНЫЙ СТАРТ ===
+    # === СТАРТ С ОТЛОВОМ ОШИБОК ===
     try:
         rebuild_ui()
     except Exception as e:
-        print(f"[CRITICAL] Ошибка при построении UI: {e}")
-        # Показываем пользователю хоть что-то, если произошла ошибка
+        log_error_to_file(f"Критическая ошибка при старте: {e}")
         try:
             page.add(ft.Text(f"Ошибка запуска: {str(e)}", color=ft.Colors.RED))
             page.update()
@@ -342,7 +367,6 @@ def main(page: ft.Page):
         def trigger_start_alerts_worker():
             time.sleep(2) 
             try:
-                import network
                 current_db_data = engine.load_data()
                 sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
                 if isinstance(sel_car, list) and sel_car:
@@ -351,11 +375,11 @@ def main(page: ft.Page):
                     car_prof = current_db_data["cars"][sel_car]
                     network.check_and_send_alerts(car_prof, car_name=sel_car)
             except Exception as e:
-                print(f"[DEBUG START ALERTS WORKER ERROR]: {e}")
+                log_error_to_file(f"Ошибка фоновых алертов: {e}")
                 
         threading.Thread(target=trigger_start_alerts_worker, daemon=True).start()
     except Exception as start_err:
-        print(f"[START ALERT TRIGGER ERROR]: {start_err}")
+        log_error_to_file(f"Ошибка запуска потока алертов: {start_err}")
 
 if __name__ == "__main__":
     ft.app(target=main)
