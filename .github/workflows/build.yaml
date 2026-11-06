@@ -7,8 +7,7 @@ on:
 
 jobs:
   build:
-    # Откатываемся на старый образ, который лучше дружит с Flutter 3.19
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Чек-аут репозитория
         uses: actions/checkout@v4
@@ -79,12 +78,22 @@ jobs:
 
           [tool.flet.android]
           min_sdk_version = 21
+          target_sdk_version = 30
+          compile_sdk_version = 33
           EOF
 
-      - name: Сборка APK (с явным указанием пути к Flutter)
-        env:
-          # Это заставит Flet использовать установленный Flutter, а не искать его самому
-          FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.19.6-x64
+      - name: Патч Android Gradle (откат для совместимости с Android 11)
+        run: |
+          # Этот шаг вызывается до flet build, чтобы Flet использовал эти настройки
+          mkdir -p android/app
+          cat << 'EOF' > android/gradle.properties
+          org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=2G -XX:+HeapDumpOnOutOfMemoryError
+          android.useAndroidX=true
+          android.enableJetifier=true
+          android.defaults.buildfeatures.buildconfig=true
+          EOF
+
+      - name: Сборка APK
         run: |
           flet build apk -v
 
