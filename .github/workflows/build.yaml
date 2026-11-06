@@ -1,4 +1,4 @@
-﻿name: Build Flet APK
+﻿name: Build Android Release
 
 on:
   push:
@@ -9,34 +9,40 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Чек-аут репозитория
+        uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Настройка Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Python
+      - name: Настройка Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Flutter
+      - name: Настройка Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Install Flet
-        run: pip install flet==0.23.2
-
-      - name: Install Linux Dependencies
+      - name: Установка Linux-зависимостей для Flutter/Flet
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
-      - name: Setup Network
+      - name: Установка Flet CLI
+        run: pip install flet==0.23.2
+
+      - name: Зачистка старых кэшей сборки
+        run: |
+          rm -rf flet-config.json flet.json python_debug_log.txt
+          rm -rf .flet build output_apk
+
+      - name: Подготовка network.py с подстановкой секретов
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -45,9 +51,10 @@ jobs:
             cp network_template.py network.py
             sed -i "s/{{ TELEGRAM_BOT_TOKEN }}/$TELEGRAM_BOT_TOKEN/g" network.py
             sed -i "s/{{ TELEGRAM_CHAT_ID }}/$TELEGRAM_CHAT_ID/g" network.py
+            sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
           fi
 
-      - name: Create Requirements
+      - name: Создание requirements.txt
         run: |
           cat << 'EOF' > requirements.txt
           requests==2.32.3
@@ -56,11 +63,27 @@ jobs:
           plyer==2.1.0
           EOF
 
-      - name: Build APK
+      - name: Создание pyproject.toml с настройками Android
         run: |
-          flet build apk -v --android-min-sdk-version 21
+          cat << 'EOF' > pyproject.toml
+          [tool.flet]
+          product = "Бортовой Журнал"
+          package = "com.flet.carjournal"
+          version = "1.2.6"
+          build_number = 12
 
-      - name: Upload APK
+          [tool.flet.app]
+          main_script = "main.py"
+
+          [tool.flet.android]
+          min_sdk_version = 21
+          EOF
+
+      - name: Сборка APK
+        run: |
+          flet build apk -v
+
+      - name: Сохранение APK как артефакта
         uses: actions/upload-artifact@v4
         with:
           name: carjournal-apk
