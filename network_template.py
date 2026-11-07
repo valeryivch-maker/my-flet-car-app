@@ -22,16 +22,13 @@ TELEGRAM_IP = "149.154.167.220"
 CHAT_ID = "{{ TELEGRAM_CHAT_ID }}"
 
 # === АДАПТАЦИЯ ПУТЕЙ ДЛЯ ANDROID ===
-# Flet на Android хранит доступные для записи файлы в FLET_APP_STORAGE_DATA
 storage_dir = os.environ.get("FLET_APP_STORAGE_DATA")
 if not storage_dir:
-    # Для десктопа берем папку, где лежит база (от engine)
     storage_dir = os.path.dirname(os.path.abspath(engine.DB_FILE))
 
 DB_REAL_PATH = os.path.join(storage_dir, "Carjournal_database.json")
 
 # === НАСТРОЙКА СЕТИ ===
-# Используем api.telegram.org (с патчем сокета он будет перенаправлен на IP)
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 BASE_FILE_URL = f"https://api.telegram.org/file/bot{BOT_TOKEN}"
 

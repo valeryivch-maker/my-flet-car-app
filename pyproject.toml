@@ -2,13 +2,18 @@
 product = "Бортовой Журнал"
 package = "com.flet.carjournal"
 version = "1.2.6"
-build_number = 12
+build_number = 13
 
 [tool.flet.app]
-main_script = "main.py"
+main_script = "main_test.py"
 
 [tool.flet.android]
 min_sdk_version = 23
 target_sdk_version = 33
 compile_sdk_version = 34
-extract_packages = ["requests", "urllib3", "certifi", "plyer"]
+extract_packages = ["requests", "urllib3", "certifi", "plyer", "charset_normalizer", "idna"]
+
+[tool.flet.splash]
+color = "#ffffff"
+dark_color = "#0a0a1e"
+min_duration = 10.0
