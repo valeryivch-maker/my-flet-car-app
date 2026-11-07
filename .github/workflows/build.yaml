@@ -70,8 +70,18 @@ jobs:
         run: |
           flet build apk -v
 
-      - name: Сохранение APK как артефакта
+      - name: Формирование временного штампа сборки по Москве (UTC+3)
+        run: |
+          sudo ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+          echo "APK_TIMESTAMP=$(date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
+
+      - name: Переименование готового файла под кастомный временной штамп
+        run: |
+          mkdir -p output_apk
+          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}.apk
+
+      - name: Выгрузка датированного нативного АРК-артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: carjournal-apk
-          path: build/apk/*.apk
+          name: Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}
+          path: output_apk/*.apk
