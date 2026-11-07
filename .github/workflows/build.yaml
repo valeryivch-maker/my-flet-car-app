@@ -46,7 +46,10 @@ jobs:
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
+          # Удаляем BOM (невидимые символы в начале файла)
           sed -i '1s/^\xEF\xBB\xBF//' pyproject.toml
+          # На всякий случай удаляем тестовый файл, если он затесался в коммит
+          rm -f main_test.py
 
       - name: Подготовка network.py с подстановкой секретов
         env:
@@ -67,7 +70,7 @@ jobs:
       - name: Сборка АРК (Боевая)
         env:
           SERIOUS_PYTHON_VERSION: '3.11'
-        run: flet build apk -v
+        run: flet build apk --module-name main -v
 
       - name: Штамп по Киеву
         run: echo "APK_TIMESTAMP=$(TZ='Europe/Kyiv' date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
