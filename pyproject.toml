@@ -1,2 +1,13 @@
-﻿[tool.flet.android]
-min_sdk_version = 21
+﻿[tool.flet]
+product = "Бортовой Журнал"
+package = "com.flet.carjournal"
+version = "1.2.6"
+build_number = 12
+
+[tool.flet.app]
+main_script = "main.py"
+
+[tool.flet.android]
+min_sdk_version = 23
+target_sdk_version = 33
+compile_sdk_version = 34

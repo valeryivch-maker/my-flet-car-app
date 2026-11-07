@@ -64,24 +64,6 @@ jobs:
           plyer==2.1.0
           EOF
 
-      - name: Создание pyproject.toml с настройками Android
-        run: |
-          cat << 'EOF' > pyproject.toml
-          [tool.flet]
-          product = "Бортовой Журнал"
-          package = "com.flet.carjournal"
-          version = "1.2.6"
-          build_number = 12
-
-          [tool.flet.app]
-          main_script = "main.py"
-
-          [tool.flet.android]
-          min_sdk_version = 23
-          target_sdk_version = 33
-          compile_sdk_version = 34
-          EOF
-
       - name: Сборка APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
