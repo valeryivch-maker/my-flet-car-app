@@ -64,24 +64,23 @@ jobs:
           plyer==2.1.0
           EOF
 
-      - name: Сборка APK
+      - name: Сборка АРК (диагностика: main_test)
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
         run: |
-          flet build apk -v
+          flet build apk --module-name main_test -v
 
-      - name: Формирование временного штампа сборки по Москве (UTC+3)
+      - name: Формирование временного штампа сборки по Киеву
         run: |
-          sudo ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-          echo "APK_TIMESTAMP=$(date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
+          echo "APK_TIMESTAMP=$(TZ='Europe/Kyiv' date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
 
-      - name: Переименование готового файла под кастомный временной штамп
+      - name: Переименование готового файла
         run: |
           mkdir -p output_apk
-          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}.apk
+          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_TEST_${{ env.APK_TIMESTAMP }}.apk
 
-      - name: Выгрузка датированного нативного АРК-артефакта
+      - name: Выгрузка артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}
+          name: Bortovoj_Zhurnal_TEST_${{ env.APK_TIMESTAMP }}
           path: output_apk/*.apk
