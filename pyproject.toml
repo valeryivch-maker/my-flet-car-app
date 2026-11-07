@@ -1,11 +1,11 @@
 ﻿[tool.flet]
 product = "Бортовой Журнал"
 package = "com.flet.carjournal"
-version = "1.3.0"
-build_number = 14
+version = "1.4.0"
+build_number = 15
 
 [tool.flet.app]
-main_script = "main_test.py"
+main_script = "main.py"
 
 [tool.flet.android]
 min_sdk_version = 23

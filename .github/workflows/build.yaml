@@ -42,16 +42,31 @@ jobs:
       - name: Установка Flet CLI
         run: pip install flet==0.28.3
 
-      - name: Зачистка кэшей и удаление pyproject.toml
+      - name: Зачистка кэшей сборки
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
-          rm -f pyproject.toml
 
-      - name: Сборка АРК для диагностики
+      - name: Подготовка network.py с подстановкой секретов
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -f "network_template.py" ]; then
+            cp network_template.py network.py
+            sed -i "s/{{ TELEGRAM_BOT_TOKEN }}/$TELEGRAM_BOT_TOKEN/g" network.py
+            sed -i "s/{{ TELEGRAM_CHAT_ID }}/$TELEGRAM_CHAT_ID/g" network.py
+            sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
+          fi
+
+      - name: Создание requirements.txt
+        run: |
+          printf "requests==2.32.3\ncertifi==2024.7.4\nurllib3==2.2.2\nplyer==2.1.0\n" > requirements.txt
+
+      - name: Сборка АРК (Боевая)
         env:
           SERIOUS_PYTHON_VERSION: '3.11'
-        run: flet build apk --module-name main_test -v
+        run: flet build apk -v
 
       - name: Штамп по Киеву
         run: echo "APK_TIMESTAMP=$(TZ='Europe/Kyiv' date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
@@ -59,10 +74,10 @@ jobs:
       - name: Переименование
         run: |
           mkdir -p output_apk
-          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_TEST_${{ env.APK_TIMESTAMP }}.apk
+          cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}.apk
 
       - name: Выгрузка артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: Bortovoj_Zhurnal_TEST_${{ env.APK_TIMESTAMP }}
+          name: Bortovoj_Zhurnal_${{ env.APK_TIMESTAMP }}
           path: output_apk/*.apk
