@@ -60,9 +60,9 @@ jobs:
             sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
           fi
 
-      - name: Создание requirements.txt
+      - name: Создание requirements.txt (с flet)
         run: |
-          printf "requests==2.32.3\ncertifi==2024.7.4\nurllib3==2.2.2\nplyer==2.1.0\n" > requirements.txt
+          printf "flet==0.28.3\nrequests==2.32.3\ncertifi==2024.7.4\nurllib3==2.2.2\nplyer==2.1.0\n" > requirements.txt
 
       - name: Сборка АРК (Боевая)
         env:
