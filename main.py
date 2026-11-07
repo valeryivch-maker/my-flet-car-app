@@ -5,7 +5,6 @@ import warnings
 import traceback
 from datetime import datetime
 
-# Убираем лишние проверки путей, оставляем только базовые
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
@@ -18,7 +17,6 @@ try:
     import views
     import network
 except Exception as import_err:
-    # Если импорт упал, сохраняем ошибку
     print(f"Критическая ошибка импорта: {import_err}")
     raise
 
@@ -37,7 +35,6 @@ def main(page: ft.Page):
     global _current_page_ref
     _current_page_ref = page
     
-    # Простая настройка страницы, без троттлинга
     page.title = "Журнал ТО"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = ft.Colors.WHITE
@@ -55,7 +52,6 @@ def main(page: ft.Page):
             page.clean()
             render_main_layout()
         except Exception as e:
-            # Если UI упал, показываем красную ошибку на белом фоне
             page.clean()
             page.add(ft.Text(f"Ошибка UI: {e}", color=ft.Colors.RED))
             page.update()
@@ -80,7 +76,6 @@ def main(page: ft.Page):
         import asyncio
         loop = asyncio.get_running_loop()
         try:
-            # Заглушка для ПК, если нужно будете адаптировать
             await loop.run_in_executor(None, lambda: None)
             show_message("[X] Функция доступна только на ПК")
         except Exception as db_err:
@@ -94,7 +89,7 @@ def main(page: ft.Page):
         if not cars_dict or not car_names:
             page.add(ft.Container(
                 content=ft.Text('База данных пуста.', size=16, weight=ft.FontWeight.BOLD),
-                alignment=ft.alignment.center, padding=50
+                alignment=ft.Alignment.CENTER, padding=50
             ))
             page.update()
             return
@@ -191,14 +186,12 @@ def main(page: ft.Page):
 
         page.add(ft.SafeArea(content=ft.Column(expand=False, controls=[ft.Container(content=car_buttons_row, padding=ft.Padding(5, 5, 0, 15)), main_layout])))
 
-    # Стартовая инициализация
     rebuild_ui()
 
-    # Фоновая проверка алертов с задержкой (чтобы не грузить память при старте)
     try:
         import threading
         def trigger_start_alerts_worker():
-            time.sleep(5) # Ждем 5 секунд, пока UI прогрузится
+            time.sleep(5)
             try:
                 current_db_data = engine.load_data()
                 sel_car = engine.app_state.get('selected_car', 'Chevrolet lacetti')
