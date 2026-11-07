@@ -43,7 +43,7 @@ jobs:
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
 
-      - name: Сборка АРК (диагностика: main_test)
+      - name: Сборка АРК для диагностики
         run: flet build apk --module-name main_test -v
 
       - name: Штамп по Киеву
