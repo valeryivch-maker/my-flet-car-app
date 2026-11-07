@@ -20,7 +20,7 @@ def generate_analytics_view(page, car_profile):
                     ft.Icon(ft.Icons.MONETIZATION_ON, color=ft.Colors.GREEN_700, size=24),
                     ft.Text("Финансовая аналитика (30 дн.)", size=16, weight=ft.FontWeight.BOLD)
                 ], alignment=ft.MainAxisAlignment.START, spacing=8),
-                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
                 ft.Row([
                     ft.Text(" Топливо:", size=13),
                     ft.Text(f"{stats_30['fuel_spent']} грн", size=13, weight=ft.FontWeight.W_600)
@@ -33,7 +33,7 @@ def generate_analytics_view(page, car_profile):
                     ft.Text(" Всего затрат:", size=14, weight=ft.FontWeight.BOLD),
                     ft.Text(f"{stats_30['total_spent']} грн", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
                 ft.Row([
                     ft.Text(" Стоимость 1 км пути:", size=13, weight=ft.FontWeight.W_500),
                     ft.Container(
@@ -68,7 +68,7 @@ def generate_analytics_view(page, car_profile):
                     ft.Icon(ft.Icons.ENERGY_SAVINGS_LEAF, color=ft.Colors.GREEN_700, size=22),
                     ft.Text("Эффективность и окупаемость ГБО", size=14, weight=ft.FontWeight.BOLD)
                 ]),
-                ft.Divider(height=1, color=ft.Colors.BLACK_12),
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
                 ft.Row([
                     ft.Text(" Реальный расход на Газ:", size=13),
                     ft.Text(f"{gas_cost} грн", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.ORANGE_900)
@@ -367,7 +367,7 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
                     ft.Column([ft.Text(f"{item['value']} км", weight=ft.FontWeight.BOLD), ft.Text(item['date'])]),
                     ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, on_click=make_del())
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                padding=5, border=ft.Border.all(1, ft.Colors.BLACK_12), border_radius=6
+                padding=5, border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.BLACK)), border_radius=6
             ))
         if dlg: dlg.update()
         else: page.update()
@@ -405,7 +405,7 @@ def show_car_odometer_history_dialog(page, db_data, car_profile, rebuild, show_m
         title=ft.Text(f"История пробега (записей: {total_count})"),
         content=ft.Column([
             ft.Button("Добавить запись", icon=ft.Icons.ADD, on_click=add_click),
-            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
             h_cont
         ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=360),
         actions=[ft.TextButton("Закрыть", on_click=lambda e: [setattr(dlg, "open", False), page.update()])]
@@ -505,7 +505,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
                             ft.IconButton(ft.Icons.DELETE, icon_color=ft.Colors.RED_400, icon_size=18, hover_color=ft.Colors.RED_100, tooltip='Удалить запись', on_click=make_del())
                         ], spacing=0)
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.BLACK_12)
+                    padding=8, bgcolor=ft.Colors.GREY_50, border_radius=6, border=ft.Border.all(1, ft.Colors.with_opacity(0.12, ft.Colors.BLACK))
                 ))
         if dlg: dlg.update()
         else: page.update()
@@ -515,7 +515,7 @@ def show_fuel_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         bgcolor=ft.Colors.WHITE,
         title=ft.Text(f"Журнал заправок (чеков: {total_count})"),
         content=ft.Column([
-            ft.Divider(height=1, color=ft.Colors.BLACK_12),
+            ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
             h_col
         ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550),
         actions=[ft.TextButton("Закрыть", on_click=lambda e: [setattr(dlg, "open", False), page.update()])]
@@ -779,7 +779,7 @@ def show_repair_history_dialog(page, db_data, car_profile, rebuild, show_msg):
         title=ft.Text("Журнал ремонтов", size=16, weight=ft.FontWeight.BOLD),
         content=ft.Column([
             ft.Button("Добавить работу", icon=ft.Icons.ADD, on_click=add_repair_click, bgcolor=ft.Colors.BLUE_GREY_100, height=38),
-            search_field, ft.Divider(height=1, color=ft.Colors.BLACK_12), h_col
+            search_field, ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)), h_col
         ], horizontal_alignment=ft.CrossAxisAlignment.STRETCH, spacing=10, tight=True, width=550),
         actions=[ft.TextButton("Закрыть", on_click=lambda e: [setattr(dlg, "open", False), page.update()])]
     )
@@ -1106,7 +1106,7 @@ def build_action_panel(page, current_db, selected_car, async_mobile_import, asyn
                     reports_btn,
                     refs_btn,
                     analytics_btn,
-                    ft.VerticalDivider(width=10, color=ft.Colors.BLACK_12),
+                    ft.VerticalDivider(width=10, color=ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
                     ft.IconButton(
                         ft.Icons.ADD_CIRCLE,
                         tooltip="Добавить авто",
