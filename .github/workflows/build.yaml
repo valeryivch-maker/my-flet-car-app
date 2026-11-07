@@ -46,7 +46,6 @@ jobs:
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
-          # Удаляем BOM (невидимые символы в начале файла)
           sed -i '1s/^\xEF\xBB\xBF//' pyproject.toml
 
       - name: Подготовка network.py с подстановкой секретов
