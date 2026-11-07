@@ -57,12 +57,7 @@ jobs:
 
       - name: Создание requirements.txt
         run: |
-          cat << 'EOF' > requirements.txt
-          requests==2.32.3
-          certifi==2024.7.4
-          urllib3==2.2.2
-          plyer==2.1.0
-          EOF
+          printf "requests==2.32.3\ncertifi==2024.7.4\nurllib3==2.2.2\nplyer==2.1.0\n" > requirements.txt
 
       - name: Сборка АРК (диагностика: main_test)
         env:
