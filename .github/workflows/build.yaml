@@ -38,10 +38,11 @@ jobs:
       - name: Установка Flet CLI
         run: pip install flet==0.25.2
 
-      - name: Зачистка кэшей
+      - name: Зачистка кэшей и удаление pyproject.toml
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
+          rm -f pyproject.toml
 
       - name: Сборка АРК для диагностики
         run: flet build apk --module-name main_test -v
