@@ -23,10 +23,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Установка Flutter SDK (3.22.2)
+      - name: Установка Flutter SDK (3.27.1)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
+          flutter-version: '3.27.1'
           channel: 'stable'
           cache: true
 
