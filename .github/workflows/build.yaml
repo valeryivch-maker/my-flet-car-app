@@ -30,7 +30,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Установка Linux-зависимостей для сборки
+      - name: Установка Linux-зависимостей
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev mesa-utils libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
@@ -38,38 +38,18 @@ jobs:
       - name: Установка Flet CLI
         run: pip install flet==0.23.2
 
-      - name: Зачистка старых кэшей сборки
+      - name: Зачистка кэшей
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
 
-      - name: Подготовка network.py с подстановкой секретов
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -f "network_template.py" ]; then
-            cp network_template.py network.py
-            sed -i "s/{{ TELEGRAM_BOT_TOKEN }}/$TELEGRAM_BOT_TOKEN/g" network.py
-            sed -i "s/{{ TELEGRAM_CHAT_ID }}/$TELEGRAM_CHAT_ID/g" network.py
-            sed -i 's|https://telegram.org|https://149.154.167.220|g' network.py
-          fi
-
-      - name: Создание requirements.txt
-        run: |
-          printf "requests==2.32.3\ncertifi==2024.7.4\nurllib3==2.2.2\nplyer==2.1.0\n" > requirements.txt
-
       - name: Сборка АРК (диагностика: main_test)
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
-        run: |
-          flet build apk --module-name main_test -v
+        run: flet build apk --module-name main_test -v
 
-      - name: Формирование временного штампа сборки по Киеву
-        run: |
-          echo "APK_TIMESTAMP=$(TZ='Europe/Kyiv' date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
+      - name: Штамп по Киеву
+        run: echo "APK_TIMESTAMP=$(TZ='Europe/Kyiv' date +'%d_%m_%Y_%H_%M')" >> $GITHUB_ENV
 
-      - name: Переименование готового файла
+      - name: Переименование
         run: |
           mkdir -p output_apk
           cp build/apk/*.apk output_apk/Bortovoj_Zhurnal_TEST_${{ env.APK_TIMESTAMP }}.apk
