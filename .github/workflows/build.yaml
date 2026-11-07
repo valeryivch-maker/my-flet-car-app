@@ -23,10 +23,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Установка Flutter SDK (3.24.5)
+      - name: Установка Flutter SDK (3.29.3)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.29.3'
           channel: 'stable'
           cache: true
 
@@ -40,16 +40,17 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Установка Flet CLI
-        run: pip install flet==0.25.2
+        run: pip install flet==0.28.3
 
-      - name: Зачистка кэшей (Flet + Gradle) и удаление pyproject.toml
+      - name: Зачистка кэшей и удаление pyproject.toml
         run: |
           rm -rf flet-config.json flet.json python_debug_log.txt
           rm -rf .flet build output_apk
-          rm -rf ~/.gradle/caches
           rm -f pyproject.toml
 
       - name: Сборка АРК для диагностики
+        env:
+          SERIOUS_PYTHON_VERSION: '3.11'
         run: flet build apk --module-name main_test -v
 
       - name: Штамп по Киеву
